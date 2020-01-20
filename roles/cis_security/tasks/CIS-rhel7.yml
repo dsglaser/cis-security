@@ -962,13 +962,25 @@
         failed_when: ipv6_disable.rc == "2"
         changed_when: false
 
-      - name: 3.3 - Disable IPv6
+      - name: 3.3 - Disable IPv6 in grub
         replace:
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
         notify: rebuild grub
         when: ipv6_disable is defined and ipv6_disable is changed
+
+      - name: 3.3 - Disable IPv6 in sysctl
+        sysctl:
+          name: "{{ item }}"
+          value: "1"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.disable_ipv6
+          - net.ipv6.conf.default.disable_ipv6
+
     tags:
       3.3.0
 
