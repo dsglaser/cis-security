@@ -1698,9 +1698,18 @@
   # Control 5.3.3, Set password retention, requries file replacement
   # skipping
 
-  # Control 5.3.4, Ensure password hashing algorithm is SHA-512, requires file replacement
-  # skipping
+  - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
+    block:
+      - name: Determine if we are currently using sha512 password algorithm
+        shell: authconfig --test | grep sha512
+        register: auth_out
+        changed_when: auth_out.rc != 0
 
+      - name: SHA-512 Password setting
+        shell: authconfig --enableshadow --passalgo sha512 --update
+        when: auth_out.rc != 0
+    tags:
+      5.3.4
   - name: 5.4.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
