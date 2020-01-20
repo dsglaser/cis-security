@@ -1,0 +1,65 @@
+---
+# defaults file for security-rollup see variable descriptions in security-rollup/README.md
+selinux: "enforcing"            # Options are enforcing, permissive, and disabled. Control is 'enforcing'
+selinux_policy: "targeted"      # Options are targeted, minimum, or mls. Control has no default
+crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
+time_service: "ntp"             # Option for RHEL7 only. RHEL8 only ships with chrony
+
+# Yum repos and system updates
+update_system: false            # Update the system to the latest during the role run
+gpgcheck: true                  # Enable GPG checks on ALL repos
+enable_audit: true              # Enable auditing of processes and filesystem changes
+audit_backlog_limit: 8192       # RHEL default is 8MB backlog limit
+
+# Server roles, setting any of the variables to false will remove the default RHEL packages for that service
+dhcp_server: false
+dns_server: false
+nfs_server: false
+ftp_server: false
+http_server: false
+tftp_server: false              # Option for RHEL7 only
+email_server: false
+log_host: false                 # Whether this machine will host rsyslog messages for other machines
+log_port: 514
+log_file_size: 8                # RHEL default is 8MB, control has no default
+smb_server: false
+proxy_server: false
+ypbind: false
+graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
+
+# network security settings
+enable_ipv6: false
+tcpwrappers: false              # RHEL 7 control only
+enable_firewall: firewalld      # supported values are firewalld or iptables
+firewalld_default_zone: public
+motd_file: "banner"             # File location by default in 'files' directory
+issue_file: "issue"             # File location by default in 'files' directory
+issue.net_file: "issue"         # File location by default in 'files' diretory
+ipv6_disable: true
+
+# SSH Server settings
+ssh_log_level: INFO             # Control is INFO or VERBOSE. Stricter is not approved and more verbose exposes user info
+ssh_max_auth_tries: 4           # Control is 4 retries
+ssh_mac_list: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com" #RHEL7 only control
+ssh_alive_interval: 300         # Control is 5 minutes
+ssh_alive_count_max: 0          # Control is 0 count
+ssh_grace_time: 60              # Control is for 60 seconds or less
+ssh_max_sessions: 4             # Control is 4 sessions from a single host
+ssh_login_banner: issue.net     # a file with no path will exist in the role's files directory, an absolute path will exist on the control host
+
+# Password settings, all settings below match controls
+password_min_length: 14
+password_req_digit: true
+password_req_upper: true
+password_req_lower: true
+password_req_special: true
+password_min_days: 7
+password_expire_days: 365
+password_warning_days: 7
+password_inactive_lock_days: 30
+
+# Environtment settings, all settings below match controls
+shell_timeout: 900
+default_umask: "027"            # Control is 027 or more strict
+
+

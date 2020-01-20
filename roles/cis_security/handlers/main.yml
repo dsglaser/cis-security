@@ -1,0 +1,74 @@
+---
+# handlers file for cis-security
+
+# The auditd service has to be restarted with the actual SYS5 service
+# command rather than the service module (which uses systemd)
+# https://access.redhat.com/solutions/2664811
+- name: restart auditd
+  shell: service auditd restart
+
+- name: restart ntpd
+  service:
+    name: ntpd
+    state: restarted
+
+- name: restart sshd
+  service:
+    name: sshd
+    state: restarted
+
+- name: restart chronyd
+  service:
+    name: chronyd
+    state: restarted
+
+- name: restart rsyslog
+  service:
+    name: rsyslog
+    state: restarted
+
+- name: restart postfix
+  service:
+    name: postfix
+    state: restarted
+
+- name: start firewalld
+  service:
+    name: firewalld
+    state: started
+
+- name: start iptables
+  service:
+    name: iptables
+    state: started
+
+- name: restart tmpfs
+  systemd:
+    name: tmpfs.mount
+    state: restarted
+    enabled: yes
+    masked: no
+    daemon_reload: yes
+
+- name: rebuild grub
+  shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+
+- name: update crypto_policy
+  shell: /usr/bin/update-crypto-policies
+
+- name: restart aidecheck
+  systemd:
+    name: aidecheck
+    enabled: yes
+    state: restarted
+
+- name: flush network routes
+  sysctl:
+    name: "{{ item }}"
+    value: "1"
+    reload: yes
+    state: present
+    sysctl_set: yes
+  loop:
+    - net.ipv4.route.flush
+    - net.ipv6.route.flush
