@@ -1,7 +1,5 @@
 # cis-security
 
-[[TOC]]
-
 Playbooks to implement Center for Internet Security (CIS) controls for RHEL7 and RHEL8.
 
 ## Introduction
