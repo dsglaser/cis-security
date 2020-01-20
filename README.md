@@ -35,18 +35,18 @@ disable a tag from running, run the playbook with the tag excluded (--exclude-ta
 tags can be listed, separated by commas. There are two caveats of this. Some automation tasks handle
 multiple controls. In the role you may see something like this:
 
-  - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
-    file:
-      path: /etc/{{item}}
-      owner: root
-      group: root
-      mode: 0644
-    loop:
-      - passwd
-      - group
-    tags:
-      - 6.1.2
-      - 6.1.4
+    - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
+      file:
+        path: /etc/{{item}}
+        owner: root
+        group: root
+        mode: 0644
+      loop:
+        - passwd
+        - group
+      tags:
+        - 6.1.2
+        - 6.1.4
 
 In this control, two tags are being processed, '6.1.2' and '6.1.3' if you want this control to not
 run, you must exclude both tags (--exclude-tags "6.1.2,6.1.3")
