@@ -19,7 +19,7 @@
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
   - name: Determine the Minimum UID for new, non-system, accounts
-    shell: awk '/^s*UID_MIN/{print $2}' /etc/login.defs
+    shell: /usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs
     register: min_uid
     changed_when: min_uid.rc == "2"
 
@@ -392,7 +392,7 @@
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
@@ -411,7 +411,7 @@
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
@@ -430,7 +430,7 @@
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
@@ -449,7 +449,7 @@
 
   # Finda all local filesystem directories and set the sticky bit on world writable ones
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+    shell: /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     changed_when: false
     tags:
       - 1.1.21
@@ -460,7 +460,7 @@
   - name: 1.1.22 - disable automounting
     block:
       - name: 1.1.22 - Check if autofs is enabled
-        shell: systemctl is-enabled autofs
+        shell: /usr/bin/systemctl is-enabled autofs
         register: autofs_out
         failed_when: autofs_out.rc == "2"
         changed_when: false
@@ -501,7 +501,7 @@
 
       # Find all files in /etc/yum.repos.d and add them to a list variable
       - name: 1.2.3 - find all repo files in /etc/yum.repos.d/
-        shell: find /etc/yum.repos.d/*
+        shell: /usr/bin/find /etc/yum.repos.d/*
         register: yumrepos
         failed_when: yumrepos.rc == "2"
         changed_when: yumrepos.rc == "1"
@@ -768,7 +768,7 @@
     block:
       # use ps and grep to find services running under initrc context
       - name: 1.6.1.5 - Generate report on unconfined running services
-        shell: ps -eZ | egrep "initrc"
+        shell: /usr/bin/ps -eZ | egrep "initrc"
         register: unconfined_services_out
         failed_when: unconfined_services_out.rc == "2"
         changed_when: false
@@ -1714,7 +1714,7 @@
   # This control is early in order to create the files. This will
   # make sure they are available when cron starts
   - name: Find the number of allow files in /etc for cron (5.1.8)
-    shell: find /etc -maxdepth 1 -name *.allow -type f
+    shell: /usr/bin/find /etc -maxdepth 1 -name *.allow -type f
     register: allow_files
     changed_when: allow_files.rc != 0
     tags:
@@ -1967,12 +1967,12 @@
   - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
     block:
       - name: Determine if we are currently using sha512 password algorithm
-        shell: authconfig --test | /usr/bin/grep sha512
+        shell: /usr/sbin/authconfig --test | /usr/bin/grep sha512
         register: auth_out
         changed_when: auth_out.rc != 0
 
       - name: SHA-512 Password setting
-        shell: authconfig --enableshadow --passalgo sha512 --update
+        shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
         when: auth_out.rc != 0
     tags:
       5.3.4
@@ -2004,7 +2004,7 @@
       - 5.4.1.3
 
   - name: 5.4.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
-    shell: "useradd -D -f {{ password_inactive_lock_days }}"
+    shell: "/usr/sbin/useradd -D -f {{ password_inactive_lock_days }}"
     register: useradd_out
     changed_when: false
     tags:
@@ -2117,7 +2117,7 @@
   - name: 6.1.10 - Ensure no world writable files exist
     block:
       - name: 6.1.10 - Find any world writiable files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type f -perm -0002"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
 
@@ -2134,7 +2134,7 @@
   - name: 6.1.11 - Ensure no unowned files exist
     block:
       - name: 6.1.11 - Find any unowned files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nouser"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
 
@@ -2151,7 +2151,7 @@
   - name: 6.1.12 - Ensure no ungrouped files exist
     block:
       - name: 6.1.12 - Find any ungrouped files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nogroup"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
 
@@ -2175,7 +2175,7 @@
   - name: 6.2.1 - Ensure password fields are not empty
     block:
       - name: 6.2.1 - Check to see if there are any accounts with empty passwords
-        shell: "cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
+        shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
 
@@ -2206,7 +2206,7 @@
   - name: Report on multiple accounts with UID of 0 (6.2.5)
     block:
       - name: find accounts with UID of 0
-        shell: "cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
+        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
 
