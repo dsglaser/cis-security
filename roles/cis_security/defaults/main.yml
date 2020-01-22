@@ -4,6 +4,7 @@ selinux: "enforcing"            # Options are enforcing, permissive, and disable
 selinux_policy: "targeted"      # Options are targeted, minimum, or mls. Control has no default
 crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
 time_service: "ntp"             # Option for RHEL7 only. RHEL8 only ships with chrony
+sudo_log: "/var/log/sudoers"    # log file for sudo
 
 # Yum repos and system updates
 update_system: false            # Update the system to the latest during the role run

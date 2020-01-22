@@ -48,8 +48,8 @@ multiple controls. In the role you may see something like this:
         - 6.1.2
         - 6.1.4
 
-In this control, two tags are being processed, '6.1.2' and '6.1.3' if you want this control to not
-run, you must exclude both tags (--exclude-tags "6.1.2,6.1.3")
+In this control, two tags are being processed, '6.1.2' and '6.1.4' if you want this control to not
+run, you must exclude both tags (--exclude-tags "6.1.2,6.1.4")
 
 The list of tags and their associated crontol descriptions are listed in the 'controls_list' file
 in this directory.
