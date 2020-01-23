@@ -4,7 +4,7 @@ Playbooks to implement Center for Internet Security (CIS) controls for RHEL7 and
 
 ## Introduction
 
-The Center for Internet Security https://www.cisecurity.org/ provides a set of
+The [Center for Internet Security](https://www.cisecurity.org/) provides a set of
 security benchmarks for operating systems designed to decrease the vulnerability vectors of a system.
 
 These benchmarks are published in PDFs for non-commercial use. This role is an implementation of
@@ -23,18 +23,24 @@ The role is designed to run on RHEL 7.6+ and RHEL 8+ machines. It may run on ass
 RHEL deriviatives, but it has not been tested on them. Upon initiation, the role will automatically
 detect the OS and run the appropriate task list.
 
+For most of the role to work, you will need to have a package repo where you can install packages for
+a Red Hat machine. Registering with Satellite or a local package repository is recommended before using
+this, unless you exclude any tags that install packages.
+
 As the role runs, you will see an output listing the control number and a brief description of the
 task being performed (or skipped):
 
-    TASK [security-rollup : 1.7.1.3 - Set SELinux policy to targeted] ******************************
-    ok: [192.168.122.252]
-
+```
+TASK [security-rollup : 1.7.1.3 - Set SELinux policy to targeted] ******************************
+ok: [192.168.122.252]
+```
 
 The controls are implemented as Ansible tags. By default all tags are run on a given system. To
 disable a tag from running, run the playbook with the tag excluded (--exclude-tags "x.y.z"). Multiple
 tags can be listed, separated by commas. There are two caveats of this. Some automation tasks handle
 multiple controls. In the role you may see something like this:
 
+```
     - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
       file:
         path: /etc/{{item}}
@@ -47,7 +53,7 @@ multiple controls. In the role you may see something like this:
       tags:
         - 6.1.2
         - 6.1.4
-
+```
 In this control, two tags are being processed, '6.1.2' and '6.1.4' if you want this control to not
 run, you must exclude both tags (--exclude-tags "6.1.2,6.1.4")
 
