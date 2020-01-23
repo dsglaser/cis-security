@@ -17,10 +17,10 @@ idempotent and can be run at any time. As usual with Ansible, make sure that lat
 files that are modified in this role.
 
 Benchmark Versions:
-Operating System | OS Benchmark version
------------------|---------------------
-RHEL 7 | v2.2.0
-RHEL 8 | v1.0.0
+| Operating System | OS Benchmark version |
+| -----------------|--------------------- |
+| RHEL 7 | v2.2.0 |
+| RHEL 8 | v1.0.0 |
 
 ### Requirements
 To implement the role correctly, you will require the following
