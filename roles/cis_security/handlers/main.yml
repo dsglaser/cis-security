@@ -7,6 +7,10 @@
 - name: restart auditd
   shell: service auditd restart
 
+- name: reboot
+  reboot:
+    reboot_timeout: 600
+
 - name: restart ntpd
   service:
     name: ntpd

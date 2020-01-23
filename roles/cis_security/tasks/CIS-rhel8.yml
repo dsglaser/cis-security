@@ -1,13 +1,30 @@
 ---
+# Task file for CIS Controls
+# This file is commented to help view what Ansible Automation is doing
+#  and under what circumstances.
 
-  - debug: msg="CIS Controls for RHEL 8"
+# Some blocks below have tasks with tags and some without. Blocks of tasks that
+#  contain multiple controls have tasks with tags. Blocks that consist of a
+#  single control and are just put together for convience sake, do not have
+#  sub-block tasks with tags.
 
-  # This is used to set up accounting later
+# Comments about how the modules are used will become more infrequent as
+#  the file goes along to avoid repeating oneself.
+
+  # Let the user know what version of the controls file is running
+  # Use a variable so it prints out the correct version.
+  - debug: msg="CIS Controls for RHEL {{ansible_distribution_major_version}}"
+
+  # Find the minimum UID of the machine for normal acocunts. This varies
+  #  between machines and environments, so we pull it from the file it
+  #  is supposed to exist in.
   - name: Determine the Minimum UID for new, non-system, accounts
-    shell: "awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
+    shell: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
 
+  # Update the system with security packages using the system's package manager
+  #  Only update the system if the 'update_system' variable is set to true
   - name: 1.9.0 - Ensure updated system
     dnf:
       name: "*"
@@ -17,6 +34,9 @@
     tags:
       - 1.9.0
 
+  # This collection of tasks creates a empty list and save it as a fact.
+  #  For every item that is encountered (without the tag being skipped),
+  #  add a string to the list.
   - name: 1.1 Disable unused filesystems
     set_fact:
       unused_filesystems: []
@@ -44,14 +64,19 @@
       unused_filesystems: "{{ unused_filesystems + [ 'udf' ] }}"
     tags:
       - 1.1.1.4
-
+  # With the list complete, use it with the system's package manager
+  #  to remove packages from the system that are not needed.
   - name: Process unused_filesystem list
-    yum:
+    dnf:
       name: unused_filesystems
       state: absent
 
+  # Create and configure the local-fs systemd service file
   - name: 1.1.[2-5] - Ensure /tmp is configured
     block:
+      # Create a file to hold the system specific local-fs service information
+      #  be sure to set the selinux security context. Even if selinux is disabled,
+      #  it's a good idea to make sure it is set on files
       - name: Ensure the local-fs directory is created
         file:
           path: /etc/systemd/system/local-fs.target.wants
@@ -61,6 +86,8 @@
           mode: 0755
           setype: etc_t
 
+      # Add content to the file we created using the blockinfile command.
+      # Notify systemd to reload its daemons and start the local-fs service
       - name: 1.1.[2-5] - Configure config file for tmpfs
         blockinfile:
           path: /etc/systemd/system/local-fs.target.wants/tmp.mount
@@ -78,12 +105,20 @@
       - 1.1.4
       - 1.1.5
 
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
   - name: 1.1.6 - Report if /var is not on a separate partition
     block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
       - name: 1.1.6 - Set/reset mount counter
         set_fact:
           mount_count: 0
 
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
       - name: 1.1.6 - Determine if /var is on a separate partition
         set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
@@ -91,16 +126,23 @@
         with_items:
           - "{{ ansible_mounts }}"
 
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.6 - Report to user
         debug:
           msg: "FAILED CONTROL: /var is not on a separate partition"
         when: mount_count == 0
         changed_when: true
+    # This whole block can be turned off by excluding the following tag(s)
     tags:
       - 1.1.6
 
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
   - name: 1.1.7 - /var/tmp partition and mount options
     block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
       - name: 1.1.7 - Set/reset mount counter
         set_fact:
           mount_count: 0
@@ -110,6 +152,10 @@
           - 1.1.9
           - 1.1.10
 
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
       - name: 1.1.7 - Determine if /var/tmp is on a separate partition
         set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
@@ -120,6 +166,8 @@
         tags:
           - 1.1.7
 
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.7 - Report to user if not on separate partition
         debug:
           msg: "FAILED CONTROL: /var/tmp is not on a separate partition. Skipping mount option checks"
@@ -128,6 +176,9 @@
         tags:
           - 1.1.7
 
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
       - name: 1.1.8 - Report to user if /var/tmp does not have nodev set
         debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
@@ -136,6 +187,9 @@
         tags:
           - 1.1.8
 
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
       - name: 1.1.9 - Report to user if /var/tmp does not have nosuid set
         debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have nosuid set"
@@ -144,6 +198,9 @@
         tags:
           - 1.1.9
 
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
       - name: 1.1.10 - Report to user if /var/tmp does not have noexec set
         debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
@@ -151,15 +208,24 @@
         changed_when: true
         tags:
           - 1.1.10
+    # This whole block can be turned off by excluding the following tag(s)
     tags:
       - 1.1.7
 
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
   - name: 1.1.11 - Report if /var/log is not on a separate partition
     block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
       - name: 1.1.11 - Set/reset mount counter
         set_fact:
           mount_count: 0
 
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
       - name: 1.1.11 - Determine if /var/log is on a separate partition
         set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
@@ -167,20 +233,31 @@
         with_items:
           - "{{ ansible_mounts }}"
 
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.11 - Report to user
         debug:
           msg: "FAILED CONTROL: /var/log is not on a separate partition"
         when: mount_count == 0
         changed_when: true
+    # This whole block can be turned off by excluding the following tag(s)
     tags:
       - 1.1.11
 
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
   - name: 1.1.12 - Report if /var/log/audit is not on a separate partition
     block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
       - name: 1.1.12 - Set/reset mount counter
         set_fact:
           mount_count: 0
 
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
       - name: 1.1.12 - Determine if /var/log/audit is on a separate partition
         set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
@@ -188,20 +265,31 @@
         with_items:
           - "{{ ansible_mounts }}"
 
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.12 - Report to user
         debug:
           msg: "FAILED CONTROL: /var/log/audit is not on a separate partition"
         when: mount_count == 0
         changed_when: true
+    # This whole block can be turned off by excluding the following tag(s)
     tags:
       - 1.1.12
 
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
   - name: 1.1.13 - Report if /home is not on a separate partition
     block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
       - name: 1.1.13 - Set/reset mount counter
         set_fact:
           mount_count: 0
 
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
       - name: 1.1.13 - Determine if /home is on a separate partition
         set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
@@ -210,80 +298,102 @@
         with_items:
           - "{{ ansible_mounts }}"
 
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.13 - Report to user if /home is not on a separate partition
         debug:
           msg: "FAILED CONTROL: /home is not on a separate partition. Skipping mount option checks"
         when: mount_count == 0
         changed_when: true
 
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
       - name: Report to user if /home does not have nodev set
         debug:
           msg: "FAILED CONTROL: /home does not have nodev set"
         when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
         changed_when: true
     tags:
+    # This whole block can be turned off by excluding the following tag(s)
       - 1.1.13
 
+  # /dev/shm does not exist in ansible_mounts so we have to check the
+  #  mount command directly. This requires the use of the shell command which
+  #  is not ideal.
+  # Grep out /dev/shm and see if the given option is set.
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: mount | grep /dev/shm | grep -v nodev
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
 
+  # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nodev set"
         when: devshm_nodev_out is defined and devshm_nodev_out.stdout == ""
         changed_when: true
     tags:
+    # This whole block can be turned off by excluding the following tag(s)
       - 1.1.15
 
+  # Grep out /dev/shm and see if the given option is set.
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: mount | grep /dev/shm | grep -v nosuid
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
 
+  # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
         when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout == ""
         changed_when: true
     tags:
+    # This whole block can be turned off by excluding the following tag(s)
       - 1.1.16
 
+  # Grep out /dev/shm and see if the given option is set.
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: mount | grep /dev/shm | grep -v noexec
+        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
 
+  # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have noexec set"
         when: devexec_nosuid_out is defined and devshm_noexec_out.stdout == ""
         changed_when: true
     tags:
+    # This whole block can be turned off by excluding the following tag(s)
       - 1.1.17
 
 # Control 1.1.18, 1.1.19, 1.1.20 are for removable media
 
+  # Finda all local filesystem directories and set the sticky bit on world writable ones
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+    shell: /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     changed_when: false
     tags:
       - 1.1.21
 
+  # Turn off and disable the autofs service using the service module.
+  #  We are checking to see if it exists with a shell command so it only
+  #  runs if the service exists. Service will produce an error otherwise.
   - name: 1.1.22 - disable automounting
     block:
       - name: 1.1.22 - Check if autofs is enabled
-        shell: systemctl is-enabled autofs
+        shell: /usr/bin/systemctl is-enabled autofs
         register: autofs_out
         failed_when: autofs_out.rc == "2"
         changed_when: false
@@ -308,6 +418,8 @@
 
 # Control 1.2.1 is system updating. Make sure system is set for some kind of system bigip_software_update
 
+  # Use the service module to disable the rhnsd service. If you want the machine
+  #  to respond to queued services from Satellite, do not disable this.
   - name: 1.2.2 Disable rhnsd
     service:
       name: rhnsd
@@ -317,8 +429,12 @@
     tags:
       - 1.2.2
 
+  # GPGKeys are used to sign packages. enabling them will mean that all packages
+  #  from a given repo must be signed with the appropriate key
   - name: 1.2.[3,4] - Ensure GPG keys are configured
     block:
+      # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
+
       - name: 1.2.4 - set master yum.conf gpgcheck to '1'
         replace:
           dest: /etc/yum.conf
@@ -326,13 +442,15 @@
           replace: "gpgcheck = 1"
         when: gpgcheck is defined and gpgcheck
 
+      # Find all files in /etc/yum.repos.d and add them to a list variable
       - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
-        shell: find /etc/yum.repos.d/*
+        shell: /usr/bin/find /etc/yum.repos.d/*
         register: yumrepos
         failed_when: yumrepos.rc == "2"
         changed_when: yumrepos.rc == "1"
         when: gpgcheck is defined and gpgcheck
 
+      # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.4 - Set all repos gpgchecks to '1'
         replace:
           dest: "{{item}}"
@@ -346,13 +464,15 @@
 
   # Control 1.2.5 is a manual review to ensure repos are configured per site needs
 
+  # use the system package module to ensure sudo is installed
   - name: 1.3.1 - Ensure sudo is installed
-    package:
+    dnf:
       name: sudo
       state: present
     tags:
       - 1.3.1
 
+  # Make sure the sudoers file includes the requirement to use pty
   - name: 1.3.2 - Ensure sudo commands use pty
     lineinfile:
       path: /etc/sudoers
@@ -363,32 +483,45 @@
     tags:
       - 1.3.2
 
+  # Make sure the sudoers file includes the requirement to log to a file
   - name: 1.3.3 - Ensure sudo log file exists
     lineinfile:
       path: /etc/sudoers
-      regexp: '^Defaults\s*logfile="/var/log/sudoers"'
-      line: 'Defaults logfile="/var/log/sudoers"'
+      regexp: '^Defaults\s*logfile="{{ sudo_log }}"'
+      line: 'Defaults logfile="{{ sudo_log }}"'
       insertafter: "^# Defaults specification"
       validate: /usr/sbin/visudo -cf %s
     tags:
       - 1.3.3
 
+  # AIDE is a file system integrity checker which will document all
+  # filesystem changes. It's very noisy on busy systems and should be
+  # enabled when you have the sapce and need for it.
   - name: 1.4 - Filesystem integrity checking w/AIDE
     block:
+      # use the system package manager to install AIDE
       - name: 1.4.1 Ensure aide is installed
-        package:
+        dnf:
           name: aide
-          state: latest
+          state: present
 
+      # AIDE requires initialization the first time and it takes time on a large system.
+      # DUse stat module on the file that should be there if it is set up.
       - name: 1.4.1 - Determine if AIDE has already been initialized
         stat:
           path: /var/lib/aide/aide.db.gz
         register: aide_path
 
+      # stat returns a lot of information. 'exists' is true if the file exists and 'isreg'
+      #  is true if the file is a regular file. If either of these are not true, then
+      #  run the initializatoin again.
       - name: 1.4.1 - Initialize AIDE if it hasn't been already
         shell: /usr/sbin/aide --init
         when: not aide_path.stat.exists or not aide_path.stat.isreg
 
+      # AIDE creates the new database as a different name. Use the copy module with
+      #  the remote_src argument to copy the file on the remote machine to another location
+      #  on the remote machine.
       - name: 1.4.1 - Move the newly created database into place
         copy:
           src: /var/lib/aide/aide.db.new.gz
@@ -398,6 +531,9 @@
         when: not aide_path.stat.exists or not aide_path.stat.isreg
         changed_when: false
 
+      # Copy in the already configured systemd service file using the copy module.
+      # Be sure to set the selinux context.
+      # Notify systemd to reload its daemons and start the service
       - name: 1.4.2 - Ensure File integrity is regularly checked (aidecheck service)
         copy:
           src: files/aide/aidecheck.service
@@ -408,6 +544,9 @@
           setype: systemd_unit_file_t
         notify: restart aidecheck
 
+      # Copy in the already configured systemd timer file using the copy module.
+      # Be sure to set the selinux context.
+      # Notify systemd to reload its daemons and start the timer
       - name: 1.4.2 - Ensure File integrity is regulary checked (aidecheck timer)
         copy:
           src: files/aide/aidecheck.timer
@@ -421,6 +560,7 @@
       - 1.4.0
 
   # 1.5 Secure Boot settings
+  # Use file module to set permissions on grub files
   - name: 1.5.1 - Set permissions on grub.cfg
     file:
       path: "{{ item }}"
@@ -435,7 +575,9 @@
 
   # Control 1.5.2, Grub bootloader password - skipped
 
+  # Use replace module to add the requirement to enter password on single user startup
   - name: 1.5.3 - Set single user password
+
     replace:
       dest: /usr/lib/systemd/system/{{item}}
       regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
@@ -450,6 +592,8 @@
 
   - name: 1.6.1 - Ensure core dumps are restricted
     block:
+      # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
+      #  to reload them immediately if 'reload' is set to 'yes'.
       - name: 1.6.1 - Ensure core dumps are restricted
         sysctl:
           name: fs.suid_dumpable
@@ -457,6 +601,7 @@
           state: present
           reload: yes
 
+      # The pam_limits module will configure the lines in the limits files.
       - name: 1.6.1 - Ensure core limits are set
         pam_limits:
           dest: /etc/security/limits.d/CIS.conf
@@ -468,6 +613,8 @@
       - 1.6.1
 
   - name: 1.6.2 - Ensure address space layout reandomization (ASLR) is enabled
+      # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
+      #  to reload them immediately if 'reload' is set to 'yes'.
     sysctl:
       name: kernel.randomize_va_space
       value: "2"
@@ -479,14 +626,17 @@
 
   # 1.7 Mandatory Access Control
 
+  # Use system package manager to remove
   - name: 1.7.1.1 - Ensure SELinux is installed
-    yum:
+    dnf:
       name: libselinux
       state: present
     when: selinux is defined and selinux != "Disabled"
     tags:
       - 1.7.1.1
 
+  # Use the replace module to remove any disablment of selinux in grub if
+  #  it isn't expressly disabled from a variable
   - name: 1.7.1.2 - Ensure SELinux is not disabled in bootloader configuration
     replace:
       dest: /etc/default/grub
@@ -500,6 +650,7 @@
     tags:
       - 1.7.1.2
 
+  # Replace the current selinux policy with whatever the variable is set for
   - name: 1.7.1.3 - Set SELinux policy to {{ selinux_policy }}
     replace:
       dest=/etc/selinux/config
@@ -509,6 +660,29 @@
     tags:
       - 1.7.1.3
 
+  # Check to see if machine currently has selinux disabled
+  - name: 1.7.1.3 - Find current state of selinux
+    shell: /sbin/getenforce
+    register: selinux_status
+    changed_when: false
+    tags:
+      - 1.7.1.3
+
+  # If we are going to be enabling selinux in passive or enforcing mode,
+  #  set the autorelabel and notify the machine to reboot
+  - name: 1.7.1.3 - If disabled and we are enabling it, autorelabel
+    file:
+      path: /.autorelabel
+      owner: root
+      group: root
+      mode: 0644
+      state: touch
+    when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
+    notify: reboot
+    tags:
+      - 1.7.1.3
+
+  # Replace the current selinux mode with what the variable is set to
   - name: 1.7.1.4 - Set SELinux to {{ selinux | lower }}
     replace:
       dest: /etc/selinux/config
@@ -518,14 +692,18 @@
     tags:
       - 1.7.1.4
 
+  # Let the user know if there are any processes that are not running under the
+  #  a selinux context
   - name: 1.7.1.5 - Report on unconfined running services
     block:
+      # In RHEL8, all unconfined services run under their own context
       - name: 1.7.1.5 - Generate report on unconfined running services
-        shell: ps -eZ | grep unconfined_service_t
+        shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
         register: unconfined_services_out
         failed_when: unconfined_services_out.rc == "2"
         changed_when: false
 
+      # Print any findings to the user
       - name: 1.7.1.5 - Report on unconfined running services to user
         debug:
           msg:
@@ -536,6 +714,7 @@
     tags:
       - 1.7.1.5
 
+  # Use system package manager to remove package
   - name: 1.7.1.6 - Remove setroubleshoot
     dnf:
       name: setroubleshoot
@@ -552,6 +731,7 @@
 
   # 1.8 Warning Banners
 
+  # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.1 - Install motd banners
     copy:
       src: "{{ motd_file }}"
@@ -563,6 +743,7 @@
       - 1.8.1.1
       - 1.8.1.4
 
+  # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.2 - Install issue banners
     copy:
       src: "{{ issue_file }}"
@@ -574,6 +755,7 @@
       - 1.8.1.2
       - 1.8.1.5
 
+  # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.3 - Install issue.net banners
     copy:
       src: issue
@@ -585,8 +767,10 @@
       - 1.8.1.3
       - 1.8.1.6
 
+  # add a banner to the login screen if the graphical_interface variable is set to true
   - name: 1.8.2 Ensure GDM banner set up
     blockinfile:
+      # Add our required pieces to the greeter defaults file
       path: /etc/gdm3/greeter.dconf-defaults
       owner: root
       group: root
@@ -625,20 +809,28 @@
       - 1.10.0
 
   # 2 Services
+  # Remove old, unused, insecure services
   - name: 2.1.1 - Remove xinetd service
-    package:
+    dnf:
       name: xinetd
       state: absent
+    when: tftp_server is defined and not tftp_server
+
     tags:
       - 2.1.1
 
+  # RHEL 8 does not distribute ntp any longer, so we are not using the time_server
+  #  variable for RHEL8 controls
   - name: 2.2.1.1 - Verify chrony is  installed
-    yum:
+    dnf:
       name: "chrony"
       state: present
     tags:
       - 2.2.1.1
 
+  # Use the template module to deploy the config file for the time sync program
+  #  The default file does not have any template variables, but it's there so
+  #  they can be added in the future.
   - name: 2.2.1.2 - Configure chrony
     template:
       src: "chrony.conf"
@@ -650,15 +842,19 @@
     tags:
       - 2.2.1.2
 
+  # Disable the display manager by changing the default boot target to multi-user
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
+      # Find the current default run level. The systemctl module does not handle the
+      #  get-default routine
       - name: 2.2.2 - Get current runlevel
-        shell: systemctl get-default
+        shell: /usr/bin/systemctl get-default
         register: default_runlevel_out
         changed_when: false
         tags:
           - 2.2.2
 
+      # Use systemd module to stop the GDM service
       - name: 2.2.2 - Disable the gdm display manager
         systemd:
           name: gdm
@@ -669,20 +865,28 @@
         tags:
           - 2.2.2
 
+      # Set the current run level. The systemctl module does not handle the
+      #  isolate routine
       - name: 2.2.2 - Set current runlevel
-        shell: systemctl isolate multi-user.target
+        shell: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stdout == "graphical.target" and not graphical_interface
         tags:
           - 2.2.2
 
+      # Set the default run level. The systemctl module does not handle the
+      #  isolate routine
       - name: 2.2.2 - Set default runlevel
-        shell: systemctl set-default multi-user.target
+        shell: /usr/bin/systemctl set-default multi-user.target
         changed_when: false
+    when: not graphical_interface
     tags:
       - 2.2.2
 
+  # This collection of tasks creates a empty list and save it as a fact.
+  #  For every item that is encountered (without the tag being skipped),
+  #  add a string to the list.
   - name: create empty list for unneeded packages
     set_fact:
       unneeded_packages: []
@@ -793,15 +997,19 @@
     tags:
       - 2.3.3
 
+  # With the list complete, use it with the system's package manager
+  #  to remove packages from the system that are not needed.
   - name: Process removal list
-    yum:
+    dnf:
       name: unneeded_packages
       state: absent
 
+  # Cups should be remove per control 2.2.16, but it may not be able to due to
+  #  dependencies, so disable the service instead
   - name: 2.2.16 - Disable cups as we my not be able to uninstall it
     block:
       - name: 2.2.16 - Check if cups is enabled
-        shell: systemctl is-enabled cups
+        shell: /usr/bin/systemctl is-enabled cups
         register: cups_out
         failed_when: cups_out.rc == "2"
         changed_when: false
@@ -815,6 +1023,8 @@
     tags:
       - 2.2.16
 
+  # Use the stat module to determine if the mail server config file exists.
+  #  If it does and we are to be a mail server, then modify it per the control.
   - name: 2.2.18 - Configure email for local-only mode if mail software is installed and not intending to be an external email relay (mail_server=false)
     block:
       - name: 2.2.18 - Find if we have a mail agent config file
@@ -832,8 +1042,11 @@
     tags:
       - 2.2.18
 
-  # Section 3, Network parameters: host only
+  # Section 3, Network parameters
 
+  # The sysctl module will configure certain sysctl parameters. They are
+  #  collected into a loop here to speed the implementation
+  # Once complete, notify the system to flush the network routes
   - name: 3.1 - Set networking parameters (OFF)
     sysctl:
       name: "{{ item }}"
@@ -864,6 +1077,9 @@
       - 3.2.0
       - 3.3.0
 
+  # The sysctl module will configure certain sysctl parameters. They are
+  #  collected into a loop here to speed the implementation.
+  # Once complete, notify the system to flush the network routes
   - name: 3.2.[4-8] - Set networking parameters (ON)
     sysctl:
       name: "{{ item }}"
@@ -885,6 +1101,9 @@
 
   - name: 3.3 - Disable uncommon network protocols
     block:
+      # This collection of tasks creates a empty list and save it as a fact.
+      #  For every item that is encountered (without the tag being skipped),
+      #  add a string to the list.
       - name: 3.3.0 - Create empty list of uncommon network protocols to disable
         set_fact:
           uncommon_network: []
@@ -913,6 +1132,8 @@
         tags:
           - 3.3.4
 
+  # With the list complete, use it with the system's package manager
+  #  to remove packages from the system that are not needed.
       - name: 3.5.0 - Process uncommon network list
         lineinfile:
           dest=/etc/modprobe.d/CIS.conf
@@ -929,9 +1150,9 @@
   - name: 3.4.1 - Install firewall package
     block:
       - name: 3.4.1.1 - Install firewalld
-        yum:
+        dnf:
           name: "firewalld"
-          state: latest
+          state: present
         notify: start firewalld # 3.4.2.1
 
       - name: 3.4.2.2 - Disable iptables service
@@ -952,12 +1173,12 @@
         ignore_errors: true
 
       - name: 3.4.2.4 - Ensure default zone is set for firewalld
-        shell: firewall-cmd --get-default-zone
+        shell: /usr/bin/firewall-cmd --get-default-zone
         changed_when: false
         register: firewalld_zone
 
       - name: 3.4.2.4 - Set default zone
-        shell: "firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+        shell: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
         when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
 
       # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
@@ -976,9 +1197,9 @@
 
   # Control 3.4.3 Configure nftables, skipping
 
-  - name: Install iptables (3.4.4.1)
+  - name: 3.4.4.1 - Install iptables
     block:
-      - name: Install iptables (3.4.4.1)
+      - name: 3.4.4.1 - Install iptables
         yum:
           name:
             - "iptables"
@@ -988,7 +1209,7 @@
         tags:
           - 3.4.4.1
 
-      - name: Disable firewalld
+      - name: 3.4.4.1 - Disable firewalld
         service:
           name: firewalld
           state: stopped
@@ -1019,16 +1240,18 @@
   # skipping
 
   - name: 3.6 - Disable IPv6
-    # We check here because we don't know what is after the = sign to
-    # check against, so we are instead looking for the match in the file first.
-    # If it doesn't exist, then we can just insert it
+      # We check here because we don't know what position the ipv6.disable is in
+      # order to simply do the replace, so we are instead looking for the match in the file first.
+      # If it doesn't exist, then we can just insert it
     block:
-      - name: 3.6 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        shell: grep ipv6.disable=1 /etc/default/grub
+      - name: 3.3 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
+        shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
         register: ipv6_disable
         failed_when: ipv6_disable.rc == "2"
         changed_when: false
 
+      # use the replace module to add it to grub bootloader and then notify
+      #  grub to rebuild
       - name: 3.6 - Disable IPv6 in grub
         replace:
           path: /etc/default/grub
@@ -1037,6 +1260,7 @@
         notify: rebuild grub
         when: ipv6_disable is defined and ipv6_disable is changed
 
+      # use sysctl module to disable ipv6 at the kernel level
       - name: 3.3 - Disable IPv6 in sysctl
         sysctl:
           name: "{{ item }}"
@@ -1055,7 +1279,7 @@
   - name: 4.1 Install and configure system auditing
     block:
       - name: 4.1.1 - Install Audit
-        package:
+        dnf:
           name:
             - audit
             - audit-libs
@@ -1090,6 +1314,8 @@
         tags:
           - 4.1.1.4
 
+      # The replace module here is looking through file and make replacements of partial lines
+
       - name: 4.1.2.[1-2] - Configure audit log storage size
         replace:
           path: /etc/audit/auditd.conf
@@ -1105,7 +1331,8 @@
           - 4.1.2.1
           - 4.1.2.2
           - 4.1.2.3
-
+      # This isn't the best way to do this since users can modify the line and it will
+      #  break this control check. It needs to be re-evaluated.
       - name: 4.1.3 - Ensure changes to sudoers is collected
         copy:
           dest: /etc/audit/rules.d/sudoers.rules
@@ -1119,6 +1346,9 @@
         tags:
           4.1.3
 
+      # For the next several checks, each one is in their own file, so we are using
+      #  the copy module to place each file independently and then motifying
+      #  a restart of auditd if anything changes.
       - name: 4.1.4 - Ensure system logins are collected
         copy:
           dest: /etc/audit/rules.d/login.rules
@@ -1192,6 +1422,7 @@
         tags:
           4.1.8
 
+      # This is the first control that we use the min_uid variable that we determined earlier
       - name: 4.1.9 - Ensure modifications to discretionary access controls are collected
         copy:
           dest: /etc/audit/rules.d/dac.rules
@@ -1288,7 +1519,7 @@
         copy:
           dest: /etc/audit/rules.d/sudolog.rules
           content: |
-            -w /var/log/sudoers -p wa -k actions
+            -w {{ sudo_log }} -p wa -k actions
           owner: root
           group: root
           mode: 0600
@@ -1343,13 +1574,13 @@
   - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
       - name: 4.2.1.6 - Find all rsyslog files where module is loaded
-        shell: grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /usr/bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_module_out
         changed_when: false
         failed_when: rsyslog_module_out.rc == "2"
 
       - name: 4.2.1.6 - Find all rsyslog files where TCP port is set
-        shell: grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /usr/bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_tcp_out
         changed_when: false
         failed_when: rsyslog_tcp_out.rc == "2"
@@ -1397,7 +1628,7 @@
   - name: 4.2.2 - Configure journald
     block:
       - name: Find any rsyslog files where all logs are being forwarded to a loghost
-        shell: grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
@@ -1452,7 +1683,7 @@
   # This control is early in order to create the files. This will
   # make sure they are available when cron starts
   - name: Find the number of allow files in /etc for cron (5.1.8)
-    shell: find /etc -maxdepth 1 -name *.allow -type f
+    shell: /usr/bin/find /etc -maxdepth 1 -name *.allow -type f
     register: allow_files
     changed_when: allow_files.rc != 0
     tags:
@@ -1507,6 +1738,7 @@
 
   # Restrict at/cron skipped (5.1.8) as is rarely used and environment dependent
 
+  # If you want to deploy your own SSH config file, exclude the entire 5.2.0 tag
   - name: 5.2 - SSH File configurations
     block:
       - name: 5.2.1 - Set permissions on SSH file
@@ -1571,6 +1803,8 @@
         tags:
           - 5.2.5
 
+      # Using replace with a replace argument of "" removes the selected
+      #  text. 
       - name: 5.2.6 - Disable X11 forwarding
         replace:
           path: /etc/ssh/sshd_config
@@ -1806,7 +2040,7 @@
       - 5.5.1.3
 
   - name: 5.5.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
-    shell: "useradd -D -f {{ password_inactive_lock_days }}"
+    shell: "/usr/sbin/useradd -D -f {{ password_inactive_lock_days }}"
     register: useradd_out
     changed_when: false
     tags:
@@ -1831,7 +2065,7 @@
 
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.5.4 - Ensure default group for root is GID 0
-    shell: usermod -g 0 root
+    shell: /usr/sbin/usermod -g 0 root
     changed_when: false
     tags:
       - 5.5.4
@@ -1921,7 +2155,7 @@
   - name: 6.1.10 - Ensure no world writable files exist
     block:
       - name: 6.1.10 - Find any world writiable files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type f -perm -0002"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
 
@@ -1938,7 +2172,7 @@
   - name: 6.1.11 - Ensure no unowned files exist
     block:
       - name: 6.1.11 - Find any unowned files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nouser"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
 
@@ -1955,7 +2189,7 @@
   - name: 6.1.12 - Ensure no ungrouped files exist
     block:
       - name: 6.1.12 - Find any ungrouped files
-        shell: "df --local -P | awk {' if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nogroup"
+        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
 
@@ -1979,7 +2213,7 @@
   - name: 6.2.1 - Ensure password fields are not empty
     block:
       - name: 6.2.1 - Check to see if there are any accounts with empty passwords
-        shell: "cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
+        shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
 
@@ -2027,7 +2261,7 @@
   - name: 6.2.6 - Report on multiple accounts with UID of 0
     block:
       - name: 6.2.6 - find accounts with UID of 0
-        shell: "cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
+        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
 
@@ -2129,7 +2363,7 @@
   - name: 6.2.19 - Report on shadow group in /etc/group
     block:
       - name: 6.2.19 - Determine if the shadow group exists in /etc/group
-        shell: grep "^shadow:" /etc/group
+        shell: /usr/bin/grep "^shadow:" /etc/group
         register: shadow_out
         changed_when: false
         failed_when: shadow_out.rc == "2"

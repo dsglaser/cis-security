@@ -1,0 +1,11 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    time_server: chrony
+  pre_tasks: 
+      - name: print ansible_mounts
+        debug:
+          var: ansible_mounts
+  roles:
+    - cis_security
