@@ -12,6 +12,10 @@ those controls for Red Hat Enterprise Linux 7 and 8. The controls themselves are
 you should visit CIS for a copy of the PDF. These automations are provided as a resposne and a tool to
 help systems administrators secure machines based off those recommendations.
 
+This role is designed to layer over other Ansible roles that install packages, users, etc. It should be
+idempotent and can be run at any time. As usual with Ansible, make sure that later playbooks don't modify
+files that are modified in this role.
+
 Benchmark Versions:
 Operating System | OS Benchmark version
 -----------------|---------------------
