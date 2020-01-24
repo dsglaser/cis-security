@@ -12,19 +12,22 @@ gpgcheck: true                  # Enable GPG checks on ALL repos
 enable_audit: true              # Enable auditing of processes and filesystem changes
 audit_backlog_limit: 8192       # RHEL default is 8MB backlog limit
 
-# Server roles, setting any of the variables to false will remove the default RHEL packages for that service
+# Server roles, setting any of the variables to false will remove the default RHEL packages for that service.
+#  Setting them to true will not remove them, but will not set them up.
 dhcp_server: false
 dns_server: false
-nfs_server: false
+email_server: false             # If set to true, and the packages exist, it will set mail relay to local only
 ftp_server: false
 http_server: false
+nfs_server: false
+proxy_server: false
+smb_server: false
 tftp_server: false              # Option for RHEL7 only
-email_server: false
 log_host: false                 # Whether this machine will host rsyslog messages for other machines
 log_port: 514
 log_file_size: 8                # RHEL default is 8MB, control has no default
-smb_server: false
-proxy_server: false
+
+# Desktop roles, see 'Server roles' above.
 ypbind: false
 graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
 
