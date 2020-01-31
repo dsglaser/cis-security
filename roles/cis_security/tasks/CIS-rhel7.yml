@@ -449,7 +449,7 @@
 
   # Finda all local filesystem directories and set the sticky bit on world writable ones
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     changed_when: false
     tags:
       - 1.1.21
@@ -874,7 +874,7 @@
 
   # use replace to make sure that listed services are disabled
   - name: Disable non-tftp services (if we are a tftp server)
-    replace: regexp="disable\s+=\s+[^yes]" replace="  disable = yes" dest=/etc/xinetd.d/{{item}}
+    replace: regexp="disable\s+=\s+[^yes]" replace="  disable = yes" dest=/etc/xinetd.d/{{ item }}
     with_items:
       - chargen-dgram
       - chargen-stream
@@ -893,24 +893,24 @@
       - 2.1.2
 
   # Set up the time server listed in the time_server variable
-  - name: 2.2.1.1 - Verify {{time_server}} is installed
+  - name: 2.2.1.1 - Verify {{ time_server }} is installed
     yum:
       name: "{{ time_server }}"
-      state: latest
+      state: present
     tags:
       - 2.2.1.1
 
   # Use the template module to deploy the config file for the time sync program
   #  The default file does not have any template variables, but it's there so
   #  they can be added in the future.
-  - name: 2.2.1.2 - Configure {{time_server}}
+  - name: 2.2.1.2 - Configure {{ time_server }}
     template:
-      src: "{{time_server}}.conf"
-      dest: /etc/{{time_server}}.conf
+      src: "{{ time_server }}.conf"
+      dest: /etc/{{ time_server }}.conf
       owner: root
       group: root
       mode: 0644
-    notify: restart {{time_server}}d
+    notify: restart {{ time_server }}d
     tags:
       - 2.2.1.2
 
@@ -1227,7 +1227,7 @@
       - name: 3.4.1 - Install tcpwrappers
         yum:
           name: tcp_wrappers
-          state: latest
+          state: present
 
       # use lineinfile to make sure everyone has access to tcpwrappers
       #  from the local machine
@@ -1340,7 +1340,7 @@
           name:
             - "iptables"
             - "iptables-services"
-          state: latest
+          state: present
         notify: start iptables
         tags:
           - 3.6.1
@@ -1722,7 +1722,7 @@
 
   - name: Create the allow files (5.1.8)
     file:
-      path: "{{item}}"
+      path: "{{ item }}"
       state: touch
     with_items:
       - /etc/cron.allow
@@ -1951,7 +1951,7 @@
       - name: 5.3.1 - Require at least {{ password_min_length }} characters in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
-          line: minlen = {{ password_min_length}}
+          line: minlen = {{ password_min_length }}
           regexp: "^minlen = {{ password_min_length }}"
           insertafter: "^# minlen = 9"
         when: password_req_digit
@@ -2071,7 +2071,7 @@
 
   - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0644
@@ -2084,7 +2084,7 @@
 
   - name: 6.1.[3,5] - Ensure permissions on /etc/shadow /etc/gshadow
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0000
@@ -2097,7 +2097,7 @@
 
   - name: 6.1.[6-9] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0000
