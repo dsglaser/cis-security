@@ -13,7 +13,7 @@
 
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
-  - debug: msg="CIS Controls for RHEL {{ansible_distribution_major_version}}"
+  - debug: msg="CIS Controls for RHEL {{ ansible_distribution_major_version }}"
 
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
@@ -401,7 +401,7 @@
       - name: 1.1.15 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nodev set"
-        when: devshm_nodev_out is defined and devshm_nodev_out.stdout == ""
+        when: devshm_nodev_out is defined and devshm_nodev_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -420,7 +420,7 @@
       - name: 1.1.16 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
-        when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout == ""
+        when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -439,7 +439,7 @@
       - name: 1.1.17 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have noexec set"
-        when: devexec_nosuid_out is defined and devshm_noexec_out.stdout == ""
+        when: devexec_nosuid_out is defined and devshm_noexec_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -510,7 +510,7 @@
       # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.3 - Set all repos gpgchecks to '1'
         replace:
-          dest: "{{item}}"
+          dest: "{{ item }}"
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: gpgcheck = 1
         loop: "{{ yumrepos.stdout_lines }}"
@@ -607,7 +607,7 @@
   # Use replace module to add the requirement to enter password on single user startup
   - name: 1.4.3 - Set single user password
     replace:
-      dest: /usr/lib/systemd/system/{{item}}
+      dest: /usr/lib/systemd/system/{{ item }}
       regexp: '^ExecStart=-((?!/bin/sh\s+-c\s+\"\s+/sbin/sulogin).)*'
       replace: "ExecStart=-/bin/sh -c \"/sbin/sulogin; /usr/bin/systemctl --fail --no-block default\""
     with_items:
@@ -694,7 +694,7 @@
   - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
     replace:
       dest: /etc/default/grub
-      regexp: "{{item}}"
+      regexp: "{{ item }}"
       replace: ""
     with_items:
       - selinux=0
@@ -780,7 +780,7 @@
             - "Unconfined processes found:"
             - "{{ unconfined_services_out.stdout_lines }}"
         changed_when: true
-        when: unconfined_services_out.stdout != ""
+        when: unconfined_services_out.stdout
     tags:
       - 1.6.1.5
 
@@ -1293,7 +1293,7 @@
       - name: 3.5.0 - Process uncommon network list
         lineinfile:
           dest=/etc/modprobe.d/CIS.conf
-          line="install {{item}} /bin/true"
+          line="install {{ item }} /bin/true"
           state=present
           create=yes
         loop:
@@ -1381,7 +1381,7 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size}}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
+          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
           - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)' , replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
           - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)' , replace: 'space_left_action = email' } # 4.1.2.2
           - { find: '^action_mail_acct\s+=\s+(^root)*$' , replace: 'action_mail_acct = root' } # 4.1.2.2
@@ -2125,7 +2125,7 @@
         debug:
           msg: "World writiable files found: {{ ww_files.stdout }}"
         changed_when: true
-        when: ww_files.stdout != ""
+        when: ww_files.stdout
     tags:
       - 6.1.10
 
@@ -2142,7 +2142,7 @@
         debug:
           msg: "unowned files found: {{ uo_files.stdout }}"
         changed_when: true
-        when: uo_files.stdout != ""
+        when: uo_files.stdout
     tags:
       - 6.1.11
 
@@ -2159,7 +2159,7 @@
         debug:
           msg: "ungrouped files found: {{ uo_files.stdout }}"
         changed_when: true
-        when: ug_files.stdout != ""
+        when: ug_files.stdout
     tags:
       - 6.1.12
 
@@ -2182,7 +2182,7 @@
       - name: 6.2.1 - Report the named users to the report
         debug:
           msg: "The user {{ item }} has an empty password"
-        when: empty_passwords.stdout != ""
+        when: empty_passwords.stdout
         changed_when: true
         loop: "{{ empty_passwords.stdout_lines }}"
     tags:
@@ -2231,7 +2231,7 @@
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
             - "that exist in root's path because of this. It should be run as root on the target machine manually."
             - " {{ path_check.stdout }}"
-        when: path_check.stdout != ""
+        when: path_check.stdout
     tags:
       - 6.2.6
 
@@ -2252,7 +2252,7 @@
         debug:
           msg: "{{ undefined_groups.stdout_lines }}"
         changed_when: true
-        when: undefined_groups.stdout != ""
+        when: undefined_groups.stdout
     tags:
       - 6.2.15
 
@@ -2269,7 +2269,7 @@
         debug:
           msg: "{{ duplicate_uids.stdout_lines }}"
         changed_when: true
-        when: duplicate_uids.stdout != ""
+        when: duplicate_uids.stdout
     tags:
       - 6.2.16
 
@@ -2285,7 +2285,7 @@
         debug:
           msg: "{{ duplicate_guids.stdout_lines }}"
         changed_when: true
-        when: duplicate_guids.stdout != ""
+        when: duplicate_guids.stdout
     tags:
       - 6.2.17
 
@@ -2301,7 +2301,7 @@
         debug:
           msg: "{{ duplicate_users.stdout_lines }}"
         changed_when: true
-        when: duplicate_users.stdout != ""
+        when: duplicate_users.stdout
     tags:
       - 6.2.18
 
@@ -2317,7 +2317,7 @@
         debug:
           msg: "{{ duplicate_groups.stdout_lines }}"
         changed_when: true
-        when: duplicate_groups.stdout != ""
+        when: duplicate_groups.stdout
     tags:
       - 6.2.19
 
