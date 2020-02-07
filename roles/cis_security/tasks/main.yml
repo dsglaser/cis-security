@@ -1,7 +1,7 @@
 ---
 # tasks file for cis-security
 
- - include: CIS-rhel{{ansible_distribution_major_version}}.yml
+ - include: CIS-{{ansible_distribution}}-{{ansible_distribution_major_version}}.yml
 
 
 

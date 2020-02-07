@@ -1,0 +1,4 @@
+---
+# indclude the type file for RHEL 7 type machines
+
+ - include: type-files/redhat-7-type.yml

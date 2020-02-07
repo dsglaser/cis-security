@@ -13,7 +13,7 @@
 
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
-  - debug: msg="CIS Controls for RHEL {{ ansible_distribution_major_version }}"
+  - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
 
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
@@ -25,14 +25,14 @@
 
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
-  - name: 1.9.0 - Ensure updated system
-    dnf:
+  - name: 1.8 - Ensure updated system
+    yum:
       name: "*"
       state: latest
       security: true
     when: update_system
     tags:
-      - 1.9.0
+      - 1.8.0
 
   # This collection of tasks creates a empty list and save it as a fact.
   #  For every item that is encountered (without the tag being skipped),
@@ -47,63 +47,130 @@
     tags:
       - 1.1.1.1
 
-  - name: 1.1.1.2 - Add vfat to list of unused filesystems
+  - name: 1.1.1.2 - Add freevxfs to list of unused filesystems
     set_fact:
-      unused_filesystems: "{{ unused_filesystems + [ 'vfat' ] }}"
+      unused_filesystems: "{{ unused_filesystems + [ 'freevxfs' ] }}"
     tags:
       - 1.1.1.2
 
-  - name: 1.1.1.3 - Add squashfs to list of unused filesystems
+  - name: 1.1.1.3 - Add jffs2 to list of unused filesystems
     set_fact:
-      unused_filesystems: "{{ unused_filesystems + [ 'squashfs' ] }}"
+      unused_filesystems: "{{ unused_filesystems + [ 'jffs2' ] }}"
     tags:
       - 1.1.1.3
 
-  - name: 1.1.1.4 - Add udf to list of unused filesystems
+  - name: 1.1.1.4 - Add hfs to list of unused filesystems
+    set_fact:
+      unused_filesystems: "{{ unused_filesystems + [ 'hfs' ] }}"
+    tags:
+      - 1.1.1.4
+
+  - name: 1.1.1.5 - Add hfsplus to list of unused filesystems
+    set_fact:
+      unused_filesystems: "{{ unused_filesystems + [ 'hfsplus' ] }}"
+    tags:
+      - 1.1.1.5
+
+  - name: 1.1.1.6 - Add squashfs to list of unused filesystems
+    set_fact:
+      unused_filesystems: "{{ unused_filesystems + [ 'squashfs' ] }}"
+    tags:
+      - 1.1.1.6
+
+  - name: 1.1.1.7 - Add udf to list of unused filesystems
     set_fact:
       unused_filesystems: "{{ unused_filesystems + [ 'udf' ] }}"
     tags:
-      - 1.1.1.4
+      - 1.1.1.7
+
+  - name: 1.1.1.8 - Add vfat to list of unused filesystems
+    set_fact:
+      unused_filesystems: "{{ unused_filesystems + [ 'vfat' ] }}"
+    tags:
+      - 1.1.1.8
+
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process unused_filesystem list
-    dnf:
+    yum:
       name: unused_filesystems
       state: absent
 
-  # Create and configure the local-fs systemd service file
-  - name: 1.1.[2-5] - Ensure /tmp is configured
-    block:
-      # Create a file to hold the system specific local-fs service information
-      #  be sure to set the selinux security context. Even if selinux is disabled,
-      #  it's a good idea to make sure it is set on files
-      - name: Ensure the local-fs directory is created
-        file:
-          path: /etc/systemd/system/local-fs.target.wants
-          state: directory
-          owner: root
-          group: root
-          mode: 0755
-          setype: etc_t
+  # Determine if a filesystem is on a separate partition, if so, then
+  #  check to see if various filesystem options exist for the filesystem
 
-      # Add content to the file we created using the blockinfile command.
-      # Notify systemd to reload its daemons and start the local-fs service
-      - name: 1.1.[2-5] - Configure config file for tmpfs
-        blockinfile:
-          path: /etc/systemd/system/local-fs.target.wants/tmp.mount
-          block: |
-            [Mount]
-            What=tmpfs
-            Where=/tmp
-            Type=tmpfs
-            Options=mode=1777,strictatime,noexec,nodev,nosuid
-          create: true
-        notify: restart tmpfs
+
+  - name: 1.1.2 - /tmp partition and mount options
+    block:
+      # Create a empty integer variable and set it as a fact on the managed
+      #  machine.
+      - name: 1.1.2 - Set/reset mount counter
+        set_fact:
+          mount_count: 0
+        tags:
+          - 1.1.2
+          - 1.1.3
+          - 1.1.4
+
+      # Examine the ansible_mounts variable which includes all of the system mounts
+      #  on machine. Search for the appropriate mount information. If it exists,
+      #  increment the integer variable by '1' and save the filesystems options to a
+      #  new variable called mount_options.
+      - name: 1.1.2 - Determine if /tmp is on a separate partition
+        set_fact:
+          mount_count: "addition{{ mount_count + 1 }}"
+          mount_options: "{{ item.options }}"
+        when: item.mount == "/tmp"
+        with_items:
+          - "{{ ansible_mounts }}"
+        tags:
+          - 1.1.2
+
+      # If the number in mount_count variable is > 0, then we found the mount. If not,
+      #  then report to the user that the given filesystem was not on a separate partition.
+      - name: 1.1.2 - Report to user if not on separate partition
+        debug:
+          msg: "FAILED CONTROL: /tmp is not on a separate partition. Skipping mount option checks"
+        when: mount_count == 0
+        changed_when: true
+        tags:
+          - 1.1.2
+
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
+      - name: 1.1.3 - Report to user if /tmp does not have nodev set
+        debug:
+          msg: "FAILED CONTROL: /tmp/ does not have nodev set"
+        when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
+        changed_when: true
+        tags:
+          - 1.1.3
+
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
+      - name: 1.1.4 - Report to user if tmp does not have nosuid set
+        debug:
+          msg: "FAILED CONTROL: /tmp does not have nosuid set"
+        when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
+        changed_when: true
+        tags:
+          - 1.1.4
+
+      # Look through the mount_options variable for the given filesystem option. if it is
+      #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+      #  let the user know.
+      - name: 1.1.5 - Report to user if /tmp does not have noexec set
+        debug:
+          msg: "FAILED CONTROL: /tmp/ does not have noexec set"
+        when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
+        changed_when: true
+        tags:
+          - 1.1.5
+    # This whole block can be turned off by excluding the following tag(s)
     tags:
-      - 1.1.2
-      - 1.1.3
-      - 1.1.4
-      - 1.1.5
+      1.1.2
 
   # Determine if a filesystem is on a separate partition, if so, then
   #  check to see if various filesystem options exist for the filesystem
@@ -407,35 +474,26 @@
     tags:
       - 1.1.22
 
-  - name: 1.1.23 - Disable USB storage module
-    lineinfile:
-      dest: /etc/modprobe.d/CIS.conf
-      line: "install usb-storage /bin/true"
-      state: present
-      create: yes
-    tags:
-      - 1.1.23
-
-# Control 1.2.1 is system updating. Make sure system is set for some kind of system bigip_software_update
+# Control 1.2.1 and 1.2.4 are system updating. Make sure system is set for some kind of system software update
 
   # Use the service module to disable the rhnsd service. If you want the machine
   #  to respond to queued services from Satellite, do not disable this.
-  - name: 1.2.2 Disable rhnsd
+  - name: 1.2.5 Disable rhnsd
     service:
       name: rhnsd
       enabled: no
       state: stopped
     ignore_errors: true #Remove for RHEL
+    when: ansible_distribution == "RedHat"
     tags:
-      - 1.2.2
+      - 1.2.5
 
   # GPGKeys are used to sign packages. enabling them will mean that all packages
   #  from a given repo must be signed with the appropriate key
-  - name: 1.2.[3,4] - Ensure GPG keys are configured
+  - name: 1.2.[2,3] - Ensure GPG keys are configured
     block:
       # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
-
-      - name: 1.2.4 - set master yum.conf gpgcheck to '1'
+      - name: 1.2.2 - set master yum.conf gpgcheck to '1'
         replace:
           dest: /etc/yum.conf
           regexp: '^gpgcheck\s*=\s*[^1]*$'
@@ -443,7 +501,7 @@
         when: gpgcheck is defined and gpgcheck
 
       # Find all files in /etc/yum.repos.d and add them to a list variable
-      - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
+      - name: 1.2.3 - find all repo files in /etc/yum.repos.d/
         shell: /usr/bin/find /etc/yum.repos.d/*
         register: yumrepos
         failed_when: yumrepos.rc == "2"
@@ -451,7 +509,7 @@
         when: gpgcheck is defined and gpgcheck
 
       # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
-      - name: 1.2.4 - Set all repos gpgchecks to '1'
+      - name: 1.2.3 - Set all repos gpgchecks to '1'
         replace:
           dest: "{{ item }}"
           regexp: '^gpgcheck\s*=\s*[^1]*$'
@@ -459,55 +517,26 @@
         loop: "{{ yumrepos.stdout_lines }}"
         when: gpgcheck is defined and gpgcheck
     tags:
+      - 1.2.2
       - 1.2.3
-      - 1.2.4
 
-  # Control 1.2.5 is a manual review to ensure repos are configured per site needs
+  #- name: 1.2.1 - Ensure package manager repositories are configured, site dependent
 
-  # use the system package module to ensure sudo is installed
-  - name: 1.3.1 - Ensure sudo is installed
-    dnf:
-      name: sudo
-      state: present
-    tags:
-      - 1.3.1
-
-  # Make sure the sudoers file includes the requirement to use pty
-  - name: 1.3.2 - Ensure sudo commands use pty
-    lineinfile:
-      path: /etc/sudoers
-      regexp: '^Defaults\s*use_pty'
-      line: "Defaults use_pty"
-      insertafter: "^# Defaults specification"
-      validate: /usr/sbin/visudo -cf %s
-    tags:
-      - 1.3.2
-
-  # Make sure the sudoers file includes the requirement to log to a file
-  - name: 1.3.3 - Ensure sudo log file exists
-    lineinfile:
-      path: /etc/sudoers
-      regexp: '^Defaults\s*logfile="{{ sudo_log }}"'
-      line: 'Defaults logfile="{{ sudo_log }}"'
-      insertafter: "^# Defaults specification"
-      validate: /usr/sbin/visudo -cf %s
-    tags:
-      - 1.3.3
 
   # AIDE is a file system integrity checker which will document all
   # filesystem changes. It's very noisy on busy systems and should be
   # enabled when you have the sapce and need for it.
-  - name: 1.4 - Filesystem integrity checking w/AIDE
+  - name: 1.3 - Filesystem integrity checking w/AIDE
     block:
       # use the system package manager to install AIDE
-      - name: 1.4.1 Ensure aide is installed
-        dnf:
+      - name: 1.3.1 Ensure aide is installed
+        yum:
           name: aide
           state: present
 
       # AIDE requires initialization the first time and it takes time on a large system.
       # DUse stat module on the file that should be there if it is set up.
-      - name: 1.4.1 - Determine if AIDE has already been initialized
+      - name: 1.3.1 - Determine if AIDE has already been initialized
         stat:
           path: /var/lib/aide/aide.db.gz
         register: aide_path
@@ -515,14 +544,14 @@
       # stat returns a lot of information. 'exists' is true if the file exists and 'isreg'
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
-      - name: 1.4.1 - Initialize AIDE if it hasn't been already
+      - name: 1.3.1 - Initialize AIDE if it hasn't been already
         shell: /usr/sbin/aide --init
         when: not aide_path.stat.exists or not aide_path.stat.isreg
 
       # AIDE creates the new database as a different name. Use the copy module with
       #  the remote_src argument to copy the file on the remote machine to another location
       #  on the remote machine.
-      - name: 1.4.1 - Move the newly created database into place
+      - name: 1.3.1 - Move the newly created database into place
         copy:
           src: /var/lib/aide/aide.db.new.gz
           remote_src: yes
@@ -534,7 +563,7 @@
       # Copy in the already configured systemd service file using the copy module.
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the service
-      - name: 1.4.2 - Ensure File integrity is regularly checked (aidecheck service)
+      - name: 1.3.2 - Ensure File integrity is regularly checked (aidecheck service)
         copy:
           src: files/aide/aidecheck.service
           dest: /etc/systemd/system/aidecheck.service
@@ -547,7 +576,7 @@
       # Copy in the already configured systemd timer file using the copy module.
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the timer
-      - name: 1.4.2 - Ensure File integrity is regulary checked (aidecheck timer)
+      - name: 1.3.2 - Ensure File integrity is regulary checked (aidecheck timer)
         copy:
           src: files/aide/aidecheck.timer
           dest: /etc/systemd/system/aidecheck.timer
@@ -557,11 +586,11 @@
           setype: systemd_unit_file_t
         notify: restart aidecheck
     tags:
-      - 1.4.0
+      - 1.3.0
 
-  # 1.5 Secure Boot settings
+  # 1.4 Secure Boot settings
   # Use file module to set permissions on grub files
-  - name: 1.5.1 - Set permissions on grub.cfg
+  - name: 1.4.1 - Set permissions on grub.cfg
     file:
       path: "{{ item }}"
       owner: root
@@ -571,30 +600,29 @@
       - /boot/grub2/grub.cfg
       - /boot/grub2/grubenv
     tags:
-      - 1.5.1
+      - 1.4.1
 
-  # Control 1.5.2, Grub bootloader password - skipped
+  # Control 1.4.2, Grub bootloader password - skipped
 
   # Use replace module to add the requirement to enter password on single user startup
-  - name: 1.5.3 - Set single user password
-
+  - name: 1.4.3 - Set single user password
     replace:
       dest: /usr/lib/systemd/system/{{ item }}
-      regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
-      replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
+      regexp: '^ExecStart=-((?!/bin/sh\s+-c\s+\"\s+/sbin/sulogin).)*'
+      replace: "ExecStart=-/bin/sh -c \"/sbin/sulogin; /usr/bin/systemctl --fail --no-block default\""
     with_items:
       - rescue.service
       - emergency.service
     tags:
-      - 1.5.3
+      - 1.4.3
 
-  # 1.6 Additional Process Hardening
+  # 1.5 Additional Process Hardening
 
-  - name: 1.6.1 - Ensure core dumps are restricted
+  - name: 1.5.1 - Ensure core dumps are restricted
     block:
       # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
       #  to reload them immediately if 'reload' is set to 'yes'.
-      - name: 1.6.1 - Ensure core dumps are restricted
+      - name: 1.5.1 - Ensure core dumps are restricted
         sysctl:
           name: fs.suid_dumpable
           value: "0"
@@ -602,7 +630,7 @@
           reload: yes
 
       # The pam_limits module will configure the lines in the limits files.
-      - name: 1.6.1 - Ensure core limits are set
+      - name: 1.5.1 - Ensure core limits are set
         pam_limits:
           dest: /etc/security/limits.d/CIS.conf
           domain: "*"
@@ -610,9 +638,27 @@
           limit_item: core
           value: "0"
     tags:
-      - 1.6.1
+      - 1.5.1
 
-  - name: 1.6.2 - Ensure address space layout reandomization (ASLR) is enabled
+  # Enable the No Execute / Execute Disable functionality on processors
+  - name: 1.5.2 Ensure XD/NX support is enabled
+    block:
+      # To see if it is set already, we poll the joural with a grep and register a variable
+      - name: search journal to see if protection was active at boot
+        shell: "/usr/bin/journalctl | /usr/bin/grep 'protection: active' "
+        register: nx_protection
+        changed_when: false
+
+      # If we can't verify that it is active, we notify the user. This has to be set
+      #  in the BIOS or with a special kernel (32 bit kernels only)
+      - name: Verify XD/NX support is active
+        debug:
+          msg: "XD/NX support is active"
+        when: nx_protection.stdout is search("active")
+    tags:
+      - 1.5.2
+
+  - name: 1.5.3 - Ensure address space layout reandomization (ASLR) is enabled
       # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
       #  to reload them immediately if 'reload' is set to 'yes'.
     sysctl:
@@ -622,22 +668,30 @@
       state: present
       sysctl_set: yes
     tags:
-      - 1.6.2
+      - 1.5.3
 
-  # 1.7 Mandatory Access Control
+  # Use system package manager to remove the prelink package
+  - name: 1.5.4 - Remove prelink package
+    yum:
+      name: prelink
+      state: absent
+    tags:
+      - 1.5.4
 
-  # Use system package manager to remove
-  - name: 1.7.1.1 - Ensure SELinux is installed
-    dnf:
+  # 1.6 Mandatory Access Control
+
+  # Use system package manager to install libselinux
+  - name: 1.6.2 - Ensure SELinux is installed
+    yum:
       name: libselinux
       state: present
     when: selinux is defined and selinux != "Disabled"
     tags:
-      - 1.7.1.1
+      - 1.6.2
 
   # Use the replace module to remove any disablment of selinux in grub if
   #  it isn't expressly disabled from a variable
-  - name: 1.7.1.2 - Ensure SELinux is not disabled in bootloader configuration
+  - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
     replace:
       dest: /etc/default/grub
       regexp: "{{ item }}"
@@ -648,29 +702,29 @@
     when: selinux is defined and selinux != "Disabled"
     notify: rebuild grub
     tags:
-      - 1.7.1.2
+      - 1.6.1.1
 
   # Replace the current selinux policy with whatever the variable is set for
-  - name: 1.7.1.3 - Set SELinux policy to {{ selinux_policy }}
+  - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
     replace:
       dest=/etc/selinux/config
       regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
       replace="SELINUXTYPE={{ selinux_policy }}"
     when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
     tags:
-      - 1.7.1.3
+      - 1.6.1.2
 
   # Check to see if machine currently has selinux disabled
-  - name: 1.7.1.3 - Find current state of selinux
+  - name: 1.6.1.2 - Find current state of selinux
     shell: /sbin/getenforce
     register: selinux_status
     changed_when: false
     tags:
-      - 1.7.1.3
+      - 1.6.1.2
 
   # If we are going to be enabling selinux in passive or enforcing mode,
   #  set the autorelabel and notify the machine to reboot
-  - name: 1.7.1.3 - If disabled and we are enabling it, autorelabel
+  - name: 1.6.1.2 - If disabled and we are enabling it, autorelabel
     file:
       path: /.autorelabel
       owner: root
@@ -680,31 +734,47 @@
     when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
     notify: reboot
     tags:
-      - 1.7.1.3
+      - 1.6.1.2
 
   # Replace the current selinux mode with what the variable is set to
-  - name: 1.7.1.4 - Set SELinux to {{ selinux | lower }}
+  - name: 1.6.1.3 - Set SELinux to {{ selinux | lower }}
     replace:
       dest: /etc/selinux/config
       regexp: "^SELINUX=((?!{{ selinux }}).)*$"
       replace: "SELINUX={{ selinux | lower }}"
     when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
     tags:
-      - 1.7.1.4
+      - 1.6.1.3
+
+  # Use system package manager to remove package
+  - name: 1.6.1.4 - Remove setroubleshoot
+    yum:
+      name: setroubleshoot
+      state: absent
+    tags:
+      - 1.6.1.4
+
+  # Use system package manager to remove package
+  - name: 1.6.1.5 - Remove MCS Translation Service
+    yum:
+      name: mcstrans
+      state: absent
+    tags:
+      - 1.6.1.5
 
   # Let the user know if there are any processes that are not running under the
   #  a selinux context
-  - name: 1.7.1.5 - Report on unconfined running services
+  - name: 1.6.1.6 - Report on unconfined running services
     block:
-      # In RHEL8, all unconfined services run under their own context
-      - name: 1.7.1.5 - Generate report on unconfined running services
-        shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
+      # use ps and grep to find services running under initrc context
+      - name: 1.6.1.5 - Generate report on unconfined running services
+        shell: /usr/bin/ps -eZ | egrep "initrc"
         register: unconfined_services_out
         failed_when: unconfined_services_out.rc == "2"
         changed_when: false
 
       # Print any findings to the user
-      - name: 1.7.1.5 - Report on unconfined running services to user
+      - name: 1.6.1.5 - Report on unconfined running services to user
         debug:
           msg:
             - "Unconfined processes found:"
@@ -712,27 +782,12 @@
         changed_when: true
         when: unconfined_services_out.stdout
     tags:
-      - 1.7.1.5
-
-  # Use system package manager to remove package
-  - name: 1.7.1.6 - Remove setroubleshoot
-    dnf:
-      name: setroubleshoot
-      state: absent
-    tags:
-      - 1.7.1.6
-
-  - name: 1.7.1.7 - Remove MCS Translation Service
-    yum:
-      name: mcstrans
-      state: absent
-    tags:
-      - 1.7.1.7
+      - 1.6.1.5
 
   # 1.8 Warning Banners
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
-  - name: 1.8.1.1 - Install motd banners
+  - name: 1.7.1.1 - Install motd banners
     copy:
       src: "{{ motd_file }}"
       dest: /etc/motd
@@ -740,11 +795,11 @@
       group: root
       mode: 0644
     tags:
-      - 1.8.1.1
-      - 1.8.1.4
+      - 1.7.1.1
+      - 1.7.1.4
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
-  - name: 1.8.1.2 - Install issue banners
+  - name: 1.7.1.2 - Install issue banners
     copy:
       src: "{{ issue_file }}"
       dest: /etc/issue
@@ -752,11 +807,11 @@
       group: root
       mode: 0644
     tags:
-      - 1.8.1.2
-      - 1.8.1.5
+      - 1.7.1.2
+      - 1.7.1.5
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
-  - name: 1.8.1.3 - Install issue.net banners
+  - name: 1.7.1.3 - Install issue.net banners
     copy:
       src: issue
       dest: /etc/issue.net
@@ -764,66 +819,83 @@
       group: root
       mode: 0644
     tags:
-      - 1.8.1.3
-      - 1.8.1.6
+      - 1.7.1.3
+      - 1.7.1.6
 
   # add a banner to the login screen if the graphical_interface variable is set to true
-  - name: 1.8.2 Ensure GDM banner set up
-    blockinfile:
-      # Add our required pieces to the greeter defaults file
-      path: /etc/gdm3/greeter.dconf-defaults
-      owner: root
-      group: root
-      mode: 0644
-      block: |
-        [org/gnome/login-screen]
-        banner-message-enable=true
-        banner-message-text='Authorized uses only. All activity may be monitored and reported.'
+  - name: 1.7.2 Ensure GDM banner set up
+    block:
+      # Add our required pieces to the dconf file for GDM
+      - name: 1.7.2 - Set up the dconf profile for GDM
+        blockinfile:
+          path: /etc/dconf/profile/gdm
+          owner: root
+          group: root
+          mode: 0644
+          block: |
+            user-db:user
+            system-db:gdm
+            file-db:/usr/share/gdm/greeter-dconf-defaults
+
+      # Set the greeter message
+      - name: 1.7.2 - Set GDM to use banner message
+        blockinfile:
+          path: /etc/dconf/db/gdm.d/01-banner-message
+          owern: root
+          group: root
+          mode: 0644
+          block: |
+            [org/gnome/login-screen]
+            banner-message-enable=true
+            banner-message-text='Authorized uses only. All activity may be monitored and reported.'
     when: graphical_inteface is defined and graphical_interface
     tags:
-      - 1.8.2
+      - 1.7.2
 
-  # 1.10 Configure crypto policy
-  - name: 1.10.0 - Configure crypto-policy
-    block:
-      - name: 1.10.0 - Display error if crypto variable violates policy
-        debug:
-          msg:
-            - "crypto_policy is set to: {{ crypto_policy }}. Which is not a valid selection."
-            - "Valid choices are DEFAULT, FUTURE, and FIPS."
-            - "LEGACY selection does not satisfy the control requirement"
-            - "Refusing to update crypto_policy information"
-        when: crypto_policy is defined and ( crypto_policy != "DEFAULT" and crypto_policy != "FUTURE" and crypto_policy != "FIPS" )
-
-      - name: 1.10.0 - Set crypto-policy to {{ crypto_policy | upper | default('DEFAULT', true) }}
-        lineinfile:
-          path: /etc/crypto-policies/config
-          regexp: "^(LEGACY|FUTURE|FIPS|DEFAULT)"
-          line: "{{ crypto_policy | upper | default('DEFAULT', true) }}"
-        notify: update crypto_policy
-
-      - name: 1.10.0 - Enabling FIPS mode if crypt_policy set to FIPS
-        shell: fips-mode-setup --enable
-        when: crypto_policy is defined and crypto_policy == "FIPS"
-    tags:
-      - 1.10.0
-
-  # 2 Services
+ ### Part 2, Services ###
   # Remove old, unused, insecure services
-  - name: 2.1.1 - Remove xinetd service
-    dnf:
-      name: xinetd
+  - name: 2.1.1 Remove unused services
+    yum:
+      name:
+        - rsh-server
+        - talk-server
+        - telnet-server
       state: absent
-    when: tftp_server is defined and not tftp_server
-
     tags:
       - 2.1.1
 
-  # RHEL 8 does not distribute ntp any longer, so we are not using the time_server
-  #  variable for RHEL8 controls
-  - name: 2.2.1.1 - Verify chrony is  installed
-    dnf:
-      name: "chrony"
+  - name: 2.1.2 - Remove xinetd  service  [controlled by host variable tftp_server]
+    yum:
+      name: xinetd
+      state: absent
+    when: tftp_server is defined and not tftp_server
+    tags:
+      - 2.1.2
+
+  # use replace to make sure that listed services are disabled
+  - name: Disable non-tftp services (if we are a tftp server)
+    replace: regexp="disable\s+=\s+[^yes]" replace="  disable = yes" dest=/etc/xinetd.d/{{ item }}
+    with_items:
+      - chargen-dgram
+      - chargen-stream
+      - chargen-dgram
+      - daytime-dgram
+      - daytime-stream
+      - discard-dgram
+      - discard-stream
+      - echo-dgram
+      - tcpmux-server
+      - time-dgram
+      - time-stream
+    when: tftp_server is defined and tftp_server
+    ignore_errors: true
+    tags:
+      - 2.1.2
+
+  # Set up the time server listed in the time_server variable
+  - name: 2.2.1.1 - Verify {{ time_server }} is installed
+    yum:
+      name: "{{ time_server }}"
       state: present
     tags:
       - 2.2.1.1
@@ -831,14 +903,35 @@
   # Use the template module to deploy the config file for the time sync program
   #  The default file does not have any template variables, but it's there so
   #  they can be added in the future.
-  - name: 2.2.1.2 - Configure chrony
+  - name: 2.2.1.2 - Configure {{ time_server }}
     template:
-      src: "chrony.conf"
-      dest: /etc/chrony.conf
+      src: "{{ time_server }}.conf"
+      dest: /etc/{{ time_server }}.conf
       owner: root
       group: root
       mode: 0644
-    notify: restart chronyd
+    notify: restart {{ time_server }}d
+    tags:
+      - 2.2.1.2
+
+  # Chrony and ntp argue if they are both active at the same time. Disable
+  #  the other service.
+  - name: 2.2.1.2 - disable chronyd if time_server is set to ntp
+    systemd:
+      name: chronyd
+      state: stopped
+      enabled: no
+    when: time_server is defined and time_server != "chrony"
+    tags:
+      - 2.2.1.2
+
+  - name: 2.2.1.2 - disable ntpd if time_server is set to chrony
+    systemd:
+      name: ntpd
+      state: stopped
+      enabled: no
+    when: time_server is defined and time_server != "ntp"
+    ignore_errors: true
     tags:
       - 2.2.1.2
 
@@ -891,156 +984,150 @@
     set_fact:
       unneeded_packages: []
 
-  - name: 2.2.3 - Remove rsync; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'rsync' ] }}"
-    tags:
-      - 2.2.3
-
-  - name: 2.2.4 - Remove avahi; add to removal list
+  - name: 2.2.3 - add avahi to unneeded package list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'avahi' ] }}"
     tags:
-      - 2.2.4
+      - 2.2.3
 
-  - name: 2.2.5 - Remove snmp; add to removal list
+  - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'net-snmp' ] + [ 'net-snmp-libs'] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
+    when: dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
-  - name: 2.2.6 - Remove squid; add to removal list
+  - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'squid' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
     tags:
       - 2.2.6
 
-  - name: 2.2.7 - Remove samba; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'samba' ] }}"
-    when: smb_server is defined and not smb_server
-    tags:
-      - 2.2.7
-
-  - name: 2.2.8 - Remove dovecot; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dovecot' ] }}"
-    when: email_server is defined and not email_server
-    tags:
-      - 2.2.8
-
-  - name: 2.2.9 - Remove httpd; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
-    when: http_server is defined and not http_server
-    tags:
-      - 2.2.9
-
-  - name: 2.2.10 - Remove vsftpd; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'vsftpd' ] }}"
-    when: ftp_server is defined and not ftp_server
-    tags:
-      - 2.2.10
-
-  - name: 2.2.11 - Remove bind; add to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'bind' ] + [ 'unbound' ] }}"
-    when: dns_server is defined and not dns_server
-    tags:
-      - 2.2.11
-
-  - name: 2.2.12 - Remove nfs server; add to removal list
+  - name: 2.2.7 - Remove nfs server; add to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'nfs-utils' ] }}"
     when: nfs_server is defined and not nfs_server
     tags:
+      - 2.2.7
+
+  - name: 2.2.8 - Remove bind; add to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'bind' ] + [ 'unbound' ] }}"
+    when: dns_server is defined and not dns_server
+    tags:
+      - 2.2.8
+
+  - name: 2.2.9 - Remove vsftpd; add to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'vsftpd' ] }}"
+    when: ftp_server is defined and not ftp_server
+    tags:
+      - 2.2.9
+
+  - name: 2.2.10 - Remove httpd; add to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
+    when: http_server is defined and not http_server
+    tags:
+      - 2.2.10
+
+  - name: 2.2.11 - add dovecot to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'dovecot' ] }}"
+    tags:
+      - 2.2.11
+
+  - name: 2.2.12 - Remove samba; add to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'samba' ] }}"
+    when: smb_server is defined and not smb_server
+    tags:
       - 2.2.12
 
-  - name: 2.2.13 - Remove rpcbind; add to removal list
+  - name: 2.2.13 - add squid to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'rpcbind' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'squid' ] }}"
+    when: not proxy_server
     tags:
       - 2.2.13
 
-  # control 2.2.14 skipped. RHEL uses LDAP implemented in SSSD by default
-
-  - name: 2.2.15 - Remove dhcp-server; add to removal list
+  - name: 2.2.14 - add net-snmp to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
-    when: dhcp_server is defined and not dhcp_server
+      unneeded_packages: "{{ unneeded_packages + [ 'net-snmp', 'net-snmp-libs' ] }}"
     tags:
-      - 2.2.15
+      - 2.2.14
 
-  - name: 2.2.17 - Remove ypserv; add to removal list
+  - name: 2.2.16 - add ypserv to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'ypserv' ] }}"
     tags:
-      - 2.2.17
+      - 2.2.16
 
-  - name: 2.3.1 - Remove ypbind; add to removal list
+  - name: 2.3.1 - add ypbind to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'ypbind' ] }}"
     when: not ypbind
     tags:
       - 2.3.1
 
-  - name: 2.3.2 - Remove telnet; add to removal list
+  - name: 2.2.17 - add rsh to unneeded package list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'telnet' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'rsh' ] }}"
     tags:
-      - 2.3.2
+      - 2.2.17
 
-  - name: 2.3.3 - Remove openldap-clients; add to removal list
+  - name: 2.3.3 - add talk to unneeded package list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap-clients' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'talk' ] }}"
     tags:
       - 2.3.3
 
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    dnf:
+    yum:
       name: unneeded_packages
       state: absent
 
-  # Cups should be remove per control 2.2.16, but it may not be able to due to
+  # Cups should be remove per control 2.2.4, but it may not be able to due to
   #  dependencies, so disable the service instead
-  - name: 2.2.16 - Disable cups as we my not be able to uninstall it
+  - name: 2.2.4 - Disable cups as we my not be able to uninstall it
     block:
-      - name: 2.2.16 - Check if cups is enabled
+      - name: 2.2.4 - Check if cups is enabled
         shell: /usr/bin/systemctl is-enabled cups
         register: cups_out
         failed_when: cups_out.rc == "2"
         changed_when: false
 
-      - name: 2.2.16 - If it is, then stop and disable it
+      - name: 2.2.4 - If it is, then stop and disable it
         service:
           name: cups
           enabled: no
           state: stopped
         when: cups_out.stdout == "enabled"
     tags:
-      - 2.2.16
+      - 2.2.4
 
   # Use the stat module to determine if the mail server config file exists.
   #  If it does and we are to be a mail server, then modify it per the control.
-  - name: 2.2.18 - Configure email for local-only mode if mail software is installed and not intending to be an external email relay (mail_server=false)
+  - name: 2.2.15 - Configure email for local-only mode if mail software is installed and not intending to be an external email relay (mail_server=false)
     block:
-      - name: 2.2.18 - Find if we have a mail agent config file
+      - name: 2.2.15 - Find if we have a mail agent config file
         stat:
           path: /etc/postfix/main.cf
         register: postfix_out
         changed_when: false
 
-      - name: 2.2.18 - If the file exists and not a mail server, then set loopback only
+      - name: 2.2.15 - If the file exists and not a mail server, then set loopback only
         replace:
           dest: /etc/postfix/main.cf
           regexp: "^inet_interfaces = ((?!localhost).)*$"
           replace: "inet_interfaces = loopback-only"
         when: postfix_out.stat.exists and not email_server
     tags:
-      - 2.2.18
+      - 2.2.15
+
+    # openldap clients skipped (2.3.5)
 
   # Section 3, Network parameters
 
@@ -1064,13 +1151,10 @@
       - net.ipv4.conf.default.accept_redirects # (3.2.2)
       - net.ipv4.conf.all.secure_redirects # (3.2.3)
       - net.ipv4.conf.default.secure_redirects # (3.2.3)
-      - net.ipv6.conf.all.forwarding # (3.1.1)
-      - net.ipv6.conf.all.accept_source_route # (3.2.1)
-      - net.ipv6.conf.default.accept_source_route # (3.2.1)
-      - net.ipv6.conf.all.accept_redirects # (3.2.2)
-      - net.ipv6.conf.default.accept_redirects # (3.2.2)
-      - net.ipv6.conf.all.accept_ra # (3.2.9)
-      - net.ipv6.conf.default.accept_ra # (3.2.9)
+      - net.ipv6.conf.all.accept_redirects # (3.3.2)
+      - net.ipv6.conf.default.accept_redirects # (3.3.2)
+      - net.ipv6.conf.all.accept_ra # (3.3.1)
+      - net.ipv6.conf.default.accept_ra # (3.3.1)
     notify: flush network routes
     tags:
       - 3.1.0
@@ -1099,151 +1183,11 @@
     tags:
       - 3.2.0
 
-  - name: 3.3 - Disable uncommon network protocols
+  - name: 3.3 - Disable IPv6
     block:
-      # This collection of tasks creates a empty list and save it as a fact.
-      #  For every item that is encountered (without the tag being skipped),
-      #  add a string to the list.
-      - name: 3.3.0 - Create empty list of uncommon network protocols to disable
-        set_fact:
-          uncommon_network: []
-
-      - name: 3.3.1 - Add dccp to list of uncommon network protocols to disable
-        set_fact:
-          uncommon_network: "{{ uncommon_network + [ 'dccp' ] }}"
-        tags:
-          - 3.3.1
-
-      - name: 3.3.2 - Add sctp to list of uncommon network protocols to disable
-        set_fact:
-          uncommon_network: "{{ uncommon_network + [ 'sctp' ] }}"
-        tags:
-          - 3.3.2
-
-      - name: 3.3.3 - Add rds to list of uncommon network protocols to disable
-        set_fact:
-          uncommon_network: "{{ uncommon_network + [ 'rds' ] }}"
-        tags:
-          - 3.3.3
-
-      - name: 3.3.4 - Add tipc to list of uncommon network protocols to disable
-        set_fact:
-          uncommon_network: "{{ uncommon_network + [ 'tipc' ] }}"
-        tags:
-          - 3.3.4
-
-  # With the list complete, use it with the system's package manager
-  #  to remove packages from the system that are not needed.
-      - name: 3.5.0 - Process uncommon network list
-        lineinfile:
-          dest=/etc/modprobe.d/CIS.conf
-          line="install {{ item }} /bin/true"
-          state=present
-          create=yes
-        loop:
-          - uncommon_network
-    tags:
-      - 3.3.0
-
-  # Section 3 - Firewall
-
-  - name: 3.4.1 - Install firewall package
-    block:
-      - name: 3.4.1.1 - Install firewalld
-        dnf:
-          name: "firewalld"
-          state: present
-        notify: start firewalld # 3.4.2.1
-
-      - name: 3.4.2.2 - Disable iptables service
-        service:
-          name: iptables
-          state: stopped
-          enabled: no
-          masked: yes
-        ignore_errors: true
-        failed_when: false
-
-      - name: 3.4.2.3 - Disable netfilters service
-        systemd:
-          name: nftables
-          state: stopped
-          enabled: no
-          masked: yes
-        ignore_errors: true
-
-      - name: 3.4.2.4 - Ensure default zone is set for firewalld
-        shell: /usr/bin/firewall-cmd --get-default-zone
-        changed_when: false
-        register: firewalld_zone
-
-      - name: 3.4.2.4 - Set default zone
-        shell: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
-        when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
-
-      # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
-      # 3.4.2.6 Ensure unnecessary services and ports are not accepted
-
-      - debug:
-          msg:
-            - "3.4.2.7 - Ensure default firewalld policy must be handled locally"
-        tags:
-          - 3.4.2
-
-    when: enable_firewall is defined and enable_firewall == "firewalld"
-    tags:
-      - 3.4.1
-      - 3.4.2
-
-  # Control 3.4.3 Configure nftables, skipping
-
-  - name: 3.4.4.1 - Install iptables
-    block:
-      - name: 3.4.4.1 - Install iptables
-        yum:
-          name:
-            - "iptables"
-            - "iptables-services"
-          state: present
-        notify: start iptables
-        tags:
-          - 3.4.4.1
-
-      - name: 3.4.4.1 - Disable firewalld
-        service:
-          name: firewalld
-          state: stopped
-          enabled: no
-          ignore_errors: true
-        tags:
-          - 3.4.4.1
-
-      - debug:
-          msg:
-            - "Ensure default firewall policy (3.4.4.1.[1-4]) must be handled locally"
-        tags:
-          - 3.4.4.1
-
-    when: enable_firewall is defined and enable_firewall == "iptables"
-    tags:
-      - 3.4.4
-
-
-  - name: 3.4.4.2 - Configure IPv6 iptables
-    debug:
-      msg: "3.4.4.2, Configure IPv6 ip6tables skipping due to low use"
-    when: ipv6_disable and enable_firewall == "firewalld"
-    tags:
-      - 3.4.4.2
-
-  # Control 3.5 Ensure wireless interfaces are disabled is interface dependent
-  # skipping
-
-  - name: 3.6 - Disable IPv6
       # We check here because we don't know what position the ipv6.disable is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
-    block:
       - name: 3.3 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
         shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
         register: ipv6_disable
@@ -1252,7 +1196,7 @@
 
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
-      - name: 3.6 - Disable IPv6 in grub
+      - name: 3.3 - Disable IPv6 in grub
         replace:
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
@@ -1271,52 +1215,167 @@
         loop:
           - net.ipv6.conf.all.disable_ipv6
           - net.ipv6.conf.default.disable_ipv6
+
     tags:
-      3.6.0
+      3.3.0
+
+  # TCP Wrappers is not distributed by RHEL, but was distributed via EPEL until the end
+  #  of 2018. It is being left in the RHEL7 controls because it may still be in some security
+  #  requirements. It is not included in the RHEL8 controls
+  - name: 3.4 - TCP Wrappers
+    block:
+      - name: 3.4.1 - Install tcpwrappers
+        yum:
+          name: tcp_wrappers
+          state: present
+
+      # use lineinfile to make sure everyone has access to tcpwrappers
+      #  from the local machine
+      - name: 3.4.2 - create basic hosts.allow
+        lineinfile:
+          dest: /etc/hosts.allow
+          owner: root
+          group: root
+          mode: 0644
+          line: "ALL: 127.0.0.1"
+
+      - debug:
+          msg: "not setting all on hosts.deny (3.4.3)"
+
+      - name: 3.4.[4-5] - Set permissions on tcpwrappers files
+        file:
+          path: "{{item}}"
+          owner: root
+          group: root
+          mode: 0644
+        loop:
+          - /etc/hosts.allow # (3.4.4)
+          - /etc/hosts.deny # (3.4.5)
+    when: tcpwrappers
+    tags:
+      - 3.4.0
+
+  - name: 3.5 - Disable uncommon network protocols
+    block:
+      # This collection of tasks creates a empty list and save it as a fact.
+      #  For every item that is encountered (without the tag being skipped),
+      #  add a string to the list.
+      - name: 3.5.0 - Create empty list of uncommon network protocols to disable
+        set_fact:
+          uncommon_network: []
+
+      - name: 3.5.1 - Add dccp to list of uncommon network protocols to disable
+        set_fact:
+          uncommon_network: "{{ uncommon_network + [ 'dccp' ] }}"
+        tags:
+          - 3.5.1
+
+      - name: 3.5.2 - Add sctp to list of uncommon network protocols to disable
+        set_fact:
+          uncommon_network: "{{ uncommon_network + [ 'sctp' ] }}"
+        tags:
+          - 3.5.2
+
+      - name: 3.5.3 - Add rds to list of uncommon network protocols to disable
+        set_fact:
+          uncommon_network: "{{ uncommon_network + [ 'rds' ] }}"
+        tags:
+          - 3.5.3
+
+      - name: 3.5.4 - Add tipc to list of uncommon network protocols to disable
+        set_fact:
+          uncommon_network: "{{ uncommon_network + [ 'tipc' ] }}"
+        tags:
+          - 3.5.4
+
+  # With the list complete, use it with the system's package manager
+  #  to remove packages from the system that are not needed.
+      - name: 3.5.0 - Process uncommon network list
+        lineinfile:
+          dest=/etc/modprobe.d/CIS.conf
+          line="install {{ item }} /bin/true"
+          state=present
+          create=yes
+        loop:
+          - uncommon_network
+    tags:
+      - 3.5.0
+
+  # Section 3 - Firewall
+
+  - name: 3.6 - Install firewalld
+    block:
+      - name: 3.6.1 - Install firewalld
+        yum:
+          name: "firewalld"
+          state: present
+        notify: start firewalld
+
+      - name: 3.6.1 - Disable iptables
+        service:
+          name: iptables
+          state: stopped
+          enabled: no
+          masked: yes
+        ignore_errors: true
+        failed_when: false
+
+      - name: 3.6.1 - Ensure default zone is set for firewalld
+        shell: /usr/bin/firewall-cmd --get-default-zone
+        changed_when: false
+        register: firewalld_zone
+
+      - name: 3.6.1 - Set default zone
+        shell: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+        when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
+
+    when: enable_firewall is defined and enable_firewall == "firewalld"
+    tags:
+      - 3.6.1
+
+  - name: 3.6.1 - Install iptables
+    block:
+      - name: 3.6.1 Install iptables
+        yum:
+          name:
+            - "iptables"
+            - "iptables-services"
+          state: present
+        notify: start iptables
+        tags:
+          - 3.6.1
+
+      - name: 3.6.1 - Disable firewalld
+        service:
+          name: firewalld
+          state: stopped
+          enabled: no
+          ignore_errors: true
+    when: enable_firewall is defined and enable_firewall == "iptables"
+    tags:
+      - 3.6.1
+
+  - debug:
+      msg: " Ensure default firewall policy (3.6.[2-5]) must be handled locally"
+
+
+# Control 3.7 Ensure wireless interfaces are disabled is interface dependent
+# skipping
 
   # Section 4 - Logging and Auditing
 
   - name: 4.1 Install and configure system auditing
     block:
       - name: 4.1.1 - Install Audit
-        dnf:
+        yum:
           name:
             - audit
             - audit-libs
           state: present
         tags:
           - 4.1.1.1
-
-      - name: 4.1.1.2 - Enable auditd service
-        service:
-          name: auditd
-          enabled: yes
-          state: started
-        tags:
-          - 4.1.1.2
-
-      - name: 4.1.1.3 - Ensure auditing for processes that sart prior to auditd
-        replace:
-          dest: /etc/default/grub
-          regexp: "rhgb quiet\""
-          replace: "rhgb quiet audit=1\""
-        register: audit_grub = "1"
-        tags:
-          - 4.1.1.3
-          - 4.1.1.4
-
-      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient
-        replace:
-          dest: /etc/default/grub
-          regexp: "audit=1\""
-          replace: "audit=1 audit_backlog_limit={{ audit_backlog_limit }}\""
-        notify: rebuild grub
-        tags:
-          - 4.1.1.4
-
       # The replace module here is looking through file and make replacements of partial lines
-
-      - name: 4.1.2.[1-2] - Configure audit log storage size
+      - name: 4.1.1-[2-3] - Configure audit log storage size
         replace:
           path: /etc/audit/auditd.conf
           regexp: "{{ item.find }}"
@@ -1328,55 +1387,32 @@
           - { find: '^action_mail_acct\s+=\s+(^root)*$' , replace: 'action_mail_acct = root' } # 4.1.2.2
           - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)' , replace: 'admin_space_left_action = suspend' } # 4.1.2.2
         tags:
-          - 4.1.2.1
-          - 4.1.2.2
-          - 4.1.2.3
+          - 4.1.1.2
+          - 4.1.1.3
+
+      - name: 4.1.2 - Enable auditd service
+        service:
+          name: auditd
+          enabled: yes
+          state: started
+        tags:
+          - 4.1.2
+
       # This isn't the best way to do this since users can modify the line and it will
       #  break this control check. It needs to be re-evaluated.
-      - name: 4.1.3 - Ensure changes to sudoers is collected
-        copy:
-          dest: /etc/audit/rules.d/sudoers.rules
-          content: |
-            -w /etc/sudoers -p wa -k scope
-            -w /etc/sudoers.d/ -p wa -k scope
-          owner: root
-          group: root
-          mode: 0600
-        notify: restart auditd
+      - name: 4.1.3 - Ensure auditing for processes that start prior to auditd
+        replace:
+          dest: /etc/default/grub
+          regexp: "rhgb quiet\""
+          replace: "rhgb quiet audit=1\""
+        when: enable_audit is defined and enable_audit
         tags:
-          4.1.3
+          - 4.1.3
 
       # For the next several checks, each one is in their own file, so we are using
       #  the copy module to place each file independently and then motifying
       #  a restart of auditd if anything changes.
-      - name: 4.1.4 - Ensure system logins are collected
-        copy:
-          dest: /etc/audit/rules.d/login.rules
-          content: |
-            -w /var/log/faillog -p wa -k logins
-            -w /var/log/lastlog -p wa -k logins
-          owner: root
-          group: root
-          mode: 0600
-        notify: restart auditd
-        tags:
-          4.1.4
-
-      - name: 4.1.5 - Ensure session initiation information is collected
-        copy:
-          dest: /etc/audit/rules.d/sessions.rules
-          content: |
-            -w /var/run/utmp -p wa -k session
-            -w /var/log/wtmp -p wa -k logins
-            -w /var/log/btmp -p wa -k logins
-          owner: root
-          group: root
-          mode: 0600
-        notify: restart auditd
-        tags:
-          4.1.5
-
-      - name: 4.1.6 Ensure to collect events that modify date/time
+      - name: 4.1.4 - Ensure to collect events that modify date/time
         copy:
           dest: /etc/audit/rules.d/datetime.rules
           content: |
@@ -1385,6 +1421,39 @@
             -a always,exit -F arch=b64 -S clock_settime -k time-change
             -a always,exit -F arch=b32 -S clock_settime -k time-change
             -w /etc/localtime -p wa -k time-change
+          owner: root
+          group: root
+          mode: 0600
+        notify: restart auditd
+        tags:
+          - 4.1.4
+
+      - name: 4.1.5 - Ensure events that modify user/group information are collected
+        copy:
+          dest: /etc/audit/rules.d/user-group-info.rules
+          content: |
+            -w /etc/group -p wa -k identity
+            -w /etc/passwd -p wa -k identity
+            -w /etc/gshadow -p wa -k identity
+            -w /etc/shadow -p wa -k identity
+            -w /etc/security/opasswd -p wa -k identity
+          owner: root
+          group: root
+          mode: 0600
+        notify: restart auditd
+        tags:
+          4.1.5
+
+      - name: 4.1.6 - Ensure to collect events that modify network
+        copy:
+          dest: /etc/audit/rules.d/network.rules
+          content: |
+            -a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
+            -a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
+            -w /etc/issue -p wa -k system-locale
+            -w /etc/issue.net -p wa -k system-locale
+            -w /etc/hosts -p wa -k system-locale
+            -w /etc/sysconfig/network -p wa -k system-locale
           owner: root
           group: root
           mode: 0600
@@ -1405,16 +1474,12 @@
         tags:
           4.1.7
 
-      - name: 4.1.8 - Ensure modifications to network environment are collected
+      - name: 4.1.8 - Ensure system logins are collected
         copy:
-          dest: /etc/audit/rules.d/network.rules
+          dest: /etc/audit/rules.d/login.rules
           content: |
-            -a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
-            -a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
-            -w /etc/issue -p wa -k system-locale
-            -w /etc/issue.net -p wa -k system-locale
-            -w /etc/hosts -p wa -k system-locale
-            -w /etc/sysconfig/network -p wa -k system-locale
+            -w /var/log/faillog -p wa -k logins
+            -w /var/log/lastlog -p wa -k logins
           owner: root
           group: root
           mode: 0600
@@ -1422,8 +1487,22 @@
         tags:
           4.1.8
 
+      - name: 4.1.9 - Ensure session initiation information is collected
+        copy:
+          dest: /etc/audit/rules.d/sessions.rules
+          content: |
+            -w /var/run/utmp -p wa -k session
+            -w /var/log/wtmp -p wa -k logins
+            -w /var/log/btmp -p wa -k logins
+          owner: root
+          group: root
+          mode: 0600
+        notify: restart auditd
+        tags:
+          4.1.9
+
       # This is the first control that we use the min_uid variable that we determined earlier
-      - name: 4.1.9 - Ensure modifications to discretionary access controls are collected
+      - name: 4.1.10 - Ensure modifications to discretionary access controls are collected
         copy:
           dest: /etc/audit/rules.d/dac.rules
           content: |
@@ -1438,7 +1517,7 @@
           mode: 0600
         notify: restart auditd
         tags:
-          4.1.9
+          4.1.10
 
       - name: 4.1.10 - Ensure unsuccessful unauthorized file access attempts are collected
         copy:
@@ -1453,25 +1532,12 @@
           mode: 0600
         notify: restart auditd
         tags:
-          4.1.10
-
-      - name: 4.1.11 - Ensure events that modify user/group information are collected
-        copy:
-          dest: /etc/audit/rules.d/user-group-info.rules
-          content: |
-            -w /etc/group -p wa -k identity
-            -w /etc/passwd -p wa -k identity
-            -w /etc/gshadow -p wa -k identity
-            -w /etc/shadow -p wa -k identity
-            -w /etc/security/opasswd -p wa -k identity
-          owner: root
-          group: root
-          mode: 0600
-        notify: restart auditd
-        tags:
           4.1.11
 
-      - name: 4.1.12 - Ensure successful file system mounts are collected
+      # Control 4.1.12 - Ensure use of privileged commands is collected, is machine dependent
+      # skipping
+
+      - name: 4.1.13 - Ensure successful file system mounts are collected
         copy:
           dest: /etc/audit/rules.d/file-system-mounts.rules
           content: |
@@ -1482,10 +1548,7 @@
           mode: 0600
         notify: restart auditd
         tags:
-          4.1.12
-
-      # Control 4.1.13 - Ensure use of privileged commands is collected, is machine dependent
-      # skipping
+          4.1.13
 
       - name: 4.1.14 - Ensure file deletion events by users are collected
         copy:
@@ -1500,7 +1563,22 @@
         tags:
           4.1.14
 
-      - name: 4.1.15 - Ensure kernel module loading and unloading is collected
+      - name: 4.1.15 - Ensure sysadmin actions (sudolog) are collected
+        copy:
+          dest: /etc/audit/rules.d/sudolog.rules
+          content: |
+            -w /etc/sudoers -p wa -k scope
+            -w /etc/sudoers.d/ -p wa -k scope
+            -w /var/log/sudoers -p wa -k actions
+          owner: root
+          group: root
+          mode: 0600
+        notify: restart auditd
+        tags:
+          4.1.15
+          4.1.16
+
+      - name: 4.1.17 - Ensure kernel module loading and unloading is collected
         copy:
           dest: /etc/audit/rules.d/modules.rules
           content: |
@@ -1513,21 +1591,9 @@
           mode: 0600
         notify: restart auditd
         tags:
-          4.1.15
+          4.1.17
 
-      - name: 4.1.16 - Ensure sysadmin actions (sudolog) are collected
-        copy:
-          dest: /etc/audit/rules.d/sudolog.rules
-          content: |
-            -w {{ sudo_log }} -p wa -k actions
-          owner: root
-          group: root
-          mode: 0600
-        notify: restart auditd
-        tags:
-          4.1.16
-
-      - name: 4.1.17 - Ensure audit configuration is immutable
+      - name: 4.1.18 - Ensure audit configuration is immutable
         copy:
           dest: /etc/audit/rules.d/99-finalize.rules
           content: |
@@ -1537,23 +1603,26 @@
           mode: 0600
         notify: restart auditd
         tags:
-          4.1.17
+          4.1.18
     when: enable_audit is defined and enable_audit
 
-  # Section 4, Logging
+
   - name: 4.2.1.1 - Ensure rsyslog is installed
     yum:
       name: rsyslog
       state: present
     tags:
-      - 4.2.1.1
+      - 4.2.3
 
-  - name: 4.2.1.2 - Enable Rsyslog
+  - name: 4.2.1.1 - Enable Rsyslog
     service:
       name: rsyslog
       enabled: yes
     tags:
-      - 4.2.1.2
+      - 4.2.1.1
+
+  # Control 4.2.1.2 - Ensure logging is configured is machine dependent
+  # skipping
 
   - name: 4.2.1.3 - Ensure rsyslog default file permissions are configured
     lineinfile:
@@ -1565,27 +1634,24 @@
     tags:
       - 4.2.1.3
 
-  # Control 4.2.1.4 - Ensure logging is configured is machine dependent
+  # Control 4.2.1.4 - Ensure rsyslog is configured to send logs to a remote log host is machine dependent
   # skipping
 
-  # Control 4.2.1.5 - Ensure rsyslog is configured to send logs to a remote log host is machine dependent
-  # skipping
-
-  - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
+  - name: 4.2.1.5 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
-      - name: 4.2.1.6 - Find all rsyslog files where module is loaded
+      - name: 4.2.1.5 - Find all rsyslog files where module is loaded
         shell: /usr/bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_module_out
         changed_when: false
         failed_when: rsyslog_module_out.rc == "2"
 
-      - name: 4.2.1.6 - Find all rsyslog files where TCP port is set
+      - name: 4.2.1.5 - Find all rsyslog files where TCP port is set
         shell: /usr/bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_tcp_out
         changed_when: false
         failed_when: rsyslog_tcp_out.rc == "2"
 
-      - name: 4.2.1.6 - Disable loading module on non log hosts
+      - name: 4.2.1.5 - Disable loading module on non log hosts
         lineinfile:
           dest: "{{ item }}"
           regexp: '^\$ModLoad\s+imtcp'
@@ -1593,7 +1659,7 @@
         loop: "{{ rsyslog_module_out.stdout_lines }}"
         when: log_host is defined and not log_host
 
-      - name: 4.2.1.6 - Disable TCP port listening on non log hosts
+      - name: 4.2.1.5 - Disable TCP port listening on non log hosts
         lineinfile:
           dest: "{{ item }}"
           regexp: '^\$InputTCPServerRun'
@@ -1601,7 +1667,7 @@
         loop: "{{ rsyslog_tcp_out.stdout_lines }}"
         when: log_host is defined and not log_host
 
-      - name: 4.2.1.6 - Enable loading of imtcp module on log hosts
+      - name: 4.2.1.5 - Enable loading of imtcp module on log hosts
         lineinfile:
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$ModLoad\s+imtcp'
@@ -1612,7 +1678,7 @@
           mode: 0644
         when: log_host is defined and log_host
 
-      - name: 4.2.1.6 - Enable TCP Port listening on port {{ log_port }}
+      - name: 4.2.1.5 - Enable TCP Port listening on port {{ log_port }}
         lineinfile:
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$InputTCPServerRun {{ log_port }}'
@@ -1623,46 +1689,11 @@
           mode: 0644
         when: log_host is defined and log_host
     tags:
-      - 4.2.1.6
+      - 4.2.1.5
 
-  - name: 4.2.2 - Configure journald
-    block:
-      - name: Find any rsyslog files where all logs are being forwarded to a loghost
-        shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
-        register: rsyslog_forward_out
-        changed_when: false
-        failed_when: rsyslog_forward_out.rc == "2"
+  # Configure syslog-ng (4.2.2) not handled as not a supported package from RHEL
 
-      - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
-        lineinfile:
-          dest: /etc/systemd/journald.conf
-          regexp: "^ForwardToSyslog=yes"
-          line: "ForwardToSyslog=yes"
-          insertafter: "#ForwardToSyslog=no"
-        when: rsyslog_forward_out.stdout
-    tags:
-      - 4.2.2.1
-
-  - name: 4.2.2.2 - Ensure journald compresses large files
-    lineinfile:
-      dest: /etc/systemd/journald.conf
-      regexp: "^Compress=yes"
-      line: "Compress=yes"
-      insertafter: "^#Compress="
-    tags:
-      - 4.2.2.2
-
-  - name: 4.2.2.3 - Ensure journald writes to peristent disk
-    lineinfile:
-      dest: /etc/systemd/journald.conf
-      regexp: "^Storage=persistent"
-      line: "Storage=persistent"
-      insertafter: "^#Storage="
-    tags:
-      - 4.2.2.3
-
-  # Control 4.2.3, Ensure permissions on log files are configured, is machine dependant
-  # skipping
+  # Ensure rsyslog package is installed (4.2.3) moved to before 4.2.1.1 which is the package install
 
   - name: 4.3 - Ensure logrotate is installed and configured
     yum:
@@ -1750,50 +1781,10 @@
         tags:
           - 5.2.1
 
-      # Control 5.2.2, Ensure SSH access is limited is environment dependent
-      # skipping
+      # Control 5.2.2, Ensure SSH Protocol is set to 2, is not supported in OpenSSH
+      # supplied by Red Hat any longer. Omitting
 
-      - name: 5.2.3 - Set Permissions on ssh private host keys
-        block:
-          - name: 5.2.3 - Find all ssh private host keys
-            find:
-              paths: /etc/ssh
-              file_type: file
-              patterns: ssh_host_*_key
-            register: ssh_host_out
-            changed_when: false
-
-          - name: 5.2.3 - Set permissions on all ssh private host keys (Red Hat set the group to ssh_keys and mode to 640)
-            file:
-              dest: "{{ item.path }}"
-              owner: root
-              group: ssh_keys
-              mode: 0640
-            loop: "{{ ssh_host_out.files }}"
-        tags:
-          - 5.2.3
-
-      - name: 5.2.4 - Set Permissions on ssh public host keys
-        block:
-          - name: 5.2.4 - Find all ssh public host keys
-            find:
-              paths: /etc/ssh
-              file_type: file
-              patterns: ssh_host_*_key.pub
-            register: ssh_hostpub_out
-            changed_when: false
-
-          - name: 5.2.4 - Set permissions on all ssh public host keys
-            file:
-              dest: "{{ item.path }}"
-              owner: root
-              group: root
-              mode: 0644
-            loop: "{{ ssh_hostpub_out.files }}"
-        tags:
-          - 5.2.4
-
-      - name: 5.2.5 - Set LogLevel to {{ ssh_log_level }} or more verbose, but not debug
+      - name: 5.2.3 - Set LogLevel to {{ ssh_log_level }} or more verbose, but not debug
         replace:
           path: /etc/ssh/sshd_config
           replace: "LogLevel {{ ssh_log_level | upper }}"
@@ -1801,20 +1792,20 @@
         notify:  restart sshd
         when: ssh_log_level == "INFO" or ssh_log_level == "WARN"
         tags:
-          - 5.2.5
+          - 5.2.3
 
       # Using replace with a replace argument of "" removes the selected
       #  text.
-      - name: 5.2.6 - Disable X11 forwarding
+      - name: 5.2.4 - Disable X11 forwarding
         replace:
           path: /etc/ssh/sshd_config
           replace: ""
           regexp: '^X11Forwarding\s*yes'
         notify:  restart sshd
         tags:
-          - 5.2.6
+          - 5.2.4
 
-      - name: 5.2.7 - Ensure SSH MaxAuthTires is set to {{ ssh_max_auth_tries }} or less
+      - name: 5.2.5 - Ensure SSH MaxAuthTires is set to {{ ssh_max_auth_tries }} or less
         lineinfile:
           path: /etc/ssh/sshd_config
           line: "MaxAuthTries {{ ssh_max_auth_tries }}"
@@ -1822,54 +1813,64 @@
           insertafter: "^#MaxAuthTries"
         notify:  restart sshd
         tags:
-          - 5.2.7
+          - 5.2.5
 
-      - name: 5.2.8 - Ensure IgnoreRhosts is set
+      - name: 5.2.6 - Ensure IgnoreRhosts is set
         lineinfile:
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^IgnoreRhosts\s*no'
         notify:  restart sshd
         tags:
-          - 5.2.8
+          - 5.2.6
 
-      - name: 5.2.9 - Ensure HostbasedAuthentication is disabled
+      - name: 5.2.7 - Ensure HostbasedAuthentication is disabled
         lineinfile:
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^HostbasedAuthentication\s*yes'
         notify:  restart sshd
         tags:
-          - 5.2.9
+          - 5.2.7
 
-      - name: 5.2.10 Ensure PermitRootLogin is disbled
+      - name: 5.2.8 Ensure PermitRootLogin is disbled
         lineinfile:
           path: /etc/ssh/sshd_config
           line: "PermitRootLogin no"
           regexp: '^PermitRootLogin\s*[^n]'
         notify:  restart sshd
         tags:
-          - 5.2.10
+          - 5.2.8
 
-      - name: 5.2.11 - Ensure SSH PermitEmptyPasswords is disabled
+      - name: 5.2.19 - Ensure SSH PermitEmptyPasswords is disabled
         replace:
           path: /etc/ssh/sshd_config
           replace: ""
           regexp: '^PermitEmptyPasswords\s*[^n]'
         notify:  restart sshd
         tags:
-          - 5.2.11
+          - 5.2.9
 
-      - name: 5.2.12 - Ensure PermitUserEnvironment is disabled
+      - name: 5.2.10 - Ensure PermitUserEnvironment is disabled
         replace:
           path: /etc/ssh/sshd_config
           replace: ""
           regexp: '^PermitUserEnvironment\s*[^n]'
         notify:  restart sshd
         tags:
-          - 5.2.12
+          - 5.2.10
 
-      - name: 5.2.13 - Ensure SSH Idle Timeout is configured ClientAliveInterval
+      - name: Set approved MAC algorithms (5.2.11)
+        lineinfile:
+          path: /etc/ssh/sshd_config
+          line: "MACs {{ ssh_mac_list }}"
+          insertafter: EOF
+          regexp: '^MACs {{ ssh_mac_list }}'
+        notify:  restart sshd
+        tags:
+          - 5.2.11
+
+      - name: 5.2.12 - Ensure SSH Idle Timeout is configured ClientAliveInterval
         lineinfile:
           path: /etc/ssh/sshd_config
           line: "ClientAliveInterval {{ ssh_alive_interval }}"
@@ -1877,9 +1878,9 @@
           insertafter: "^#ClientAliveInterval"
         notify:  restart sshd
         tags:
-          - 5.2.13
+          - 5.2.12
 
-      - name: 5.2.13 - Ensure SSH Idle Timeout is configured ClientAliveCountMax
+      - name: 5.2.12 - Ensure SSH Idle Timeout is configured ClientAliveCountMax
         lineinfile:
           path: /etc/ssh/sshd_config
           line: "ClientAliveCountMax {{ ssh_alive_count_max }}"
@@ -1887,9 +1888,9 @@
           insertafter: "^#ClientAliveCountMax"
         notify:  restart sshd
         tags:
-          - 5.2.13
+          - 5.2.12
 
-      - name: 5.2.14 - Ensure SSH LoginGraceTime is set to {{ ssh_grace_time }} or less
+      - name: 5.2.13 - Ensure SSH LoginGraceTime is set to {{ ssh_grace_time }} or less
         lineinfile:
           path: /etc/ssh/sshd_config
           line: "LoginGraceTime {{ ssh_grace_time }}"
@@ -1897,7 +1898,10 @@
           insertafter: "^#LoginGraceTime"
         notify:  restart sshd
         tags:
-          - 5.2.14
+          - 5.2.13
+
+      # Control 5.2.14 is system dependent
+      # skipping
 
       - name: 5.2.15 - Ensure SSH Banner is configured
         lineinfile:
@@ -1907,77 +1911,28 @@
         notify:  restart sshd
         tags:
           - 5.2.15
-
-      - name: 5.2.16 - Ensure SSH is configured to use PAM
-        lineinfile:
-          path: "/etc/ssh/sshd_config"
-          line: "UsePAM yes"
-          regexp: '^UsePAM\s+[yes|no]'
-        notify:  restart sshd
-        tags:
-          - 5.2.16
-
-      - name: 5.2.17 - Disable TCP Forwarding
-        lineinfile:
-          path: "/etc/ssh/sshd_config"
-          line: "AllowTcpForwarding no"
-          regexp: '^AllowTcpForwarding\s+(yes|no)'
-          insertafter: "^#AllowTcpForwarding"
-        notify:  restart sshd
-        tags:
-          - 5.2.17
-
-      - name: 5.2.18 - Limit max unauthenticated startups
-        lineinfile:
-          path: "/etc/ssh/sshd_config"
-          line: "maxstartups 10:30:60"
-          regexp: '^maxstartups\s+10:30:60'
-        notify:  restart sshd
-        tags:
-          - 5.2.18
-
-      - name: 5.2.18 - Limit max sessions
-        lineinfile:
-          path: "/etc/ssh/sshd_config"
-          line: "maxsessions {{ ssh_max_sessions }}"
-          regexp: '^maxsessions\s+[{{ ssh_max_sessions }}]'
-        notify:  restart sshd
-        tags:
-          - 5.2.18
-
-      - name: 5.2.19 - Ensure system crypto policy isn't overriden in SSH
-        lineinfile:
-          path: "/etc/ssh/sshd_config"
-          state: absent
-          regexp: '^\s*(CRYPTO_POLICY\s*=.*)$'
-        notify:  restart sshd
-        tags:
-          - 5.2.19
     tags:
-      - 5.2.0
+      5.2.0
 
-  # Control section 5.3, authselect, cannot be used with Red Hat IPA or Microsoft AD
-  # Skipping until can assure we know how to test against this.
-
-  - name: 5.4.1 - Configure PAM files and password requirements
+  - name: 5.3.1 - Configure PAM files and password requirements
     block:
-      - name: 5.4.1 - require at least one digit in passwords
+      - name: 5.3.1 - require at least one digit in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
           line: dcredit = -1
           regexp: "^dcredit = -1"
-          insertafter: "# dcredit = 0"
+          insertafter: "^# dcredit = 0"
         when: password_req_digit
 
-      - name: 5.4.1 - require at least one uppercase letter in passwords
+      - name: 5.3.1 - require at least one uppercase letter in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
           line: ucredit = -1
           regexp: "^ucredit = -1"
-          insertafter: "# ucredit = 0"
+          insertafter: "^# ucredit = 0"
         when: password_req_upper
 
-      - name: 5.4.1 - require at least one lowercase letter in passwords
+      - name: 5.3.1 - require at least one lowercase letter in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
           line: lcredit = -1
@@ -1985,7 +1940,7 @@
           insertafter: "^# lcredit = 0"
         when: password_req_lower
 
-      - name: 5.4.1 - Require at least one special character in passwords
+      - name: 5.3.1 - Require at least one special character in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
           line: ocredit = -1
@@ -1993,66 +1948,75 @@
           insertafter: "^# ocredit = 0"
         when: password_req_digit
 
-      - name: 5.4.1 - Require at least {{ password_min_length }} characters in passwords
+      - name: 5.3.1 - Require at least {{ password_min_length }} characters in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
           line: minlen = {{ password_min_length }}
           regexp: "^minlen = {{ password_min_length }}"
-          insertafter: "^# minlen = 8"
+          insertafter: "^# minlen = 9"
         when: password_req_digit
     tags:
-      - 5.4.1
+      - 5.3.1
 
-  # Control 5.4.2, Ensure lockout for failed password attempts, requires file replacement
+  # Control 5.3.2, Ensure lockout for failed password attempts, really requires a file replacement
   # skipping
 
-  # Control 5.4.3, Set password retention, requries file replacement
+  # Control 5.3.3, Set password retention, requries file replacement
   # skipping
 
-  # Control 5.4.4, Ensure password hashing algorithm is SHA-512, requires file replacement
-  # skipping
+  - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
+    block:
+      - name: Determine if we are currently using sha512 password algorithm
+        shell: /usr/sbin/authconfig --test | /usr/bin/grep sha512
+        register: auth_out
+        changed_when: auth_out.rc != 0
 
-  - name: 5.5.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
+      - name: SHA-512 Password setting
+        shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
+        when: auth_out.rc != 0
+    tags:
+      5.3.4
+  - name: 5.4.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
       regexp: "^PASS_MAX_DAYS"
       line: "PASS_MAX_DAYS  {{ password_expire_days }}"
       state: present
     tags:
-      - 5.5.1.1
+      - 5.4.1.1
 
-  - name: 5.5.1.2 - Ensure password change days is set to {{ password_min_days }}
+  - name: 5.4.1.2 - Ensure password change days is set to {{ password_min_days }}
     lineinfile:
       dest: /etc/login.defs
       regexp: "^PASS_MIN_DAYS"
       line: "PASS_MIN_DAYS  {{ password_min_days }}"
       state: present
     tags:
-      - 5.5.1.2
+      - 5.4.1.2
 
-  - name: 5.5.1.3 - Ensure password warning days is set to {{ password_warning_days }}
+  - name: 5.4.1.3 - Ensure password warning days is set to {{ password_warning_days }}
     lineinfile:
       dest: /etc/login.defs
       regexp: "^PASS_WARN_AGE"
       line: "PASS_WARN_AGE  {{ password_warning_days }}"
       state: present
     tags:
-      - 5.5.1.3
+      - 5.4.1.3
 
-  - name: 5.5.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
+  - name: 5.4.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
     shell: "/usr/sbin/useradd -D -f {{ password_inactive_lock_days }}"
     register: useradd_out
     changed_when: false
     tags:
-      - 5.5.1.4
+      - 5.4.1.4
 
-  # 5.5.1.5, Ensure all users last password change date is in the past,
+  # 5.4.1.5, Ensure all users last password change date is in the past,
   # is not easily automated. Will revisit later
 
-  # 5.5.2, Ensure system accounts are secured, is machine dependent.
-  # skipping
+  # 5.4.2, Ensure all system accounts do not have an active shell,
+  # is not easily automated. Will revisit later
 
-  - name: 5.5.3 - Ensure default shell timeout is {{ shell_timeout }} seconds or less
+  - name: Ensure shell timeout is {{ shell_timeout }} seconds or less (5.4.5)
     blockinfile:
       path: "{{ item }}"
       block: "TMOUT={{ shell_timeout }}"
@@ -2061,16 +2025,16 @@
       - /etc/bashrc
       - /etc/profile
     tags:
-      - 5.5.3
+      - 5.4.5
 
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
-  - name: 5.5.4 - Ensure default group for root is GID 0
+  - name: 5.4.3 - Ensure default group for root is GID 0
     shell: /usr/sbin/usermod -g 0 root
     changed_when: false
     tags:
-      - 5.5.4
+      - 5.4.3
 
-  - name: 5.5.5 - Ensure umask is set
+  - name: 5.4.4 - Ensure umask is set
     replace:
       path: "{{ item }}"
       replace: "     umask {{ default_umask }}"
@@ -2079,33 +2043,31 @@
       - /etc/bashrc
       - /etc/profile
     tags:
-      - 5.5.5
+      - 5.4.4
 
-  # 5.5.6,  Ensure root login is restricted to system console
+  # 5.5.5,  Ensure root login is restricted to system console
   # not easily automatable because of the various TTYs on a machine
   # Manually verify that only physically secure TTYs are listed  in
   # /etc/securetty
 
-  - name: 5.7 - Restrict su to wheel group
+  - name: 5.6 - Restrict su to wheel group
     block:
-      - name: 5.7 - Configure PAM to only allow su from wheel group
+      - name: Configure PAM to only allow su from wheel group (5.6)
         replace:
           path: /etc/pam.d/su
           regexp: '^#auth\s+required\s+pam_wheel.so\s+use_uid'
           replace: "auth         required        pam_wheel.so use_uid"
 
-      - name: 5.7 - Add root to the wheel group
+      - name: Add root to the wheel group (5.6)
         user:
           name: root
           groups: wheel
           append: yes
     tags:
-      - 5.7.0
+      - 5.6.0
 
   # Section 6 - System Maintenance
-
-  # Control 6.1.1 - Audit system file permissions, the report is time consuming and requires manual review
-  # skipping
+  #
 
   - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
     file:
@@ -2238,17 +2200,32 @@
       - /etc/group
     tags:
       - 6.2.2
+      - 6.2.3
       - 6.2.4
+
+  - name: Report on multiple accounts with UID of 0 (6.2.5)
+    block:
+      - name: find accounts with UID of 0
+        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
+        register: rootuid
+        changed_when: rootuid.rc == 2
+
+      - name: Report on mulitple accounts with UID of 0
+        debug:
+          msg: "Accounts with UID zero in addition to root"
+          var: rootuid.stdout
+        when: rootuid.stdout != 'root'
+    tags:
       - 6.2.5
 
-  - name: 6.2.3 - Ensure root PATH integrity
+  - name: 6.2.6 - Ensure root PATH integrity
     block:
-      - name: 6.2.3 - Run script on path variable
+      - name: 6.2.6 - Run script on path variable
         script: files/path_check.sh
         changed_when: false
         register: path_check
 
-      - name: 6.2.3 - Print report to user
+      - name: 6.2.6 - Print report to user
         debug:
           msg:
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
@@ -2256,122 +2233,91 @@
             - " {{ path_check.stdout }}"
         when: path_check.stdout
     tags:
-      - 6.2.3
-
-  - name: 6.2.6 - Report on multiple accounts with UID of 0
-    block:
-      - name: 6.2.6 - find accounts with UID of 0
-        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
-        register: rootuid
-        changed_when: rootuid.rc == 2
-
-      - name: 6.2.6 - Report on mulitple accounts with UID of 0
-        debug:
-          msg:
-            - "Accounts with UID zero in addition to root"
-            - " {{ rootuid.stdout_lines }}"
-        changed_when: true
-        when: rootuid.stdout != 'root'
-    tags:
       - 6.2.6
 
   # Control 6.2.7 is environment dependent, skipping
   # Control 6.2.8 is environment dependent, skipping
-  # Controls 6.2.[9-13,20] are recommended to be handled by monitoring software
+  # Control 6.2.9 is environment dependent, skipping
+  # Controls 6.2.[10-14] are recommended to be handled by monitoring software
 
-  - name: 6.2.14 - Report on groups in /etc/passwd  with a GID not in /etc/group
+  - name: 6.2.15 - Report on groups in /etc/passwd  with a GID not in /etc/group
     block:
-      - name: 6.2.14 - Use script to pull the list of groups
+      - name: 6.2.15 - Use script to pull the list of groups
         script:
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
 
-      - name: 6.2.14 - Report to user any unreferenced groups
+      - name: 6.2.15 - Report to user any unreferenced groups
         debug:
           msg: "{{ undefined_groups.stdout_lines }}"
         changed_when: true
         when: undefined_groups.stdout
     tags:
-      - 6.2.14
+      - 6.2.15
 
-  - name: 6.2.15 - Report on duplicate UIDs in /etc/passwd
+  - name: 6.2.16 - Report on duplicate UIDs in /etc/passwd
     block:
-      - name: 6.2.15 - Use script to pull the list of duplicate UIDs
+      - name: 6.2.16 - Use script to pull the list of duplicate UIDs
         script:
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
 
 
-      - name: 6.2.15 - Print report of duplicated UIDs to user
+      - name: 6.2.16 - Print report of duplicated UIDs to user
         debug:
           msg: "{{ duplicate_uids.stdout_lines }}"
         changed_when: true
         when: duplicate_uids.stdout
     tags:
-      - 6.2.15
+      - 6.2.16
 
-  - name: 6.2.16 - Report on duplicate GIDs in /etc/group
+  - name: 6.2.17 - Report on duplicate GIDs in /etc/group
     block:
-      - name: 6.2.16 - Use script to pull the list of duplicate GIDs
+      - name: 6.2.17 - Use script to pull the list of duplicate GIDs
         script:
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
 
-      - name: 6.2.16 - Print report of duplcate GIDs to user
+      - name: 6.2.17 - Print report of duplcate GIDs to user
         debug:
           msg: "{{ duplicate_guids.stdout_lines }}"
         changed_when: true
         when: duplicate_guids.stdout
     tags:
-      - 6.2.16
+      - 6.2.17
 
-  - name: 6.2.17 - Report on duplicate users in /etc/passwd
+  - name: 6.2.18 - Report on duplicate users in /etc/passwd
     block:
-      - name: 6.2.17 - Use script to pull the list of users
+      - name: 6.2.18 - Use script to pull the list of users
         script:
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
 
-      - name: 6.2.17 - Print report of duplicate users to user
+      - name: 6.2.18 - Print report of duplicate users to user
         debug:
           msg: "{{ duplicate_users.stdout_lines }}"
         changed_when: true
         when: duplicate_users.stdout
     tags:
-      - 6.2.17
+      - 6.2.18
 
-  - name: 6.2.18 - Report on duplicate groups in /etc/group
+  - name: 6.2.19 - Report on duplicate groups in /etc/group
     block:
-      - name: 6.2.18 - Use script to pull the list of groups
+      - name: 6.2.19 - Use script to pull the list of groups
         script:
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
 
-      - name: 6.2.18 - Print report of duplicate groups to user
+      - name: 6.2.19 - Print report of duplicate groups to user
         debug:
           msg: "{{ duplicate_groups.stdout_lines }}"
         changed_when: true
         when: duplicate_groups.stdout
     tags:
-      - 6.2.18
-
-  - name: 6.2.19 - Report on shadow group in /etc/group
-    block:
-      - name: 6.2.19 - Determine if the shadow group exists in /etc/group
-        shell: /usr/bin/grep "^shadow:" /etc/group
-        register: shadow_out
-        changed_when: false
-        failed_when: shadow_out.rc == "2"
-
-      - name: 6.2.19 - Print report of shadow group to user
-        debug:
-          msg: "Shadow group exists in /etc/group. Remove"
-        changed_when: true
-        when: shadow_out.stdout
-
+      - 6.2.19
 
