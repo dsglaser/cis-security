@@ -1807,9 +1807,9 @@
       # Using replace with a replace argument of "" removes the selected
       #  text.
       - name: 5.2.6 - Disable X11 forwarding
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^X11Forwarding\s*yes'
         notify:  restart sshd
         tags:
@@ -1853,18 +1853,18 @@
           - 5.2.10
 
       - name: 5.2.11 - Ensure SSH PermitEmptyPasswords is disabled
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^PermitEmptyPasswords\s*[^n]'
         notify:  restart sshd
         tags:
           - 5.2.11
 
       - name: 5.2.12 - Ensure PermitUserEnvironment is disabled
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^PermitUserEnvironment\s*[^n]'
         notify:  restart sshd
         tags:
@@ -2016,7 +2016,7 @@
   - name: 5.5.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_MAX_DAYS"
+      regexp: '^PASS_MAX_DAYS\s*((?!{{ password_expire_days }}).)*$'
       line: "PASS_MAX_DAYS  {{ password_expire_days }}"
       state: present
     tags:
@@ -2025,7 +2025,7 @@
   - name: 5.5.1.2 - Ensure password change days is set to {{ password_min_days }}
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_MIN_DAYS"
+      regexp: '^PASS_MIN_DAYS\s*((?!{{ password_min_days }}).)*$'
       line: "PASS_MIN_DAYS  {{ password_min_days }}"
       state: present
     tags:
@@ -2034,7 +2034,7 @@
   - name: 5.5.1.3 - Ensure password warning days is set to {{ password_warning_days }}
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_WARN_AGE"
+      regexp: '^PASS_WARN_AGE\s*((?!{{ password_warning_days }}).)*$'
       line: "PASS_WARN_AGE  {{ password_warning_days }}"
       state: present
     tags:

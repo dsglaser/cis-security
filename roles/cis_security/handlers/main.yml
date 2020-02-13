@@ -79,3 +79,16 @@
   loop:
     - net.ipv4.route.flush
     - net.ipv6.route.flush
+
+- name: reload systemctl
+  shell: /usr/sbin/systemctl daemon-reload
+
+- name: restart timesyncd
+  systemd:
+    name: systemd.timesyncd
+    enabled: yes
+    state: restarted
+
+- name: restart ufw
+  ufw:
+    state: enabled
