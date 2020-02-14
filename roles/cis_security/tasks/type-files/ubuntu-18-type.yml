@@ -26,7 +26,7 @@
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
   - name: 1.9.0 - Ensure updated system
-    dnf:
+    package:
       name: "*"
       state: latest
       security: true
@@ -92,7 +92,7 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process unused_filesystem list
-    dnf:
+    package:
       name: unused_filesystems
       state: absent
 
@@ -446,38 +446,14 @@
   # GPGKeys are used to sign packages. enabling them will mean that all packages
   #  from a given repo must be signed with the appropriate key
   - name: 1.2.2 - Ensure GPG keys are configured
-    block:
-      # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
-
-      - name: 1.2.2 - set master yum.conf gpgcheck to '1'
-        replace:
-          dest: /etc/yum.conf
-          regexp: '^gpgcheck\s*=\s*[^1]*$'
-          replace: "gpgcheck = 1"
-        when: gpgcheck is defined and gpgcheck
-
-      # Find all files in /etc/yum.repos.d and add them to a list variable
-      - name: 1.2.2 - find all repo files in /etc/yum.repos.d/
-        shell: /usr/bin/find /etc/yum.repos.d/*
-        register: yumrepos
-        failed_when: yumrepos.rc == "2"
-        changed_when: yumrepos.rc == "1"
-        when: gpgcheck is defined and gpgcheck
-
-      # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
-      - name: 1.2.2 - Set all repos gpgchecks to '1'
-        replace:
-          dest: "{{ item }}"
-          regexp: '^gpgcheck\s*=\s*[^1]*$'
-          replace: gpgcheck = 1
-        loop: "{{ yumrepos.stdout_lines }}"
-        when: gpgcheck is defined and gpgcheck
+    debug:
+      msg: "Currently this control doesn't do anything except to check currently installed keys"
     tags:
       - 1.2.2
 
   # use the system package module to ensure sudo is installed
   - name: 1.3.1 - Ensure sudo is installed
-    dnf:
+    package:
       name: sudo
       state: present
     tags:
@@ -512,7 +488,7 @@
     block:
       # use the system package manager to install AIDE
       - name: 1.4.1 Ensure aide is installed
-        dnf:
+        package:
           name: aide
           state: present
 
@@ -802,7 +778,7 @@
 
   # Ubuntu since 16.04 does not recommend NTP so we are only checking for timesyncd or chrony
   - name: 2.2.1.3 - Verify chrony is installed if selected
-    dnf:
+    package:
       name: "chrony"
       state: present
     when: time_service == "chrony"
@@ -1561,7 +1537,7 @@
 
   # Section 4, Logging
   - name: 4.2.1.1 - Ensure rsyslog is installed
-    yum:
+    package:
       name: rsyslog
       state: present
     tags:
@@ -1684,7 +1660,7 @@
   # skipping
 
   - name: 4.3 - Ensure logrotate is installed and configured
-    yum:
+    package:
       name: logrotate
       state: present
     tags:
