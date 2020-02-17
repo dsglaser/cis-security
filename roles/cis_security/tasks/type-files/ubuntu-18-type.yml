@@ -677,14 +677,9 @@
           - 1.7.1.1
 
       - name: 1.7.1.2 - check to see if apparmor is in grub configuration
-        lineinfile:
-          path: /boot/grub/grub.cfg
-          regexp: '^\s*linux*apparmor=1'
-          state: absent
-        check_mode: yes
-        changed_when: false
+        shell: 'grep "^\s*linux" /boot/grub/grub.cfg | grep -v "apparmor=1"'
         register: apparmor_grub
-        failed_when: false
+        changed_when:
         tags:
           - 1.7.1.2
 
@@ -694,7 +689,7 @@
             regexp: '^GRUB_CMDLINE_LINUX="'
             replace: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor '
         notify: rebuild grub
-        when: apparmor_grub.found != "0"
+        when: apparmor_grub.stdout
         tags:
           - 1.7.1.2
 
@@ -719,8 +714,6 @@
         changed_when: false
         tags:
           - 1.7.1.4
-    tags:
-      1.7.0
 
   # 1.8 Warning Banners
 
@@ -1309,7 +1302,7 @@
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
         notify: rebuild grub
-        when: audit_exist.stdout == "1"
+        when: audit_exist.stdout = "1"
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient
         replace:
