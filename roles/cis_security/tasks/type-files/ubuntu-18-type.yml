@@ -2041,6 +2041,11 @@
 
   - name: 5.3.1 - Configure PAM files and password requirements
     block:
+      - name: 5.3.1 - Ensure pwquality is installed
+        package:
+          name: libpam-pwquality
+          state: present
+
       - name: 5.3.1 - require at least one digit in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
