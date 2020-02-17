@@ -692,13 +692,13 @@
           - 1.7.1.2
 
       - name: 1.7.1.3 - Ensure all apparmor profiles are in enforce or complain mode
-        shell: app-{{ apparmor_level }} /etc/apparmor.d/*
+        shell: aa-{{ apparmor_level }} /etc/apparmor.d/*
         when: apparmor_level == "enforce" or apparmor_level == "complain"
         tags:
           - 1.7.1.3
 
       - name: 1.7.1.4 - Ensure all AppArmor profiles are enforcing
-        shell: app-enforce /etc/apparmor.d/*
+        shell: aa-enforce /etc/apparmor.d/*
         when: apparmor_level == "enforce"
         tags:
           - 1.7.1.4
