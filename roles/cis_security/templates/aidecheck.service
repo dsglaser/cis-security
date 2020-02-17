@@ -3,7 +3,7 @@ Description=Aide Check
 
 [Service]
 Type=simple
-{% if ansible_distribution == "RedHat" %}
+{% if ansible_distribution == "RedHat" or ansible_distribution == "CentOS" %}
 ExecStart=/usr/sbin/aide --check
 {% else %}
 ExecStart=/usr/bin/aide.wrapper -C
