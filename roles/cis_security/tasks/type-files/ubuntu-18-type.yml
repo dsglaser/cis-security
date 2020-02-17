@@ -1762,7 +1762,7 @@
 
   - name: 5.1.1 - Ensure cron is enabled
     service:
-      name: crond
+      name: cron
       enabled: yes
       state: started
     tags:
