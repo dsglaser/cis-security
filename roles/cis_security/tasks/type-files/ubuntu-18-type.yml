@@ -510,8 +510,8 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the service
       - name: 1.4.2 - Ensure File integrity is regularly checked (aidecheck service)
-        copy:
-          src: files/aide/aidecheck.service
+        template:
+          src: aidecheck.service
           dest: /etc/systemd/system/aidecheck.service
           owner: root
           group: root
@@ -523,8 +523,8 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the timer
       - name: 1.4.2 - Ensure File integrity is regulary checked (aidecheck timer)
-        copy:
-          src: files/aide/aidecheck.timer
+        template:
+          src: aidecheck.timer
           dest: /etc/systemd/system/aidecheck.timer
           owner: root
           group: root
