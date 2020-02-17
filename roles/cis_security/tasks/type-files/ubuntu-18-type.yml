@@ -553,6 +553,18 @@
   - name: 1.5.3 - Set single user password
     block:
       - name: 1.5.3 - Check if root has a password
+        lineinfile:
+          path: /etc/shadow
+          regexp: '^root:[*\!|*\*]:'
+          state: absent
+          check_mode: yes
+          register: root_pw_check
+          failed_when: false
+
+      - debug:
+          var: root_pw_check
+
+      - name: 1.5.3 - Check if root has a password
         shell: 'grep ^root:[*\!|*\*]: /etc/shadow'
         register: root_pwd_check
         changed_when: false
