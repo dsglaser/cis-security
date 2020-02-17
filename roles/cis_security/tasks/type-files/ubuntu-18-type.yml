@@ -557,9 +557,9 @@
           path: /etc/shadow
           regexp: '^root:[*\!|*\*]:'
           state: absent
-          check_mode: yes
-          register: root_pw_check
-          failed_when: false
+        check_mode: yes
+        register: root_pw_check
+        failed_when: false
 
       - debug:
           var: root_pw_check
