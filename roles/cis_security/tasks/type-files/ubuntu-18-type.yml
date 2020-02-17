@@ -2148,7 +2148,7 @@
       replace: "     umask {{ default_umask }}"
       regexp: '^\s*umask\s*022'
     loop:
-      - /etc/bashrc
+      - /etc/bash.bashrc
       - /etc/profile
     tags:
       - 5.4.4
@@ -2159,7 +2159,7 @@
       block: "TMOUT={{ shell_timeout }}"
       marker: "# {mark} Ansible Managed CIS Timeout"
     loop:
-      - /etc/bashrc
+      - /etc/bash.bashrc
       - /etc/profile
     tags:
       - 5.4.5
