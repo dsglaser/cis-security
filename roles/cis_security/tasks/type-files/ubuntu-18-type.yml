@@ -719,6 +719,8 @@
         changed_when: false
         tags:
           - 1.7.1.4
+    tags:
+      1.7.0
 
   # 1.8 Warning Banners
 
