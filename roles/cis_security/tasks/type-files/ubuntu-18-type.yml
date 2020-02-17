@@ -553,7 +553,7 @@
   - name: 1.5.3 - Set single user password
     block:
       - name: 1.5.3 - Check if root has a password
-        shell: 'grep ^root:[*\!]: /etc/shadow'
+        shell: 'grep ^root:[*\!|*\*]: /etc/shadow'
         register: root_pwd_check
         changed_when: false
 
