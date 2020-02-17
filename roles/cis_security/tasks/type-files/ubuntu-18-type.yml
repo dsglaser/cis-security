@@ -562,6 +562,12 @@
           name: root
           password: "ubuntu_root_password"
         when: not root_pwd_check.stdout and ubuntu_root_password is defined
+
+      - name: 1.5.3 - Set root password
+        debug:
+          msg: "Root password is not set and no password provided. Set ubuntu_root_password variable per instructions and restart."
+        changed_when: true
+        when: not root_pwd_check.stdout and ubuntu_root_password is not defined
     tags:
       - 1.5.3
 
