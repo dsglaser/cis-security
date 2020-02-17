@@ -693,8 +693,8 @@
             path: /etc/default/grub
             regexp: '^GRUB_CMDLINE_LINUX="'
             replace: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor '
-        notify: rebuild grub
-        when: apparmor_grub.found == "0"
+        notify: rebuild ubuntu-grub
+        when: not apparmor_grub.found
         tags:
           - 1.7.1.2
 

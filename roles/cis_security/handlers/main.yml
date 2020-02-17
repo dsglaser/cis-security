@@ -60,6 +60,10 @@
 - name: rebuild grub
   shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 
+# Call the grub config file rebuilding program on ubuntu
+- name: rebuild ubuntu-grub
+  shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+
 - name: update crypto_policy
   shell: /usr/bin/update-crypto-policies
 
