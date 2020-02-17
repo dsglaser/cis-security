@@ -1245,12 +1245,15 @@
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
     block:
-      - name: 3.3 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
-        register: ipv6_disable
-        failed_when: ipv6_disable.rc == "2"
+      - name: 3.6 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*ipv6.disable=1'
+          state: absent
+        check_mode: yes
         changed_when: false
-
+        register: ipv6_disable_grub
+        failed_when: false
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 3.6 - Disable IPv6 in grub
@@ -1259,10 +1262,10 @@
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
         notify: rebuild grub
-        when: ipv6_disable is defined and ipv6_disable is changed
+        when: not ipv6_disable_grub.found and ipv6_disable
 
       # use sysctl module to disable ipv6 at the kernel level
-      - name: 3.3 - Disable IPv6 in sysctl
+      - name: 3.6 - Disable IPv6 in sysctl
         sysctl:
           name: "{{ item }}"
           value: "1"
@@ -1296,22 +1299,74 @@
         tags:
           - 4.1.1.2
 
-      - name: 4.1.1.3 - Ensure auditing for processes that sart prior to auditd
-        replace:
-          dest: /etc/default/grub
-          regexp: "rhgb quiet\""
-          replace: "rhgb quiet audit=1\""
-        register: audit_grub = "1"
+      - name: 4.1.1.3 - Ensure auditing for processes that start prior to auditd
+      # We check here because we don't know what position the audit=1 is in
+      # order to simply do the replace, so we are instead looking for the match in the file first.
+      # If it doesn't exist, then we can just insert it
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*audit=1'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: audit_exist
+        failed_when: false
         tags:
           - 4.1.1.3
+
+      # use the replace module to add it to grub bootloader and then notify
+      #  grub to rebuild
+      - name: 4.1.1.3 - enable audit service in grub
+        replace:
+          path: /etc/default/grub
+          regexp: '^GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit=1 '
+        notify: rebuild ubuntu-grub
+        when: not audit_exist.found
+        tags:
+          - 4.1.1.3
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, check if limit exists
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*audit_backlog_limit'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: audit_backlog_exist
+        failed_when: false
+        tags:
           - 4.1.1.4
 
-      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, add audit_backlog_limit to grub
         replace:
           dest: /etc/default/grub
-          regexp: "audit=1\""
-          replace: "audit=1 audit_backlog_limit={{ audit_backlog_limit }}\""
-        notify: rebuild grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
+        notify: rebuild ubuntu-grub
+        when: not audit_backlog_exist.found
+        tags:
+          - 4.1.1.4
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
+        lineinfile:
+          dest: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: our_limit
+        when: audit_backlog_exist.found
+        tags:
+          - 4.1.1.4
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (fix)
+        replace:
+          dest: /etc/default/grub
+          regexp: 'audit_backlog_limit=[\S]*'
+          replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
+        notify: rebuild ubuntu-grub
+        when: audit_backlog_exist.found and not our_limit.found
         tags:
           - 4.1.1.4
 
@@ -1332,6 +1387,7 @@
           - 4.1.2.1
           - 4.1.2.2
           - 4.1.2.3
+
       # This isn't the best way to do this since users can modify the line and it will
       #  break this control check. It needs to be re-evaluated.
       - name: 4.1.3 - Ensure changes to sudoers is collected
@@ -1637,7 +1693,7 @@
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
         lineinfile:
           dest: /etc/systemd/journald.conf
-          regexp: "^ForwardToSyslog=yes"
+          regexp: "^ForwardToSyslog=((?!yes).)*$"
           line: "ForwardToSyslog=yes"
           insertafter: "#ForwardToSyslog=no"
         when: rsyslog_forward_out.stdout
@@ -1647,7 +1703,7 @@
   - name: 4.2.2.2 - Ensure journald compresses large files
     lineinfile:
       dest: /etc/systemd/journald.conf
-      regexp: "^Compress=yes"
+      regexp: "^Compress=((?!yes).)*$"
       line: "Compress=yes"
       insertafter: "^#Compress="
     tags:
@@ -1656,7 +1712,7 @@
   - name: 4.2.2.3 - Ensure journald writes to peristent disk
     lineinfile:
       dest: /etc/systemd/journald.conf
-      regexp: "^Storage=persistent"
+      regexp: "^Storage=((?!persistent).)*$"
       line: "Storage=persistent"
       insertafter: "^#Storage="
     tags:
@@ -1718,7 +1774,7 @@
     tags:
       - 5.1.2
 
-  - name: 5.1.3 - Ensure permissions on crontab directories
+  - name: 5.1.[3-7] - Ensure permissions on crontab directories
     file:
       path: "{{ item }}"
       owner: root

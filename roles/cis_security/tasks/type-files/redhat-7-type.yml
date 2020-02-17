@@ -1191,10 +1191,14 @@
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
       - name: 3.3 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
-        register: ipv6_disable
-        failed_when: ipv6_disable.rc == "2"
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*ipv6.disable=1'
+          state: absent
+        check_mode: yes
         changed_when: false
+        register: ipv6_disable_grub
+        failed_when: false
 
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
@@ -1204,7 +1208,7 @@
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
         notify: rebuild grub
-        when: ipv6_disable is defined and ipv6_disable is changed
+        when: not ipv6_disable_grub.found and ipv6_disable
 
       # use sysctl module to disable ipv6 at the kernel level
       - name: 3.3 - Disable IPv6 in sysctl
@@ -1399,17 +1403,32 @@
           state: started
         tags:
           - 4.1.2
-
-      # This isn't the best way to do this since users can modify the line and it will
-      #  break this control check. It needs to be re-evaluated.
-      - name: 4.1.3 - Ensure auditing for processes that start prior to auditd
-        replace:
-          dest: /etc/default/grub
-          regexp: "rhgb quiet\""
-          replace: "rhgb quiet audit=1\""
-        when: enable_audit is defined and enable_audit
+      - name: 4.1.1.3 - Ensure auditing for processes that start prior to auditd
+      # We check here because we don't know what position the audit=1 is in
+      # order to simply do the replace, so we are instead looking for the match in the file first.
+      # If it doesn't exist, then we can just insert it
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*audit=1'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: audit_exist
+        failed_when: false
         tags:
-          - 4.1.3
+          - 4.1.1.3
+
+      # use the replace module to add it to grub bootloader and then notify
+      #  grub to rebuild
+      - name: 4.1.1.3 - enable audit service in grub
+        replace:
+          path: /etc/default/grub
+          regexp: '^GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit=1 '
+        notify: rebuild ubuntu-grub
+        when: not audit_exist.found
+        tags:
+          - 4.1.1.3
 
       # For the next several checks, each one is in their own file, so we are using
       #  the copy module to place each file independently and then motifying
@@ -1750,7 +1769,7 @@
     tags:
       - 5.1.2
 
-  - name: 5.1.3 - Ensure permissions on crontab directories
+  - name: 5.1.[3-7] - Ensure permissions on crontab directories
     file:
       path: "{{ item }}"
       owner: root

@@ -56,7 +56,7 @@ ssh_log_level: INFO             # Control is INFO or VERBOSE. Stricter is not ap
 ssh_max_auth_tries: 4           # Control is 4 retries
 ssh_mac_list: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com" #RHEL7 only control
 ssh_ciphers_list: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr" # Ubuntu control only
-ssh_kex_list: "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256" # Ubuntu control only
+ssh_kex_list: "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1" # Ubuntu control only
 ssh_alive_interval: 300         # Control is 5 minutes
 ssh_alive_count_max: 0          # Control is 0 count
 ssh_grace_time: 60              # Control is for 60 seconds or less

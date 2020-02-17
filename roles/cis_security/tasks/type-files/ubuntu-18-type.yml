@@ -1367,8 +1367,6 @@
         tags:
           - 4.1.1.4
 
-
-
       # The replace module here is looking through file and make replacements of partial lines
       - name: 4.1.2.[1-2] - Configure audit log storage size
         replace:
