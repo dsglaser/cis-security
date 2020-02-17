@@ -1345,7 +1345,7 @@
         tags:
           - 4.1.1.4
 
-      - name:
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
         lineinfile:
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
@@ -1354,8 +1354,10 @@
         changed_when: false
         register: our_limit
         when: audit_backlog_exist.found
+        tags:
+          - 4.1.1.4
 
-      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (fix)
         replace:
           dest: /etc/default/grub
           regexp: 'audit_backlog_limit=[\S]*'
