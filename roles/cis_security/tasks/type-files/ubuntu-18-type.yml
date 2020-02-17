@@ -681,7 +681,7 @@
       - name: 1.7.1.2 - check to see if apparmor is in grub configuration
         lineinfile:
           path: /etc/default/grub
-          regexp: '^\s*GRUB_CMDLINE_LINUX*apparmor=1'
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*apparmor=1'
           state: absent
         check_mode: yes
         changed_when: false
