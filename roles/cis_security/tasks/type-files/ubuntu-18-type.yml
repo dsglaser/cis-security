@@ -350,7 +350,7 @@
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+        shell: /bin/mount | /bin/grep /dev/shm | /bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
@@ -369,7 +369,7 @@
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+        shell: /bin/mount | /bin/grep /dev/shm | /bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
@@ -388,7 +388,7 @@
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+        shell: /bin/mount | /bin/grep /dev/shm | /bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
@@ -407,7 +407,7 @@
 
   # Finda all local filesystem directories and set the sticky bit on world writable ones
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+    shell: /bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     changed_when: false
     tags:
       - 1.1.21
@@ -418,7 +418,7 @@
   - name: 1.1.22 - disable automounting
     block:
       - name: 1.1.22 - Check if autofs is enabled
-        shell: /usr/bin/systemctl is-enabled autofs
+        shell: /bin/systemctl is-enabled autofs
         register: autofs_out
         failed_when: autofs_out.rc == "2"
         changed_when: false
@@ -561,9 +561,6 @@
         register: root_pw_check
         failed_when: false
 
-      - debug:
-          var: root_pw_check
-
       - name: 1.5.3 - Set root password
         user:
           name: root
@@ -587,7 +584,7 @@
     block:
       # To see if it is set already, we poll the joural with a grep and register a variable
       - name: search journal to see if protection was active at boot
-        shell: "/usr/bin/journalctl | /usr/bin/grep 'protection: active' "
+        shell: "/bin/journalctl | /bin/grep 'protection: active' "
         register: nx_protection
         changed_when: false
 
@@ -820,7 +817,7 @@
       # Find the current default run level. The systemctl module does not handle the
       #  get-default routine
       - name: 2.2.2 - Get current runlevel
-        shell: /usr/bin/systemctl get-default
+        shell: /bin/systemctl get-default
         register: default_runlevel_out
         changed_when: false
         tags:
@@ -840,7 +837,7 @@
       # Set the current run level. The systemctl module does not handle the
       #  isolate routine
       - name: 2.2.2 - Set current runlevel
-        shell: /usr/bin/systemctl isolate multi-user.target
+        shell: /bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stdout == "graphical.target" and not graphical_interface
@@ -850,7 +847,7 @@
       # Set the default run level. The systemctl module does not handle the
       #  isolate routine
       - name: 2.2.2 - Set default runlevel
-        shell: /usr/bin/systemctl set-default multi-user.target
+        shell: /bin/systemctl set-default multi-user.target
         changed_when: false
     when: not graphical_interface
     tags:
@@ -985,7 +982,7 @@
   - name: 2.2.4 - Disable cups as we my not be able to uninstall it
     block:
       - name: 2.2.4 - Check if cups is enabled
-        shell: /usr/bin/systemctl is-enabled cups
+        shell: /bin/systemctl is-enabled cups
         register: cups_out
         failed_when: cups_out.rc == "2"
         changed_when: false
@@ -1237,7 +1234,7 @@
       # If it doesn't exist, then we can just insert it
     block:
       - name: 3.7 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
+        shell: /bin/grep ipv6.disable=1 /etc/default/grub
         register: ipv6_disable
         failed_when: ipv6_disable.rc == "2"
         changed_when: false
@@ -1280,7 +1277,7 @@
       # We check here because we don't know what position the audit=1 is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
-        shell: /usr/bin/grep audit=1 /etc/default/grub
+        shell: /bin/grep audit=1 /etc/default/grub
         register: audit_exist
         failed_when: audit_exist.rc == "2"
         changed_when: false
@@ -1570,13 +1567,13 @@
   - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
       - name: 4.2.1.6 - Find all rsyslog files where module is loaded
-        shell: /usr/bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_module_out
         changed_when: false
         failed_when: rsyslog_module_out.rc == "2"
 
       - name: 4.2.1.6 - Find all rsyslog files where TCP port is set
-        shell: /usr/bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_tcp_out
         changed_when: false
         failed_when: rsyslog_tcp_out.rc == "2"
@@ -1624,7 +1621,7 @@
   - name: 4.2.2 - Configure journald
     block:
       - name: Find any rsyslog files where all logs are being forwarded to a loghost
-        shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        shell: /bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
@@ -2172,7 +2169,7 @@
   - name: 6.1.10 - Ensure no world writable files exist
     block:
       - name: 6.1.10 - Find any world writiable files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
+        shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
 
@@ -2189,7 +2186,7 @@
   - name: 6.1.11 - Ensure no unowned files exist
     block:
       - name: 6.1.11 - Find any unowned files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
+        shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
 
@@ -2206,7 +2203,7 @@
   - name: 6.1.12 - Ensure no ungrouped files exist
     block:
       - name: 6.1.12 - Find any ungrouped files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
+        shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
 
@@ -2230,7 +2227,7 @@
   - name: 6.2.1 - Ensure password fields are not empty
     block:
       - name: 6.2.1 - Check to see if there are any accounts with empty passwords
-        shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
+        shell: "/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
 
@@ -2263,7 +2260,7 @@
   - name: 6.2.6 - Report on multiple accounts with UID of 0
     block:
       - name: 6.2.6 - find accounts with UID of 0
-        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
+        shell: "/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
 
@@ -2381,7 +2378,7 @@
   - name: 6.2.20 - Report on shadow group in /etc/group
     block:
       - name: 6.2.20 - Determine if the shadow group exists in /etc/group
-        shell: /usr/bin/grep "^shadow:" /etc/group
+        shell: /bin/grep "^shadow:" /etc/group
         register: shadow_out
         changed_when: false
         failed_when: shadow_out.rc == "2"
