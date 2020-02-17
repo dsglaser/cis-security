@@ -1296,7 +1296,7 @@
         tags:
           - 4.1.1.2
 
-      - name: 4.1.1.3 - Ensure auditing for processes that sart prior to auditd
+      - name: 4.1.1.3 - Ensure auditing for processes that start prior to auditd
       # We check here because we don't know what position the audit=1 is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
@@ -1319,10 +1319,9 @@
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
         notify: rebuild ubuntu-grub
-        register: not audit_exist
+        when: not audit_exist.found
         tags:
           - 4.1.1.3
-
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, check if limit exists
         lineinfile:
@@ -1339,24 +1338,33 @@
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, add audit_backlog_limit to grub
         replace:
           dest: /etc/default/grub
-          regexp: "audit=1"
-          replace: "audit=1 audit_backlog_limit={{ audit_backlog_limit }}\""
-        notify: rebuild grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
+        notify: rebuild ubuntu-grub
         when: not audit_backlog_exist.found
         tags:
           - 4.1.1.4
 
-      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists
+      - name:
+        lineinfile:
+          dest: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: our_limit
+        when: audit_backlog_exist.found
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
         replace:
           dest: /etc/default/grub
-          regexp: 'audit_backlog_limit=((?!{{ audit_backlog_limit }}).)\s*"'
+          regexp: 'audit_backlog_limit=[\S]*'
           replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
         notify: rebuild ubuntu-grub
-        when: audit_backlog_exist.found
+        when: audit_backlog_exist.found and not our_limit.found
         tags:
           - 4.1.1.4
-    tags:
-      - 4.1.1.0
+
 
 
       # The replace module here is looking through file and make replacements of partial lines
@@ -1587,6 +1595,8 @@
         tags:
           4.1.17
     when: enable_audit is defined and enable_audit
+    tags:
+      4.1.0
 
   # Section 4, Logging
   - name: 4.2.1.1 - Ensure rsyslog is installed
