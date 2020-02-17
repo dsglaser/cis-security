@@ -676,10 +676,12 @@
         tags:
           - 1.7.1.1
 
+        # this control wants to check /boot/grub/grub.conf, but it's possible that it exists in the config file, but
+        #  not the boot file due to a failed grub rebuild. We should check the grub build file instead
       - name: 1.7.1.2 - check to see if apparmor is in grub configuration
         lineinfile:
-          path: /boot/grub/grub.cfg
-          regexp: '^\s*linux*apparmor=1'
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX*apparmor=1'
           state: absent
         check_mode: yes
         changed_when: false
