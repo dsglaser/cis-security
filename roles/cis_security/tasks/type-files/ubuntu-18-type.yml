@@ -691,15 +691,23 @@
         tags:
           - 1.7.1.2
 
+      # The controls here are a bit broken, 1.7.1.3 says to put them in either enforce or complain, and then 1.7.1.4
+      #  says to put them in enforcing (one is scored, the other is not though). Both ore enforced here, disable the tag for
+      #  1.7.1.4 if you don't want them all in enforcing
+      #
+      # The control is broken in that it wants the aa-[enforce|complain] script ran against all directory contents, but
+      #  they are not all app armor profiles, so it will error. We are ignoring it at this point.
       - name: 1.7.1.3 - Ensure all apparmor profiles are in enforce or complain mode
         shell: aa-{{ apparmor_level }} /etc/apparmor.d/*
         when: apparmor_level == "enforce" or apparmor_level == "complain"
+        failed_when: false
         tags:
           - 1.7.1.3
 
       - name: 1.7.1.4 - Ensure all AppArmor profiles are enforcing
         shell: aa-enforce /etc/apparmor.d/*
         when: apparmor_level == "enforce"
+        failed_when: false
         tags:
           - 1.7.1.4
 
