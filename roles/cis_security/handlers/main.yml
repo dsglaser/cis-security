@@ -62,7 +62,7 @@
 
 # Call the grub config file rebuilding program on ubuntu
 - name: rebuild ubuntu-grub
-  shell: /usr/sbin/grub-mkconfig -o /boot/grub2/grub.cfg
+  shell: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
 
 - name: update crypto_policy
   shell: /usr/bin/update-crypto-policies
