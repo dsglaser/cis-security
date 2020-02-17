@@ -565,7 +565,7 @@
       # Notify systemd to reload its daemons and start the service
       - name: 1.3.2 - Ensure File integrity is regularly checked (aidecheck service)
         copy:
-          src: files/aide/aidecheck.service
+          src: aidecheck.service
           dest: /etc/systemd/system/aidecheck.service
           owner: root
           group: root
@@ -578,7 +578,7 @@
       # Notify systemd to reload its daemons and start the timer
       - name: 1.3.2 - Ensure File integrity is regulary checked (aidecheck timer)
         copy:
-          src: files/aide/aidecheck.timer
+          src: aidecheck.timer
           dest: /etc/systemd/system/aidecheck.timer
           owner: root
           group: root
