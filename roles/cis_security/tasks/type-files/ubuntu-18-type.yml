@@ -1825,7 +1825,7 @@
               dest: "{{ item.path }}"
               owner: root
               group: root
-              mode: 0640
+              mode: 0600
             loop: "{{ ssh_host_out.files }}"
         tags:
           - 5.2.2
