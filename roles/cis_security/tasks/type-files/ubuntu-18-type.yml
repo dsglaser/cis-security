@@ -711,7 +711,7 @@
         shell: aa-enforce /etc/apparmor.d/*
         when: apparmor_level == "enforce"
         failed_when: false
-        changed_when: false
+        changed_when:
         tags:
           - 1.7.1.4
 
@@ -1296,26 +1296,25 @@
 
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
-      - name: 4.1.1.3 - enable audit service in grub
+      - name: 3.7 - enable audit service in grub
         replace:
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
         notify: rebuild grub
-        when: audit_exist.stdout = "1"
+        register: audit_grub = "1"
+        tags:
+          - 4.1.1.3
+          - 4.1.1.4
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient
         replace:
           dest: /etc/default/grub
           regexp: "audit=1"
           replace: "audit=1 audit_backlog_limit={{ audit_backlog_limit }}\""
-        when: audit_exist.stdout == "1"
         notify: rebuild grub
-    tags:
-      - 4.1.1.1
-      - 4.1.1.2
-      - 4.1.1.3
-      - 4.1.1.4
+        tags:
+          - 4.1.1.4
 
       # The replace module here is looking through file and make replacements of partial lines
       - name: 4.1.2.[1-2] - Configure audit log storage size
