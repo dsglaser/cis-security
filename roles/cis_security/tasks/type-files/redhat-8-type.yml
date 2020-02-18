@@ -445,7 +445,7 @@
 
       - name: 1.2.4 - set master dnf.conf gpgcheck to '1'
         replace:
-          dest: /etc/dnf.conf
+          dest: /etc/dnf/dnf.conf
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: "gpgcheck=1"
         when: gpgcheck and ansible_distribution == "Fedora"
