@@ -15,6 +15,11 @@
   # Use a variable so it prints out the correct version.
   - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
 
+  # Collect the packages installed on the system so we can check agains them later
+  - name: Collect package list
+    package_facts:
+      manager: auto
+
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
