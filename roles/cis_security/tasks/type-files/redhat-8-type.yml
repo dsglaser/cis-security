@@ -391,19 +391,11 @@
   #  We are checking to see if it exists with a shell command so it only
   #  runs if the service exists. Service will produce an error otherwise.
   - name: 1.1.22 - disable automounting
-    block:
-      - name: 1.1.22 - Check if autofs is enabled
-        shell: /usr/bin/systemctl is-enabled autofs
-        register: autofs_out
-        failed_when: autofs_out.rc == "2"
-        changed_when: false
-
-      - name: 1.1.22 - If it is, then stop and disabled it
-        service:
-          name: autofs
-          enabled: no
-          state: stopped
-        when: autofs_out.stdout == "enabled"
+    service:
+      name: autofs
+      enabled: no
+      state: stopped
+    when: "'autofs' in ansible_facts.packages"
     tags:
       - 1.1.22
 
@@ -1821,6 +1813,7 @@
       name: crond
       enabled: yes
       state: started
+    when: "'cronie' in ansible_facts.packages"
     tags:
       - 5.1.1
 
