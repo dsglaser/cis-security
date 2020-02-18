@@ -1,6 +1,6 @@
 # cis-security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL7 and RHEL8.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), and Ubuntu 18.04 LTS.
 
 ### Introduction
 
@@ -8,7 +8,7 @@ The [Center for Internet Security](https://www.cisecurity.org/) provides a set o
 security benchmarks for operating systems designed to decrease the vulnerability vectors of a system.
 
 These benchmarks are published in PDFs for non-commercial use. This role is an implementation of
-those controls for Red Hat Enterprise Linux 7 and 8. The controls themselves are not published here and
+those controls for Red Hat Enterprise Linux 7 and 8, Oracle Linux 7 and 8, CentOS 7 and 8, and Ubuntu 18.04 LTS. The controls themselves are not published here and
 you should visit CIS for a copy of the PDF. These automations are provided as a resposne and a tool to
 help systems administrators secure machines based off those recommendations.
 
@@ -21,11 +21,16 @@ Benchmark Versions:
 | -----------------|--------------------- |
 | RHEL 7 | v2.2.0 |
 | RHEL 8 | v1.0.0 |
+| CentOS 7 | v2.2.0 |
+| CentOS 8 | v1.0.0 |
+| Oracle Linux 7 | v2.2.0 |
+| Oracle Linux 8 | v1.0.0 |
+| Ubuntu 18.04 LTS | v2.0.1 |
 
 ### Requirements
 To implement the role correctly, you will require the following
 
-- RHEL 7.6+
+- RHEL 7.6+ (or clone) or Ubuntu 18.04 LTS
 - Ansible 2.7+
 - Machine connected to a package repository source (Satellite or yum repo)
 
@@ -36,9 +41,7 @@ a Red Hat machine. Registering with Satellite or a local package repository is r
 this, unless you exclude any tags that install packages.
 
 ### Use and Care
-The role is designed to run on RHEL 7.6+ and RHEL 8+ machines. It may run on associated CentOS and
-RHEL deriviatives, but it has not been tested on them. Upon initiation, the role will automatically
-detect the OS and run the appropriate task list.
+The role is designed to run on RHEL 7.6+, RHEL 8+, and Ubuntu 18.04 LTS machines. It may run on associated RHEL and Ubuntu deriviatives, but it has not been tested on them. Upon initiation, the role will automatically detect the OS and run the appropriate task list.
 
 As the role runs, you will see an output listing the control number and a brief description of the
 task being performed (or skipped):
@@ -95,3 +98,4 @@ defaults or set them as host variables.
 ### Change Log
 - 1/20/2020 - dsglaser@gmail.com - Initial creation
 - 1/22/2020 - dsglaser@gmail.com - Added enhanced selinux controls
+- 2/18/2020 - dsglaser@gmail.com - Added support for Ubuntu 18.04 LTS, added RHEL clone links
