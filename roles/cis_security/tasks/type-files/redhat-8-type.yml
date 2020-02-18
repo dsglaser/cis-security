@@ -441,7 +441,14 @@
           dest: /etc/yum.conf
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: "gpgcheck = 1"
-        when: gpgcheck is defined and gpgcheck
+        when: gpgcheck and ansible_distribution == "RedHat"
+
+      - name: 1.2.4 - set master dnf.conf gpgcheck to '1'
+        replace:
+          dest: /etc/dnf.conf
+          regexp: '^gpgcheck\s*=\s*[^1]*$'
+          replace: "gpgcheck=1"
+        when: gpgcheck and ansible_distribution == "Fedora"
 
       # Find all files in /etc/yum.repos.d and add them to a list variable
       - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
@@ -612,7 +619,7 @@
 
       - name: 1.5.3 - If no root password is set up, notify the user and do not set password or single user mode
         debug:
-          msg: "Root password is not set and no password provided. Set ubuntu_root_password variable per instructions and restart."
+          msg: "Root password is not set and no password provided. Set root_password variable per instructions and restart playbook."
         changed_when: true
         when: root_pw_check.found != "0" and root_password is not defined
     tags:
@@ -833,9 +840,16 @@
           line: "{{ crypto_policy | upper | default('DEFAULT', true) }}"
         notify: update crypto_policy
 
-      - name: 1.10.0 - Enabling FIPS mode if crypt_policy set to FIPS
-        shell: fips-mode-setup --enable
+      - name: 1.10.0 - Check to see if FIPS mode is already set up if crypto_policy == "FIPS"
+        shell: /usr/sbin/fips-mode-setup --is-enabled
+        register: fips_mode
         when: crypto_policy is defined and crypto_policy == "FIPS"
+        failed_when: false
+        changed_when: false
+
+      - name: 1.10.0 - Enabling FIPS mode if crypt_policy set to FIPS
+        shell: /usr/bin/fips-mode-setup --enable
+        when: ( crypto_policy is defined and crypto_policy == "FIPS") and fips_mode.rc == "2"
     tags:
       - 1.10.0
 
@@ -1070,6 +1084,7 @@
           regexp: "^inet_interfaces = ((?!localhost).)*$"
           replace: "inet_interfaces = loopback-only"
         when: postfix_out.stat.exists and not email_server
+        notify: restart postfix
     tags:
       - 2.2.18
 

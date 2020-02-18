@@ -1126,6 +1126,7 @@
           regexp: "^inet_interfaces = ((?!localhost).)*$"
           replace: "inet_interfaces = loopback-only"
         when: postfix_out.stat.exists and not email_server
+        notify: restart postfix
     tags:
       - 2.2.15
 
