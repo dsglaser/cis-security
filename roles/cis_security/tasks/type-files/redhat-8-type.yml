@@ -577,17 +577,47 @@
   # Control 1.5.2, Grub bootloader password - skipped
 
   # Use replace module to add the requirement to enter password on single user startup
+  # With Support for Fedora 31 added, you can build a machine with a disabled root account.
+  #  setting up secure single user mode shouldn't be done unless the root pasword is set or
+  #  you'll lock yourself out.
   - name: 1.5.3 - Set single user password
+    block:
+      - name: 1.5.3 - Check if root has a password
+        lineinfile:
+          path: /etc/shadow
+          regexp: '^root:[*\!|*\*]:'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: root_pw_check
+        failed_when: false
 
-    replace:
-      dest: /usr/lib/systemd/system/{{ item }}
-      regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
-      replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
-    with_items:
-      - rescue.service
-      - emergency.service
+      - name: 1.5.3 - Set single user to use use a secure shell
+        replace:
+          dest: /usr/lib/systemd/system/{{ item }}
+          regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
+          replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
+        when: root_pw_check.found != "0" and root_password is defined
+        with_items:
+          - rescue.service
+          - emergency.service
+
+      # The user module here uses a known salt to idompotently set the password for multiple runs
+      #  see https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#hash-filters
+      - name: 1.5.3 - Set root password
+        user:
+          name: root
+          password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        when: root_pw_check.found != "0" and root_password is defined
+
+      - name: 1.5.3 - If no root password is set up, notify the user and do not set password or single user mode
+        debug:
+          msg: "Root password is not set and no password provided. Set ubuntu_root_password variable per instructions and restart."
+        changed_when: true
+        when: root_pw_check.found != "0" and root_password is not defined
     tags:
       - 1.5.3
+
 
   # 1.6 Additional Process Hardening
 
