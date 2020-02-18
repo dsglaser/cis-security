@@ -19,6 +19,8 @@
   - name: Collect package list
     package_facts:
       manager: auto
+    tags:
+      - always
 
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
@@ -27,6 +29,8 @@
     shell: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
+    tags:
+      - always
 
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
