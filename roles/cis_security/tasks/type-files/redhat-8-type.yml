@@ -1048,7 +1048,7 @@
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation
   # Once complete, notify the system to flush the network routes
-  - name: 3.1 - Set networking parameters (OFF)
+  - name: 3.1 - Set ipv4 networking parameters (OFF)
     sysctl:
       name: "{{ item }}"
       value: "0"
@@ -1065,6 +1065,19 @@
       - net.ipv4.conf.default.accept_redirects # (3.2.2)
       - net.ipv4.conf.all.secure_redirects # (3.2.3)
       - net.ipv4.conf.default.secure_redirects # (3.2.3)
+    notify: flush network routes
+    tags:
+      - 3.1.0
+      - 3.2.0
+
+  - name: 3.1 - Set ipv6 networking parameters (OFF)
+    sysctl:
+      name: "{{ item }}"
+      value: "0"
+      reload: yes
+      state: present
+      sysctl_set: yes
+    loop:
       - net.ipv6.conf.all.forwarding # (3.1.1)
       - net.ipv6.conf.all.accept_source_route # (3.2.1)
       - net.ipv6.conf.default.accept_source_route # (3.2.1)
@@ -1073,10 +1086,10 @@
       - net.ipv6.conf.all.accept_ra # (3.2.9)
       - net.ipv6.conf.default.accept_ra # (3.2.9)
     notify: flush network routes
+    when: not ipv6_disable
     tags:
       - 3.1.0
       - 3.2.0
-      - 3.3.0
 
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation.
@@ -1275,6 +1288,7 @@
         loop:
           - net.ipv6.conf.all.disable_ipv6
           - net.ipv6.conf.default.disable_ipv6
+    when: not ipv6_disable
     tags:
       3.6.0
 
