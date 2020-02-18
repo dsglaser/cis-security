@@ -1,0 +1,13 @@
+[Unit]
+Description=Aide Check
+
+[Service]
+Type=simple
+{% if ansible_distribution == "RedHat" or ansible_distribution == "CentOS" or ansible_distribution == "Oracle" %}
+ExecStart=/usr/sbin/aide --check
+{% else %}
+ExecStart=/usr/bin/aide.wrapper -C
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

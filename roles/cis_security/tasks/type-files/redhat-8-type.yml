@@ -13,7 +13,7 @@
 
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
-  - debug: msg="CIS Controls for RHEL {{ansible_distribution_major_version}}"
+  - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
 
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
@@ -334,7 +334,7 @@
       - name: 1.1.15 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nodev set"
-        when: devshm_nodev_out is defined and devshm_nodev_out.stdout == ""
+        when: devshm_nodev_out is defined and devshm_nodev_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -353,7 +353,7 @@
       - name: 1.1.16 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
-        when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout == ""
+        when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -372,7 +372,7 @@
       - name: 1.1.17 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have noexec set"
-        when: devexec_nosuid_out is defined and devshm_noexec_out.stdout == ""
+        when: devexec_nosuid_out is defined and devshm_noexec_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
@@ -382,7 +382,7 @@
 
   # Finda all local filesystem directories and set the sticky bit on world writable ones
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     changed_when: false
     tags:
       - 1.1.21
@@ -416,7 +416,7 @@
     tags:
       - 1.1.23
 
-# Control 1.2.1 is system updating. Make sure system is set for some kind of system bigip_software_update
+# Control 1.2.1 is system updating. Make sure system is set for some kind of system software update
 
   # Use the service module to disable the rhnsd service. If you want the machine
   #  to respond to queued services from Satellite, do not disable this.
@@ -426,6 +426,7 @@
       enabled: no
       state: stopped
     ignore_errors: true #Remove for RHEL
+    when: ansible_distribution == "RedHat"
     tags:
       - 1.2.2
 
@@ -453,7 +454,7 @@
       # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.4 - Set all repos gpgchecks to '1'
         replace:
-          dest: "{{item}}"
+          dest: "{{ item }}"
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: gpgcheck = 1
         loop: "{{ yumrepos.stdout_lines }}"
@@ -535,8 +536,8 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the service
       - name: 1.4.2 - Ensure File integrity is regularly checked (aidecheck service)
-        copy:
-          src: files/aide/aidecheck.service
+        template:
+          src: aidecheck.service
           dest: /etc/systemd/system/aidecheck.service
           owner: root
           group: root
@@ -548,8 +549,8 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the timer
       - name: 1.4.2 - Ensure File integrity is regulary checked (aidecheck timer)
-        copy:
-          src: files/aide/aidecheck.timer
+        template:
+          src: aidecheck.timer
           dest: /etc/systemd/system/aidecheck.timer
           owner: root
           group: root
@@ -579,7 +580,7 @@
   - name: 1.5.3 - Set single user password
 
     replace:
-      dest: /usr/lib/systemd/system/{{item}}
+      dest: /usr/lib/systemd/system/{{ item }}
       regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
       replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
     with_items:
@@ -640,7 +641,7 @@
   - name: 1.7.1.2 - Ensure SELinux is not disabled in bootloader configuration
     replace:
       dest: /etc/default/grub
-      regexp: "{{item}}"
+      regexp: "{{ item }}"
       replace: ""
     with_items:
       - selinux=0
@@ -710,7 +711,7 @@
             - "Unconfined processes found:"
             - "{{ unconfined_services_out.stdout_lines }}"
         changed_when: true
-        when: unconfined_services_out.stdout != ""
+        when: unconfined_services_out.stdout
     tags:
       - 1.7.1.5
 
@@ -1047,7 +1048,7 @@
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation
   # Once complete, notify the system to flush the network routes
-  - name: 3.1 - Set networking parameters (OFF)
+  - name: 3.1 - Set ipv4 networking parameters (OFF)
     sysctl:
       name: "{{ item }}"
       value: "0"
@@ -1064,6 +1065,19 @@
       - net.ipv4.conf.default.accept_redirects # (3.2.2)
       - net.ipv4.conf.all.secure_redirects # (3.2.3)
       - net.ipv4.conf.default.secure_redirects # (3.2.3)
+    notify: flush network routes
+    tags:
+      - 3.1.0
+      - 3.2.0
+
+  - name: 3.1 - Set ipv6 networking parameters (OFF)
+    sysctl:
+      name: "{{ item }}"
+      value: "0"
+      reload: yes
+      state: present
+      sysctl_set: yes
+    loop:
       - net.ipv6.conf.all.forwarding # (3.1.1)
       - net.ipv6.conf.all.accept_source_route # (3.2.1)
       - net.ipv6.conf.default.accept_source_route # (3.2.1)
@@ -1072,10 +1086,10 @@
       - net.ipv6.conf.all.accept_ra # (3.2.9)
       - net.ipv6.conf.default.accept_ra # (3.2.9)
     notify: flush network routes
+    when: not ipv6_disable
     tags:
       - 3.1.0
       - 3.2.0
-      - 3.3.0
 
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation.
@@ -1137,7 +1151,7 @@
       - name: 3.5.0 - Process uncommon network list
         lineinfile:
           dest=/etc/modprobe.d/CIS.conf
-          line="install {{item}} /bin/true"
+          line="install {{ item }} /bin/true"
           state=present
           create=yes
         loop:
@@ -1204,7 +1218,7 @@
           name:
             - "iptables"
             - "iptables-services"
-          state: latest
+          state: present
         notify: start iptables
         tags:
           - 3.4.4.1
@@ -1244,12 +1258,15 @@
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
     block:
-      - name: 3.3 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        shell: /usr/bin/grep ipv6.disable=1 /etc/default/grub
-        register: ipv6_disable
-        failed_when: ipv6_disable.rc == "2"
+      - name: 3.6 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*ipv6.disable=1'
+          state: absent
+        check_mode: yes
         changed_when: false
-
+        register: ipv6_disable_grub
+        failed_when: false
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 3.6 - Disable IPv6 in grub
@@ -1258,10 +1275,10 @@
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
         notify: rebuild grub
-        when: ipv6_disable is defined and ipv6_disable is changed
+        when: not ipv6_disable_grub.found and ipv6_disable
 
       # use sysctl module to disable ipv6 at the kernel level
-      - name: 3.3 - Disable IPv6 in sysctl
+      - name: 3.6 - Disable IPv6 in sysctl
         sysctl:
           name: "{{ item }}"
           value: "1"
@@ -1271,6 +1288,7 @@
         loop:
           - net.ipv6.conf.all.disable_ipv6
           - net.ipv6.conf.default.disable_ipv6
+    when: not ipv6_disable
     tags:
       3.6.0
 
@@ -1295,22 +1313,74 @@
         tags:
           - 4.1.1.2
 
-      - name: 4.1.1.3 - Ensure auditing for processes that sart prior to auditd
-        replace:
-          dest: /etc/default/grub
-          regexp: "rhgb quiet\""
-          replace: "rhgb quiet audit=1\""
-        register: audit_grub = "1"
+      - name: 4.1.1.3 - Ensure auditing for processes that start prior to auditd
+      # We check here because we don't know what position the audit=1 is in
+      # order to simply do the replace, so we are instead looking for the match in the file first.
+      # If it doesn't exist, then we can just insert it
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*audit=1'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: audit_exist
+        failed_when: false
         tags:
           - 4.1.1.3
+
+      # use the replace module to add it to grub bootloader and then notify
+      #  grub to rebuild
+      - name: 4.1.1.3 - enable audit service in grub
+        replace:
+          path: /etc/default/grub
+          regexp: '^GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit=1 '
+        notify: rebuild ubuntu-grub
+        when: not audit_exist.found
+        tags:
+          - 4.1.1.3
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, check if limit exists
+        lineinfile:
+          path: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX.*audit_backlog_limit'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: audit_backlog_exist
+        failed_when: false
+        tags:
           - 4.1.1.4
 
-      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, add audit_backlog_limit to grub
         replace:
           dest: /etc/default/grub
-          regexp: "audit=1\""
-          replace: "audit=1 audit_backlog_limit={{ audit_backlog_limit }}\""
-        notify: rebuild grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
+        notify: rebuild ubuntu-grub
+        when: not audit_backlog_exist.found
+        tags:
+          - 4.1.1.4
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
+        lineinfile:
+          dest: /etc/default/grub
+          regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: our_limit
+        when: audit_backlog_exist.found
+        tags:
+          - 4.1.1.4
+
+      - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (fix)
+        replace:
+          dest: /etc/default/grub
+          regexp: 'audit_backlog_limit=[\S]*'
+          replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
+        notify: rebuild ubuntu-grub
+        when: audit_backlog_exist.found and not our_limit.found
         tags:
           - 4.1.1.4
 
@@ -1322,7 +1392,7 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size}}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
+          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
           - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)' , replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
           - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)' , replace: 'space_left_action = email' } # 4.1.2.2
           - { find: '^action_mail_acct\s+=\s+(^root)*$' , replace: 'action_mail_acct = root' } # 4.1.2.2
@@ -1331,6 +1401,7 @@
           - 4.1.2.1
           - 4.1.2.2
           - 4.1.2.3
+
       # This isn't the best way to do this since users can modify the line and it will
       #  break this control check. It needs to be re-evaluated.
       - name: 4.1.3 - Ensure changes to sudoers is collected
@@ -1636,17 +1707,17 @@
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
         lineinfile:
           dest: /etc/systemd/journald.conf
-          regexp: "^ForwardToSyslog=yes"
+          regexp: "^ForwardToSyslog=((?!yes).)*$"
           line: "ForwardToSyslog=yes"
           insertafter: "#ForwardToSyslog=no"
-        when: rsyslog_forward_out.stdout != ""
+        when: rsyslog_forward_out.stdout
     tags:
       - 4.2.2.1
 
   - name: 4.2.2.2 - Ensure journald compresses large files
     lineinfile:
       dest: /etc/systemd/journald.conf
-      regexp: "^Compress=yes"
+      regexp: "^Compress=((?!yes).)*$"
       line: "Compress=yes"
       insertafter: "^#Compress="
     tags:
@@ -1655,7 +1726,7 @@
   - name: 4.2.2.3 - Ensure journald writes to peristent disk
     lineinfile:
       dest: /etc/systemd/journald.conf
-      regexp: "^Storage=persistent"
+      regexp: "^Storage=((?!persistent).)*$"
       line: "Storage=persistent"
       insertafter: "^#Storage="
     tags:
@@ -1691,7 +1762,7 @@
 
   - name: Create the allow files (5.1.8)
     file:
-      path: "{{item}}"
+      path: "{{ item }}"
       state: touch
     with_items:
       - /etc/cron.allow
@@ -1717,7 +1788,7 @@
     tags:
       - 5.1.2
 
-  - name: 5.1.3 - Ensure permissions on crontab directories
+  - name: 5.1.[3-7] - Ensure permissions on crontab directories
     file:
       path: "{{ item }}"
       owner: root
@@ -1804,11 +1875,11 @@
           - 5.2.5
 
       # Using replace with a replace argument of "" removes the selected
-      #  text. 
+      #  text.
       - name: 5.2.6 - Disable X11 forwarding
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^X11Forwarding\s*yes'
         notify:  restart sshd
         tags:
@@ -1852,18 +1923,18 @@
           - 5.2.10
 
       - name: 5.2.11 - Ensure SSH PermitEmptyPasswords is disabled
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^PermitEmptyPasswords\s*[^n]'
         notify:  restart sshd
         tags:
           - 5.2.11
 
       - name: 5.2.12 - Ensure PermitUserEnvironment is disabled
-        replace:
+        lineinfile:
           path: /etc/ssh/sshd_config
-          replace: ""
+          state: absent
           regexp: '^PermitUserEnvironment\s*[^n]'
         notify:  restart sshd
         tags:
@@ -1996,7 +2067,7 @@
       - name: 5.4.1 - Require at least {{ password_min_length }} characters in passwords
         lineinfile:
           path: /etc/security/pwquality.conf
-          line: minlen = {{ password_min_length}}
+          line: minlen = {{ password_min_length }}
           regexp: "^minlen = {{ password_min_length }}"
           insertafter: "^# minlen = 8"
         when: password_req_digit
@@ -2015,7 +2086,7 @@
   - name: 5.5.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_MAX_DAYS"
+      regexp: '^PASS_MAX_DAYS\s*((?!{{ password_expire_days }}).)*$'
       line: "PASS_MAX_DAYS  {{ password_expire_days }}"
       state: present
     tags:
@@ -2024,7 +2095,7 @@
   - name: 5.5.1.2 - Ensure password change days is set to {{ password_min_days }}
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_MIN_DAYS"
+      regexp: '^PASS_MIN_DAYS\s*((?!{{ password_min_days }}).)*$'
       line: "PASS_MIN_DAYS  {{ password_min_days }}"
       state: present
     tags:
@@ -2033,7 +2104,7 @@
   - name: 5.5.1.3 - Ensure password warning days is set to {{ password_warning_days }}
     lineinfile:
       dest: /etc/login.defs
-      regexp: "^PASS_WARN_AGE"
+      regexp: '^PASS_WARN_AGE\s*((?!{{ password_warning_days }}).)*$'
       line: "PASS_WARN_AGE  {{ password_warning_days }}"
       state: present
     tags:
@@ -2109,7 +2180,7 @@
 
   - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0644
@@ -2122,7 +2193,7 @@
 
   - name: 6.1.[3,5] - Ensure permissions on /etc/shadow /etc/gshadow
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0000
@@ -2135,7 +2206,7 @@
 
   - name: 6.1.[6-9] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
     file:
-      path: /etc/{{item}}
+      path: /etc/{{ item }}
       owner: root
       group: root
       mode: 0000
@@ -2163,7 +2234,7 @@
         debug:
           msg: "World writiable files found: {{ ww_files.stdout }}"
         changed_when: true
-        when: ww_files.stdout != ""
+        when: ww_files.stdout
     tags:
       - 6.1.10
 
@@ -2180,7 +2251,7 @@
         debug:
           msg: "unowned files found: {{ uo_files.stdout }}"
         changed_when: true
-        when: uo_files.stdout != ""
+        when: uo_files.stdout
     tags:
       - 6.1.11
 
@@ -2197,7 +2268,7 @@
         debug:
           msg: "ungrouped files found: {{ uo_files.stdout }}"
         changed_when: true
-        when: ug_files.stdout != ""
+        when: ug_files.stdout
     tags:
       - 6.1.12
 
@@ -2220,7 +2291,7 @@
       - name: 6.2.1 - Report the named users to the report
         debug:
           msg: "The user {{ item }} has an empty password"
-        when: empty_passwords.stdout != ""
+        when: empty_passwords.stdout
         changed_when: true
         loop: "{{ empty_passwords.stdout_lines }}"
     tags:
@@ -2254,7 +2325,7 @@
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
             - "that exist in root's path because of this. It should be run as root on the target machine manually."
             - " {{ path_check.stdout }}"
-        when: path_check.stdout != ""
+        when: path_check.stdout
     tags:
       - 6.2.3
 
@@ -2291,7 +2362,7 @@
         debug:
           msg: "{{ undefined_groups.stdout_lines }}"
         changed_when: true
-        when: undefined_groups.stdout != ""
+        when: undefined_groups.stdout
     tags:
       - 6.2.14
 
@@ -2308,7 +2379,7 @@
         debug:
           msg: "{{ duplicate_uids.stdout_lines }}"
         changed_when: true
-        when: duplicate_uids.stdout != ""
+        when: duplicate_uids.stdout
     tags:
       - 6.2.15
 
@@ -2324,7 +2395,7 @@
         debug:
           msg: "{{ duplicate_guids.stdout_lines }}"
         changed_when: true
-        when: duplicate_guids.stdout != ""
+        when: duplicate_guids.stdout
     tags:
       - 6.2.16
 
@@ -2340,7 +2411,7 @@
         debug:
           msg: "{{ duplicate_users.stdout_lines }}"
         changed_when: true
-        when: duplicate_users.stdout != ""
+        when: duplicate_users.stdout
     tags:
       - 6.2.17
 
@@ -2356,7 +2427,7 @@
         debug:
           msg: "{{ duplicate_groups.stdout_lines }}"
         changed_when: true
-        when: duplicate_groups.stdout != ""
+        when: duplicate_groups.stdout
     tags:
       - 6.2.18
 
@@ -2372,6 +2443,6 @@
         debug:
           msg: "Shadow group exists in /etc/group. Remove"
         changed_when: true
-        when: shadow_out.stdout != ""
+        when: shadow_out.stdout
 
 
