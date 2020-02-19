@@ -1,6 +1,6 @@
 Below are the tags used in the CIS roles.
 
-|  RHEL 8 / Fedora 31  |  RHEL 7   |  Ubuntu 18.04 | Control Description | Notes |
+|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  |  Ubuntu 18.04 | Control Description | Notes |
 | -----------------|--------------------- | -----------------|--------------------- | --------------------- |
 |  1.1.1.1  |  1.1.1.1  |  1.1.1.1      |   Remove cramfs |
 |           |  1.1.1.2  |  1.1.1.2      |   Remove freevxfs
@@ -10,19 +10,19 @@ Below are the tags used in the CIS roles.
 |  1.1.1.2  |  1.1.1.8  |  1.1.1.8      |   Remove vfat
 |  1.1.1.3  |  1.1.1.6  |  1.1.1.6      |   Remove squashfs
 |  1.1.1.4  |  1.1.1.7  |  1.1.1.7      |   Remove udf
-|           |  1.1.2    |               |   Report if /tmp is not on a separate partition | if report comes back saying partitions are not separate, the no* checks aren't run |
+|           |  1.1.2    |               |   Report if /tmp is not on a separate partition | a) f report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
 |  1.1.2    |           |  1.1.2        |   Ensure tmpfs is configured
 |  1.1.3    |  1.1.3    |  1.1.3        |   Ensure nodev option on /tmp partition
 |  1.1.4    |  1.1.4    |  1.1.4        |   Ensure nosuid option set on /tmp partition
 |  1.1.5    |  1.1.5    |  1.1.5        |   Ensure noexec option set on /tmp partition
 |  1.1.6    |  1.1.6    |  1.1.6        |   Report if /var is not on a separate partition
-|  1.1.7    |  1.1.7    |  1.1.7        |   Report if  /var/tmp is not on a separate partition
+|  1.1.7    |  1.1.7    |  1.1.7        |   Report if  /var/tmp is not on a separate partition  a) f report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
 |  1.1.8    |  1.1.8    |  1.1.8        |   Ensure nodev option on /var/tmp partition
 |  1.1.9    |  1.1.9    |  1.1.9        |   Ensure nosuid option set on /var/tmp partition
 |  1.1.10   |  1.1.10   |  1.1.10       |   Ensure noexec option set on /var/tmp partition
-|  1.1.11   |  1.1.11   |  1.1.11       |   Report if /var/log is not on a separate partition
-|  1.1.12   |  1.1.12   |  1.1.12       |   Report if /var/log/audit is not on a separate partition
-|  1.1.13   |  1.1.13   |  1.1.13       |   Report if /home is not on a separate partition
+|  1.1.11   |  1.1.11   |  1.1.11       |   Report if /var/log is not on a separate partition | On a failed control, simply prints a notification to the user |
+|  1.1.12   |  1.1.12   |  1.1.12       |   Report if /var/log/audit is not on a separate partition | On a failed control, simply prints a notification to the user |
+|  1.1.13   |  1.1.13   |  1.1.13       |   Report if /home is not on a separate partition | On a failed control, simply prints a notification to the user |
 |  1.1.14   |  1.1.14   |  1.1.14       |   Ensure nodev option on /home partition |skipped: environment dependent |
 |  1.1.15   |  1.1.15   |  1.1.15       |   Report if /dev/shm does not have nodev set
 |  1.1.16   |  1.1.16   |  1.1.16       |   Report if /dev/shm does not have nosuid set
@@ -34,7 +34,7 @@ Below are the tags used in the CIS roles.
 |  1.1.22   |  1.1.22   |  1.1.22       |   Disable automounting
 |  1.1.23   |           |  1.1.23       |   Disable USB storage module
 |  1.2.1    |  1.2.1    |  1.2.1        |   Ensure system is configured for updates |skipped: environment dependent|
-|  1.2.2    |  1.2.5    |               |   Disable the rhnsd Daemon
+|  1.2.2    |  1.2.5    |               |   Disable the rhnsd Daemon | RHEL control only |
 |  1.2.3    |  1.2.3    |  1.2.2        |   Ensure gpg keys are configured | gpgcheck set to yes|
 |  1.2.4    |  1.2.2    |  1.2.2        |   Ensure gpgcheck is globally activated
 |  1.2.5    |  1.2.4    |               |   Ensure machine is registerd with Red Hat |skipped: environment dependent|
@@ -46,7 +46,7 @@ Below are the tags used in the CIS roles.
 |  1.4.2    |  1.3.2    |  1.4.2        |   Ensure File integrity is regularly checked
 |  1.5.1    |  1.4.1    |  1.5.1        |   Set permissions on grub bootloader files
 |  1.5.2    |  1.4.2    |  1.5.2        |   Ensure bootloader password is set |skipped: environment dependent|
-|  1.5.3    |  1.4.3    |  1.5.3        |   Set single user password
+|  1.5.3    |  1.4.3    |  1.5.3        |   Set single user password | if root password is not set, sets root password before setting up secure single user mode. Uses root_password variable. See [Using vaults with playbooks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_vault.html#playbooks-vault) for information on how to secure it|
 |  1.6.1    |  1.5.1    |  1.6.4        |   Ensure core dumps are restricted
 |           |  1.5.2    |  1.6.1        |   Ensure XD/NX support is enabled
 |  1.6.2    |  1.5.3    |  1.6.2        |   Ensure address space layout reandomization (ASLR) is enabled
@@ -68,7 +68,7 @@ Below are the tags used in the CIS roles.
 |  1.8.1.5  |  1.7.1.5  |  1.8.1.5      |   Ensure permissions on /etc/issue are configured
 |  1.8.1.6  |  1.7.1.6  |  1.8.1.6      |   Ensure permissions on /etc/issue.net are configured
 |  1.8.2    |  1.7.2    |  1.8.2        |   Ensure GDM banner set up
-|  1.9.0    |           |  1.9.0        |   Ensure updated system
+|  1.9.0    |           |  1.9.0        |   Ensure updated system | First control to be run chronologically in order to make sure things are in the same state for the rest of the play
 |  1.10.0   |           |               |   Ensure crypto policy is not legacy | we also set it to what the crypto_policy variable is set to|
 |  1.11.0   |           |               |   Ensure crypto policy is FUTURE or FIPS (skipped: not widely prevelent)
 |  2.1.1    |  2.1.7    |  2.1.1        |   Remove xinetd service
@@ -169,7 +169,7 @@ Below are the tags used in the CIS roles.
 |  4.2.1.1  |  4.2.3    |  4.2.1.1      |   Ensure rsyslog is installed
 |  4.2.1.2  |           |  4.2.1.2      |   Enable Rsyslog
 |  4.2.1.3  |  4.2.1.3  |  4.2.1.4      |   Ensure rsyslog default file permissions are configured
-|  4.2.1.4  |  4.2.1.2  |  4.2.1.3      |   Ensure logging is configured |skipped: environment dependent|
+|  4.2.1.4  |  4.2.1.2  |  4.2.1.3      |   Ensure logging is configured |Only runs if the variable rsyslog_file is set, which it is not set by default|
 |  4.2.1.5  |  4.2.1.4  |  4.2.1.5      |   Ensure logging is configured to send logs to remote host |skipped: environment dependent|
 |  4.2.1.6  |  4.1.2.5  |  4.2.1.6      |   Ensure remote rsyslog messages are only accepted on designated log hosts
 |           |  4.2.2.1  |               |   Ensure syslog-ng is configured |skipped: not a Red Hat package|

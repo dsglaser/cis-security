@@ -1096,19 +1096,15 @@
   # Cups should be remove per control 2.2.4, but it may not be able to due to
   #  dependencies, so disable the service instead
   - name: 2.2.4 - Disable cups as we my not be able to uninstall it
-    block:
-      - name: 2.2.4 - Check if cups is enabled
-        shell: /usr/bin/systemctl is-enabled cups
-        register: cups_out
-        failed_when: cups_out.rc == "2"
-        changed_when: false
-
-      - name: 2.2.4 - If it is, then stop and disable it
-        service:
-          name: cups
-          enabled: no
-          state: stopped
-        when: cups_out.stdout == "enabled"
+    service:
+      name: "{{ item }}"
+      enabled: no
+      state: stopped
+    when: "'cups' in ansible_facts.packages"
+    loop:
+      - cups.service
+      - cups.socket
+      - cups-browsed.service
     tags:
       - 2.2.4
 
@@ -1657,8 +1653,16 @@
     tags:
       - 4.2.1.1
 
-  # Control 4.2.1.2 - Ensure logging is configured is machine dependent
-  # skipping
+  - name: 4.2.1.2 - Ensure logging is configured
+    copy:
+      src: "{{ rsyslog_file }}"
+      dest: "/etc/rsyslog.d/{{ rsyslog_file }}"
+      owner: root
+      group: root
+      mode: 0640
+    when: rsylog_file is defined
+    tags:
+      - 4.2.1.2
 
   - name: 4.2.1.3 - Ensure rsyslog default file permissions are configured
     lineinfile:
@@ -1727,7 +1731,7 @@
     tags:
       - 4.2.1.5
 
-  # Configure syslog-ng (4.2.2) not handled as not a supported package from RHEL
+  # 4.2.2 - Configure syslog-ng skipped as it is not a supported package from RHEL
 
   # Ensure rsyslog package is installed (4.2.3) moved to before 4.2.1.1 which is the package install
 
@@ -1738,11 +1742,7 @@
     tags:
       - 4.3.0
 
-  - name: 4.3 - Ensure logrotate is configured
-    debug:
-      msg: "Configure logrotate based on site policy"
-    tags:
-      - 4.3.0
+  # 4.3 - Ensure logrotate is configured skipped as machine and environment dependent
 
   # Section 5 - Access and Authorization
   #

@@ -996,19 +996,15 @@
   # Cups should be remove per control 2.2.16, but it may not be able to due to
   #  dependencies, so disable the service instead
   - name: 2.2.4 - Disable cups as we my not be able to uninstall it
-    block:
-      - name: 2.2.4 - Check if cups is enabled
-        shell: /bin/systemctl is-enabled cups
-        register: cups_out
-        failed_when: cups_out.rc == "2"
-        changed_when: false
-
-      - name: 2.2.4 - If it is, then stop and disable it
-        service:
-          name: cups
-          enabled: no
-          state: stopped
-        when: cups_out.stdout == "enabled"
+    service:
+      name: "{{ item }}"
+      enabled: no
+      state: stopped
+    when: "'cups' in ansible_facts.packages"
+    loop:
+      - cups.service
+      - cups.socket
+      - cups-browsed.service
     tags:
       - 2.2.4
 
@@ -1210,12 +1206,10 @@
           state: stopped
           enabled: no
           masked: yes
-        ignore_errors: true
+        when: "'nftables' in ansible_facts.packages"
 
       # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
       # 3.4.2.6 Ensure unnecessary services and ports are not accepted
-
-
 
     when: enable_firewall is defined and enable_firewall == "ufw"
     tags:
@@ -1620,8 +1614,16 @@
     tags:
       - 4.2.1.4
 
-  # Control 4.2.1.3 - Ensure logging is configured is machine dependent
-  # skipping
+  - name: 4.2.1.4 - Ensure logging is configured
+    copy:
+      src: "{{ rsyslog_file }}"
+      dest: "/etc/rsyslog.d/{{ rsyslog_file }}"
+      owner: root
+      group: root
+      mode: 0640
+    when: rsylog_file is defined
+    tags:
+      - 4.2.1.4
 
   # Control 4.2.1.5 - Ensure rsyslog is configured to send logs to a remote log host is machine dependent
   # skipping
@@ -1726,11 +1728,8 @@
     tags:
       - 4.3.0
 
-  - name: 4.3 - Ensure logrotate is configured
-    debug:
-      msg: "Configure logrotate based on site policy"
-    tags:
-      - 4.3.0
+  # 4.3 - Ensure logrotate is configured skipped as machine and environment dependent
+
 
   # Section 5 - Access and Authorization
   #

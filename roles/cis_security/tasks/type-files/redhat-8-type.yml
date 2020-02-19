@@ -177,7 +177,7 @@
 
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
-      - name: 1.1.7 - Report to user if not on separate partition
+      - name: 1.1.7 - Report to user if /var/tmp not on separate partition
         debug:
           msg: "FAILED CONTROL: /var/tmp is not on a separate partition. Skipping mount option checks"
         when: mount_count == 0
@@ -1226,7 +1226,7 @@
           state: stopped
           enabled: no
           masked: yes
-        ignore_errors: true
+        when: "'nftables' in ansible_facts.packages"
 
       - name: 3.4.2.4 - Ensure default zone is set for firewalld
         shell: /usr/bin/firewall-cmd --get-default-zone
@@ -1678,8 +1678,16 @@
     tags:
       - 4.2.1.3
 
-  # Control 4.2.1.4 - Ensure logging is configured is machine dependent
-  # skipping
+  - name: 4.2.1.4 - Ensure logging is configured
+    copy:
+      src: "{{ rsyslog_file }}"
+      dest: "/etc/rsyslog.d/{{ rsyslog_file }}"
+      owner: root
+      group: root
+      mode: 0640
+    when: rsylog_file is defined
+    tags:
+      - 4.2.1.4
 
   # Control 4.2.1.5 - Ensure rsyslog is configured to send logs to a remote log host is machine dependent
   # skipping
@@ -1784,11 +1792,7 @@
     tags:
       - 4.3.0
 
-  - name: 4.3 - Ensure logrotate is configured
-    debug:
-      msg: "Configure logrotate based on site policy"
-    tags:
-      - 4.3.0
+  # 4.3 - Ensure logrotate is configured skipped as machine and environment dependent
 
   # Section 5 - Access and Authorization
   #
