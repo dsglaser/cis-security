@@ -422,22 +422,14 @@
       - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
-  #  We are checking to see if it exists with a shell command so it only
-  #  runs if the service exists. Service will produce an error otherwise.
+  # We check to see if the package that autofs belongs to (convienently called autofs)
+  #  exists in the ansible_facts.packages list we gathered early in the play
   - name: 1.1.22 - disable automounting
-    block:
-      - name: 1.1.22 - Check if autofs is enabled
-        shell: /bin/systemctl is-enabled autofs
-        register: autofs_out
-        failed_when: autofs_out.rc == "2"
-        changed_when: false
-
-      - name: 1.1.22 - If it is, then stop and disabled it
-        service:
-          name: autofs
-          enabled: no
-          state: stopped
-        when: autofs_out.stdout == "enabled"
+    service:
+      name: autofs
+      enabled: no
+      state: stopped
+    when: "'autofs' in ansible_facts.packages"
     tags:
       - 1.1.22
 

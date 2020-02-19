@@ -464,8 +464,8 @@
       - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
-  #  We are checking to see if it exists with a shell command so it only
-  #  runs if the service exists. Service will produce an error otherwise.
+  # We check to see if the package that autofs belongs to (convienently called autofs)
+  #  exists in the ansible_facts.packages list we gathered early in the play
   - name: 1.1.22 - disable automounting
     service:
       name: autofs

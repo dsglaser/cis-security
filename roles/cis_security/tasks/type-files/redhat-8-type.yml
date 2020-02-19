@@ -397,8 +397,8 @@
       - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
-  #  We are checking to see if it exists with a shell command so it only
-  #  runs if the service exists. Service will produce an error otherwise.
+  # We check to see if the package that autofs belongs to (convienently called autofs)
+  #  exists in the ansible_facts.packages list we gathered early in the play
   - name: 1.1.22 - disable automounting
     service:
       name: autofs
@@ -1053,19 +1053,15 @@
   # Cups should be remove per control 2.2.16, but it may not be able to due to
   #  dependencies, so disable the service instead
   - name: 2.2.16 - Disable cups as we my not be able to uninstall it
-    block:
-      - name: 2.2.16 - Check if cups is enabled
-        shell: /usr/bin/systemctl is-enabled cups
-        register: cups_out
-        failed_when: cups_out.rc == "2"
-        changed_when: false
-
-      - name: 2.2.16 - If it is, then stop and disable it
-        service:
-          name: cups
-          enabled: no
-          state: stopped
-        when: cups_out.stdout == "enabled"
+    service:
+      name: "{{ item }}"
+      enabled: no
+      state: stopped
+    when: "'cups' in ansible_facts.packages"
+    loop:
+      - cups.service
+      - cups.socket
+      - cups-browsed.service
     tags:
       - 2.2.16
 
