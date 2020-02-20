@@ -1135,69 +1135,109 @@
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation
   # Once complete, notify the system to flush the network routes
-  - name: 3.[1-2] - Set ipv4 networking parameters (OFF)
-    sysctl:
-      name: "{{ item }}"
-      value: "0"
-      reload: yes
-      state: present
-      sysctl_set: yes
-    loop:
-      - net.ipv4.conf.all.forwarding # (3.1.1)
-      - net.ipv4.conf.all.send_redirects # (3.1.2)
-      - net.ipv4.conf.default.send_redirects # (3.1.2)
-      - net.ipv4.conf.all.accept_source_route # (3.2.1)
-      - net.ipv4.conf.default.accept_source_route # (3.2.1)
-      - net.ipv4.conf.all.accept_redirects # (3.2.2)
-      - net.ipv4.conf.default.accept_redirects # (3.2.2)
-      - net.ipv4.conf.all.secure_redirects # (3.2.3)
-      - net.ipv4.conf.default.secure_redirects # (3.2.3)
-    notify: flush network routes
+  - name: 3.1 - Set networking parameters for host only communications
+    block:
+      - name: 3.1 - Set ipv4 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.forwarding # (3.1.1)
+          - net.ipv4.conf.all.send_redirects # (3.1.2)
+          - net.ipv4.conf.default.send_redirects # (3.1.2)
+        notify: flush network routes
+
+      - name: 3.1 - Set ipv6 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.forwarding # (3.1.1)
+        when: not ipv6_disable
+        notify: flush network routes
     tags:
       - 3.1.0
-      - 3.2.0
 
-  - name: 3.3 - Set ipv6 networking parameters (OFF)
-    sysctl:
-      name: "{{ item }}"
-      value: "0"
-      reload: yes
-      state: present
-      sysctl_set: yes
-    loop:
-      - net.ipv6.conf.all.accept_redirects # (3.3.2)
-      - net.ipv6.conf.default.accept_redirects # (3.3.2)
-      - net.ipv6.conf.all.accept_ra # (3.3.1)
-      - net.ipv6.conf.default.accept_ra # (3.3.1)
-    notify: flush network routes
-    when: not ipv6_disable
-    tags:
-      - 3.3.0
-
-  # The sysctl module will configure certain sysctl parameters. They are
-  #  collected into a loop here to speed the implementation.
-  # Once complete, notify the system to flush the network routes
-  - name: 3.2.[4-8] - Set networking parameters (ON)
-    sysctl:
-      name: "{{ item }}"
-      value: "1"
-      reload: yes
-      state: present
-      sysctl_set: yes
-    loop:
-      - net.ipv4.conf.all.log_martians # (3.2.4)
-      - net.ipv4.conf.default.log_martians # (3.2.4)
-      - net.ipv4.icmp_echo_ignore_broadcasts # (3.2.5)
-      - net.ipv4.icmp_ignore_bogus_error_responses # (3.2.6)
-      - net.ipv4.conf.all.rp_filter # (3.2.7)
-      - net.ipv4.conf.default.rp_filter # (3.2.7)
-      - net.ipv4.tcp_syncookies # ( 3.2.8)
-    notify: flush network routes
-    tags:
-      - 3.2.0
-
-  - name: 3.3 - Disable IPv6
+  - name: 3.2 - Set networking parameters for host as router communications
     block:
+      - name: 3.2 - Set ipv4 network parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.accept_source_route # (3.2.1)
+          - net.ipv4.conf.default.accept_source_route # (3.2.1)
+          - net.ipv4.conf.all.accept_redirects # (3.2.2)
+          - net.ipv4.conf.default.accept_redirects # (3.2.2)
+          - net.ipv4.conf.all.secure_redirects # (3.2.3)
+          - net.ipv4.conf.default.secure_redirects # (3.2.3)
+        notify: flush network routes
+
+      - name: 3.2.[4-8] - Set ipv4 networking parameters (ON)
+        sysctl:
+          name: "{{ item }}"
+          value: "1"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.log_martians # (3.2.4)
+          - net.ipv4.conf.default.log_martians # (3.2.4)
+          - net.ipv4.icmp_echo_ignore_broadcasts # (3.2.5)
+          - net.ipv4.icmp_ignore_bogus_error_responses # (3.2.6)
+          - net.ipv4.conf.all.rp_filter # (3.2.7)
+          - net.ipv4.conf.default.rp_filter # (3.2.7)
+          - net.ipv4.tcp_syncookies # ( 3.2.8)
+        notify: flush network routes
+
+      - name: 3.2 - Set ipv6 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.accept_source_route # (3.2.1)
+          - net.ipv6.conf.default.accept_source_route # (3.2.1)
+          - net.ipv6.conf.all.accept_redirects # (3.2.2)
+          - net.ipv6.conf.default.accept_redirects # (3.2.2)
+          - net.ipv6.conf.all.accept_ra # (3.2.9)
+          - net.ipv6.conf.default.accept_ra # (3.2.9)
+        notify: flush network routes
+        when: not ipv6_disable
+    tags:
+      - 3.2.0
+
+  - name: 3.3 - IPv6 configuration and/or disablement
+    block:
+      - name: 3.3 - Set ipv6 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.accept_redirects # (3.3.2)
+          - net.ipv6.conf.default.accept_redirects # (3.3.2)
+          - net.ipv6.conf.all.accept_ra # (3.3.1)
+          - net.ipv6.conf.default.accept_ra # (3.3.1)
+        notify: flush network routes
+        when: not ipv6_disable
+        tags:
+          - 3.3.1
+          - 3.3.2
+
       # We check here because we don't know what position the ipv6.disable is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
@@ -1210,6 +1250,8 @@
         changed_when: false
         register: ipv6_disable_grub
         failed_when: false
+        tags:
+          - 3.3.3
 
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
@@ -1220,6 +1262,8 @@
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
         notify: rebuild grub
         when: not ipv6_disable_grub.found and ipv6_disable
+        tags:
+          - 3.3.3
 
       # use sysctl module to disable ipv6 at the kernel level
       - name: 3.3 - Disable IPv6 in sysctl
@@ -1232,6 +1276,8 @@
         loop:
           - net.ipv6.conf.all.disable_ipv6
           - net.ipv6.conf.default.disable_ipv6
+        tags:
+          - 3.3.3
     when: not ipv6_disable
     tags:
       3.3.0

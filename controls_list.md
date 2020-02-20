@@ -10,13 +10,13 @@ Below are the tags used in the CIS roles.
 |  1.1.1.2  |  1.1.1.8  |  1.1.1.8      |   Remove vfat
 |  1.1.1.3  |  1.1.1.6  |  1.1.1.6      |   Remove squashfs
 |  1.1.1.4  |  1.1.1.7  |  1.1.1.7      |   Remove udf
-|           |  1.1.2    |               |   Report if /tmp is not on a separate partition | a) f report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
+|           |  1.1.2    |               |   Report if /tmp is not on a separate partition | a) If report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
 |  1.1.2    |           |  1.1.2        |   Ensure tmpfs is configured
 |  1.1.3    |  1.1.3    |  1.1.3        |   Ensure nodev option on /tmp partition
 |  1.1.4    |  1.1.4    |  1.1.4        |   Ensure nosuid option set on /tmp partition
 |  1.1.5    |  1.1.5    |  1.1.5        |   Ensure noexec option set on /tmp partition
 |  1.1.6    |  1.1.6    |  1.1.6        |   Report if /var is not on a separate partition
-|  1.1.7    |  1.1.7    |  1.1.7        |   Report if  /var/tmp is not on a separate partition  a) f report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
+|  1.1.7    |  1.1.7    |  1.1.7        |   Report if  /var/tmp is not on a separate partition  a) If report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
 |  1.1.8    |  1.1.8    |  1.1.8        |   Ensure nodev option on /var/tmp partition
 |  1.1.9    |  1.1.9    |  1.1.9        |   Ensure nosuid option set on /var/tmp partition
 |  1.1.10   |  1.1.10   |  1.1.10       |   Ensure noexec option set on /var/tmp partition
@@ -57,6 +57,7 @@ Below are the tags used in the CIS roles.
 |  1.7.1.5  |  1.6.1.6  |               |   Ensure no unconfined processes exist
 |  1.7.1.6  |  1.6.1.4  |               |   Remove setroubleshoot
 |  1.7.1.7  |  1.6.1.5  |               |   Remove MCS Translation Service
+|           |           |  1.7.0        |   Install and Configure AppArmor
 |           |           |  1.7.1.1      |   Ensure AppArmor is installed
 |           |           |  1.7.1.2      |   Ensure AppArmor is not disabled in bootloader configuration
 |           |           |  1.7.1.3      |   Ensure AppArmor profiles are in inforce or complain mode
@@ -106,17 +107,21 @@ Below are the tags used in the CIS roles.
 |  2.3.1    |           |  2.3.1        |   Remove NIS Client
 |  2.3.2    |  2.2.19   |  2.3.4        |   Remove telnet
 |  2.3.3    |           |  2.3.5        |   Remove openldap-clients
-|  3.1.1    |  3.1.1    |  3.1.2        |   Ensure IP forwarding is disabled
-|  3.1.2    |  3.1.2    |  3.1.1        |   Ensure packet redirect sending is disabled
-|  3.2.1    |  3.2.1    |  3.2.1        |   Ensure source routed packets are not accepted
-|  3.2.2    |  3.2.2,3.3.2| 3.2.2        |   Ensure ICMP redirects are not accepted
-|  3.2.3    |  3.2.3    |  3.2.3        |   Ensure secure ICMP redirects are not accepted
-|  3.2.4    |  3.2.4    |  3.2.4        |   Ensure suspicious packets are logged
-|  3.2.5    |  3.2.5    |  3.2.5        |   Ensure broadcast ICMP requests are ignored
-|  3.2.6    |  3.2.6    |  3.2.6        |   Ensure bogus ICMP responses are ignored
-|  3.2.7    |  3.2.7    |  3.2.7        |   Ensure Reverse Path Filtering is enabled
-|  3.2.8    |  3.2.8    |  3.2.8        |   Ensure TCP SYN Cookies is enabled
+|           |           |  3.1.0        |   Set host network parameters | host with single interface, or multiple interfaces but not routing between them
+|  3.1.1    |  3.1.1    |  3.1.2        |   Ensure IP forwarding is disabled | included in 3.1.0
+|  3.1.2    |  3.1.2    |  3.1.1        |   Ensure packet redirect sending is disabled | included in 3.1.0
+|           |           |  3.2.0        |   Set host with router network parameters | to be used when using 3.1.0 above as well as hosts with two interfaces configured to perform routing between them
+|  3.2.1    |  3.2.1    |  3.2.1        |   Ensure source routed packets are not accepted | included in 3.2.0
+|  3.2.2    |  3.2.2,3.3.2| 3.2.2        |   Ensure ICMP redirects are not accepted | included in 3.2.0
+|  3.2.3    |  3.2.3    |  3.2.3        |   Ensure secure ICMP redirects are not accepted | included in 3.2.0
+|  3.2.4    |  3.2.4    |  3.2.4        |   Ensure suspicious packets are logged | included in 3.2.0
+|  3.2.5    |  3.2.5    |  3.2.5        |   Ensure broadcast ICMP requests are ignored | included in 3.2.0
+|  3.2.6    |  3.2.6    |  3.2.6        |   Ensure bogus ICMP responses are ignored | included in 3.2.0
+|  3.2.7    |  3.2.7    |  3.2.7        |   Ensure Reverse Path Filtering is enabled | included in 3.2.0
+|  3.2.8    |  3.2.8    |  3.2.8        |   Ensure TCP SYN Cookies is enabled | included in 3.2.0
+|           |  3.3.0    |               |   IPv6 controls and settings | in RHEL 7 these are in their own area
 |  3.2.9    |  3.3.1    |  3.2.9        |   Ensure IPv6 router advertisements are not accepted
+|           |  3.3.2    |               |   Ensure IPv6 redirects are not accepted | included in 3.2.2 in RHEL8 and Ubuntu |
 |           |  3.4.1    |  3.3.1        |   Install TCPwrappers
 |           |  3.4.2    |  3.3.2        |   Ensure /etc/hosts.allow is configured
 |           |  3.4.3    |  3.3.3        |   Ensure /etc/hosts.deny is configured
