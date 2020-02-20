@@ -2171,8 +2171,8 @@
       - name: 5.6 - Configure PAM to only allow su from wheel group
         replace:
           path: /etc/pam.d/su
-          regexp: '^#auth\s+required\s+pam_wheel.so\s+use_uid'
-          replace: "auth         required        pam_wheel.so use_uid"
+          regexp: '^#auth\s+required\s+pam_wheel.so'
+          replace: "auth         required        pam_wheel.so"
 
       - name: 5.6 - Add root to the wheel group
         user:
