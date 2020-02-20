@@ -23,7 +23,7 @@ Benchmark Versions:
 | RHEL 8 | v1.0.0 |
 | CentOS 7 | v2.2.0 |
 | CentOS 8 | v1.0.0 |
-| Fedora 31 | (Fedora 28) v1.1.0 |
+| Fedora 31 | \(Fedora 28\) v1.1.0 |
 | Oracle Linux 7 | v2.2.0 |
 | Oracle Linux 8 | v1.0.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
