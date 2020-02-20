@@ -225,7 +225,7 @@ Below are the tags used in the CIS roles.
 |  5.5.3    |  5.4.5    |  5.4.5        |   Ensure default shell timeout is 900 seconds or less
 |  5.5.4    |  5.4.3    |  5.4.3        |   Ensure default group for root is GID 0
 |  5.5.5    |  5.4.4    |  5.4.4        |   Ensure umask is set
-|  5.7.0    |  5.6.0    |  5.6          |   Restrict su to wheel group
+|  5.7.0    |  5.6.0    |  5.6          |   Restrict su to wheel group | on Ubuntu control says to any one group, but for simplicity we are using wheel |
 |  6.1.1    |  6.1.1    |  6.1.1        |   Audit system file permissions |skipped: manual intervention needed|
 |  6.1.2,6.1.4| 6.1.2,6.1.4| 6.1.2,6.1.4  |   Ensure permissions on /etc/passwd /etc/group
 |  6.1.3,6.1.5| 6.1.3,6.1.5| 6.1.3,6.1.5  |   Ensure permissions on /etc/shadow /etc/gshadow

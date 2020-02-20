@@ -2171,8 +2171,14 @@
       - name: 5.6 - Configure PAM to only allow su from wheel group
         replace:
           path: /etc/pam.d/su
-          regexp: '^#auth\s+required\s+pam_wheel.so'
+          regexp: '^#\s*auth\s+required\s+pam_wheel.so'
           replace: "auth         required        pam_wheel.so"
+
+      - name: 5.6 - Create wheel group if it doesn't exist
+        group:
+          name: wheel
+          system: yes
+          state: present
 
       - name: 5.6 - Add root to the wheel group
         user:
