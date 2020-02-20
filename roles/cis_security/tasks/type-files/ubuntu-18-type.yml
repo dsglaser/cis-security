@@ -1057,6 +1057,12 @@
           sysctl_set: yes
         loop:
           - net.ipv6.conf.all.forwarding # (3.1.2)
+          - net.ipv6.conf.all.accept_source_route # (3.2.1)
+          - net.ipv6.conf.default.accept_source_route # (3.2.1)
+          - net.ipv6.conf.all.accept_redirects # (3.2.2)
+          - net.ipv6.conf.default.accept_redirects # (3.2.2)
+          - net.ipv6.conf.all.accept_ra # (3.2.9)
+          - net.ipv6.conf.default.accept_ra # (3.2.9)
         when: not ipv6_disable
         notify: flush network routes
     tags:
@@ -1976,9 +1982,9 @@
       - name: 5.2.14 -  Set approved KEX algorithms
         lineinfile:
           path: /etc/ssh/sshd_config
-          line: "KexAlgorithms {{ ssh_mac_list }}"
+          line: "KexAlgorithms {{ ssh_kex_list }}"
           insertafter: EOF
-          regexp: '^KexAlgorithms ((?!{{ ssh_mac_list }}).)*$ '
+          regexp: '^KexAlgorithms ((?!{{ ssh_kex_list }}).)*$ '
         notify:  restart sshd
         tags:
           - 5.2.14
