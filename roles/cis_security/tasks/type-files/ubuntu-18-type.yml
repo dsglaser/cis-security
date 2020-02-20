@@ -15,6 +15,13 @@
   # Use a variable so it prints out the correct version.
   - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
 
+  # Collect the packages installed on the system so we can check agains them later
+  - name: Collect package list
+    package_facts:
+      manager: auto
+    tags:
+      - always
+
   # Find the minimum UID of the machine for normal acocunts. This varies
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
@@ -22,6 +29,8 @@
     shell: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
+    tags:
+      - always
 
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
@@ -413,22 +422,14 @@
       - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
-  #  We are checking to see if it exists with a shell command so it only
-  #  runs if the service exists. Service will produce an error otherwise.
+  # We check to see if the package that autofs belongs to (convienently called autofs)
+  #  exists in the ansible_facts.packages list we gathered early in the play
   - name: 1.1.22 - disable automounting
-    block:
-      - name: 1.1.22 - Check if autofs is enabled
-        shell: /bin/systemctl is-enabled autofs
-        register: autofs_out
-        failed_when: autofs_out.rc == "2"
-        changed_when: false
-
-      - name: 1.1.22 - If it is, then stop and disabled it
-        service:
-          name: autofs
-          enabled: no
-          state: stopped
-        when: autofs_out.stdout == "enabled"
+    service:
+      name: autofs
+      enabled: no
+      state: stopped
+    when: "'autofs' in ansible_facts.packages"
     tags:
       - 1.1.22
 
@@ -565,14 +566,14 @@
       - name: 1.5.3 - Set root password
         user:
           name: root
-          password: "ubuntu_root_password"
-        when: root_pw_check.found != "0" and ubuntu_root_password is defined
+          password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        when: root_pw_check.found != "0" and root_password is defined
 
       - name: 1.5.3 - Set root password
         debug:
           msg: "Root password is not set and no password provided. Set ubuntu_root_password variable per instructions and restart."
         changed_when: true
-        when: root_pw_check.found != "0" and ubuntu_root_password is not defined
+        when: root_pw_check.found != "0" and root_password is not defined
     tags:
       - 1.5.3
 
@@ -637,10 +638,6 @@
           limit_type: hard
           limit_item: core
           value: "0"
-
-      - name: 1.6.4 - Check to see if systemd-coredump is installed
-        package_facts:
-          manager: auto
 
       - name: 1.6.4 - Limit coredump storage if systemd-coredump package is installed
         lineinfile:
@@ -721,7 +718,8 @@
         changed_when: false
         tags:
           - 1.7.1.4
-
+    tags:
+      - 1.7.0
   # 1.8 Warning Banners
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
@@ -999,19 +997,15 @@
   # Cups should be remove per control 2.2.16, but it may not be able to due to
   #  dependencies, so disable the service instead
   - name: 2.2.4 - Disable cups as we my not be able to uninstall it
-    block:
-      - name: 2.2.4 - Check if cups is enabled
-        shell: /bin/systemctl is-enabled cups
-        register: cups_out
-        failed_when: cups_out.rc == "2"
-        changed_when: false
-
-      - name: 2.2.4 - If it is, then stop and disable it
-        service:
-          name: cups
-          enabled: no
-          state: stopped
-        when: cups_out.stdout == "enabled"
+    service:
+      name: "{{ item }}"
+      enabled: no
+      state: stopped
+    when: "'cups' in ansible_facts.packages"
+    loop:
+      - cups.service
+      - cups.socket
+      - cups-browsed.service
     tags:
       - 2.2.4
 
@@ -1039,55 +1033,92 @@
   # The sysctl module will configure certain sysctl parameters. They are
   #  collected into a loop here to speed the implementation
   # Once complete, notify the system to flush the network routes
-  - name: 3.1 - Set networking parameters (OFF)
-    sysctl:
-      name: "{{ item }}"
-      value: "0"
-      reload: yes
-      state: present
-      sysctl_set: yes
-    loop:
-      - net.ipv4.conf.all.forwarding # (3.1.2)
-      - net.ipv4.conf.all.send_redirects # (3.1.1)
-      - net.ipv4.conf.default.send_redirects # (3.1.1)
-      - net.ipv4.conf.all.accept_source_route # (3.2.1)
-      - net.ipv4.conf.default.accept_source_route # (3.2.1)
-      - net.ipv4.conf.all.accept_redirects # (3.2.2)
-      - net.ipv4.conf.default.accept_redirects # (3.2.2)
-      - net.ipv4.conf.all.secure_redirects # (3.2.3)
-      - net.ipv4.conf.default.secure_redirects # (3.2.3)
-      - net.ipv6.conf.all.forwarding # (3.1.2)
-      - net.ipv6.conf.all.accept_source_route # (3.2.1)
-      - net.ipv6.conf.default.accept_source_route # (3.2.1)
-      - net.ipv6.conf.all.accept_redirects # (3.2.2)
-      - net.ipv6.conf.default.accept_redirects # (3.2.2)
-      - net.ipv6.conf.all.accept_ra # (3.2.9)
-      - net.ipv6.conf.default.accept_ra # (3.2.9)
-    notify: flush network routes
+  - name: 3.1 - Set networking parameters for host only communications
+    block:
+      - name: 3.1 - Set ipv4 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.forwarding # (3.1.1)
+          - net.ipv4.conf.all.send_redirects # (3.1.2)
+          - net.ipv4.conf.default.send_redirects # (3.1.2)
+        notify: flush network routes
+
+      - name: 3.1 - Set ipv6 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.forwarding # (3.1.2)
+          - net.ipv6.conf.all.accept_source_route # (3.2.1)
+          - net.ipv6.conf.default.accept_source_route # (3.2.1)
+          - net.ipv6.conf.all.accept_redirects # (3.2.2)
+          - net.ipv6.conf.default.accept_redirects # (3.2.2)
+          - net.ipv6.conf.all.accept_ra # (3.2.9)
+          - net.ipv6.conf.default.accept_ra # (3.2.9)
+        when: not ipv6_disable
+        notify: flush network routes
     tags:
       - 3.1.0
-      - 3.2.0
-      - 3.3.0
 
-  # The sysctl module will configure certain sysctl parameters. They are
-  #  collected into a loop here to speed the implementation.
-  # Once complete, notify the system to flush the network routes
-  - name: 3.2.[4-8] - Set networking parameters (ON)
-    sysctl:
-      name: "{{ item }}"
-      value: "1"
-      reload: yes
-      state: present
-      sysctl_set: yes
-    loop:
-      - net.ipv4.conf.all.log_martians # (3.2.4)
-      - net.ipv4.conf.default.log_martians # (3.2.4)
-      - net.ipv4.icmp_echo_ignore_broadcasts # (3.2.5)
-      - net.ipv4.icmp_ignore_bogus_error_responses # (3.2.6)
-      - net.ipv4.conf.all.rp_filter # (3.2.7)
-      - net.ipv4.conf.default.rp_filter # (3.2.7)
-      - net.ipv4.tcp_syncookies # ( 3.2.8)
-    notify: flush network routes
+  - name: 3.2 - Set networking parameters for host as router communications
+    block:
+      - name: 3.2 - Set ipv4 network parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.accept_source_route # (3.2.1)
+          - net.ipv4.conf.default.accept_source_route # (3.2.1)
+          - net.ipv4.conf.all.accept_redirects # (3.2.2)
+          - net.ipv4.conf.default.accept_redirects # (3.2.2)
+          - net.ipv4.conf.all.secure_redirects # (3.2.3)
+          - net.ipv4.conf.default.secure_redirects # (3.2.3)
+        notify: flush network routes
+
+      - name: 3.2.[4-8] - Set ipv4 networking parameters (ON)
+        sysctl:
+          name: "{{ item }}"
+          value: "1"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv4.conf.all.log_martians # (3.2.4)
+          - net.ipv4.conf.default.log_martians # (3.2.4)
+          - net.ipv4.icmp_echo_ignore_broadcasts # (3.2.5)
+          - net.ipv4.icmp_ignore_bogus_error_responses # (3.2.6)
+          - net.ipv4.conf.all.rp_filter # (3.2.7)
+          - net.ipv4.conf.default.rp_filter # (3.2.7)
+          - net.ipv4.tcp_syncookies # ( 3.2.8)
+        notify: flush network routes
+
+      - name: 3.2 - Set ipv6 networking parameters (OFF)
+        sysctl:
+          name: "{{ item }}"
+          value: "0"
+          reload: yes
+          state: present
+          sysctl_set: yes
+        loop:
+          - net.ipv6.conf.all.accept_source_route # (3.2.1)
+          - net.ipv6.conf.default.accept_source_route # (3.2.1)
+          - net.ipv6.conf.all.accept_redirects # (3.2.2)
+          - net.ipv6.conf.default.accept_redirects # (3.2.2)
+          - net.ipv6.conf.all.accept_ra # (3.2.9)
+          - net.ipv6.conf.default.accept_ra # (3.2.9)
+        notify: flush network routes
+        when: not ipv6_disable
     tags:
       - 3.2.0
 
@@ -1213,12 +1244,10 @@
           state: stopped
           enabled: no
           masked: yes
-        ignore_errors: true
+        when: "'nftables' in ansible_facts.packages"
 
       # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
       # 3.4.2.6 Ensure unnecessary services and ports are not accepted
-
-
 
     when: enable_firewall is defined and enable_firewall == "ufw"
     tags:
@@ -1623,8 +1652,16 @@
     tags:
       - 4.2.1.4
 
-  # Control 4.2.1.3 - Ensure logging is configured is machine dependent
-  # skipping
+  - name: 4.2.1.4 - Ensure logging is configured
+    copy:
+      src: "{{ rsyslog_file }}"
+      dest: "/etc/rsyslog.d/{{ rsyslog_file }}"
+      owner: root
+      group: root
+      mode: 0640
+    when: rsylog_file is defined
+    tags:
+      - 4.2.1.4
 
   # Control 4.2.1.5 - Ensure rsyslog is configured to send logs to a remote log host is machine dependent
   # skipping
@@ -1729,11 +1766,8 @@
     tags:
       - 4.3.0
 
-  - name: 4.3 - Ensure logrotate is configured
-    debug:
-      msg: "Configure logrotate based on site policy"
-    tags:
-      - 4.3.0
+  # 4.3 - Ensure logrotate is configured skipped as machine and environment dependent
+
 
   # Section 5 - Access and Authorization
   #
@@ -1948,9 +1982,9 @@
       - name: 5.2.14 -  Set approved KEX algorithms
         lineinfile:
           path: /etc/ssh/sshd_config
-          line: "KexAlgorithms {{ ssh_mac_list }}"
+          line: "KexAlgorithms {{ ssh_kex_list }}"
           insertafter: EOF
-          regexp: '^KexAlgorithms ((?!{{ ssh_mac_list }}).)*$ '
+          regexp: '^KexAlgorithms ((?!{{ ssh_kex_list }}).)*$ '
         notify:  restart sshd
         tags:
           - 5.2.14
@@ -2175,8 +2209,14 @@
       - name: 5.6 - Configure PAM to only allow su from wheel group
         replace:
           path: /etc/pam.d/su
-          regexp: '^#auth\s+required\s+pam_wheel.so\s+use_uid'
-          replace: "auth         required        pam_wheel.so use_uid"
+          regexp: '^#\s*auth\s+required\s+pam_wheel.so'
+          replace: "auth         required        pam_wheel.so"
+
+      - name: 5.6 - Create wheel group if it doesn't exist
+        group:
+          name: wheel
+          system: yes
+          state: present
 
       - name: 5.6 - Add root to the wheel group
         user:

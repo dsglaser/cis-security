@@ -33,9 +33,11 @@ nfs_server: false
 proxy_server: false
 smb_server: false
 tftp_server: false              # Option for RHEL7 only
+
 log_host: false                 # Whether this machine will host rsyslog messages for other machines
 log_port: 514
 log_file_size: 8                # RHEL default is 8MB, control has no default
+#rsyslog_file:                  # Uncomment to copy file listed to /etc/rsyslog.d
 
 # Desktop roles, see 'Server roles' above.
 ypbind: false
