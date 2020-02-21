@@ -552,7 +552,7 @@
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
 
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
-        shell: /usr/sbin/aide --init
+        shell: /usr/bin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
 
       # AIDE creates the new database as a different name. Use the copy module with
