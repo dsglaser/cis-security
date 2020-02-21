@@ -1,6 +1,6 @@
 Below are the tags used in the CIS roles.
 
-|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  |  Ubuntu 18.04 | Control Description | Notes |
+|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 | Control Description | Notes |
 | -----------------|--------------------- | -----------------|--------------------- | --------------------- |
 |  1.1.1.1  |  1.1.1.1  |  1.1.1.1      |   Remove cramfs |
 |           |  1.1.1.2  |  1.1.1.2      |   Remove freevxfs
@@ -35,8 +35,8 @@ Below are the tags used in the CIS roles.
 |  1.1.23   |           |  1.1.23       |   Disable USB storage module
 |  1.2.1    |  1.2.1    |  1.2.1        |   Ensure system is configured for updates |skipped: environment dependent|
 |  1.2.2    |  1.2.5    |               |   Disable the rhnsd Daemon | RHEL control only |
-|  1.2.3    |  1.2.3    |  1.2.2        |   Ensure gpg keys are configured | gpgcheck set to yes|
-|  1.2.4    |  1.2.2    |  1.2.2        |   Ensure gpgcheck is globally activated
+|  1.2.3    |  1.2.3    |  1.2.2        |   Ensure gpg keys are configured | gpgcheck set to yes. 1.2.2 on SLES 15, but skipped |
+|  1.2.4    |  1.2.2    |  1.2.2        |   Ensure gpgcheck is globally activated. Missing on SLES 15 benchmark
 |  1.2.5    |  1.2.4    |               |   Ensure machine is registerd with Red Hat |skipped: environment dependent|
 |  1.3.1    |           |  1.3.1        |   Ensure sudo is installed
 |  1.3.2    |           |  1.3.2        |   Ensure sudo commands use pty
@@ -61,7 +61,8 @@ Below are the tags used in the CIS roles.
 |           |           |  1.7.1.1      |   Ensure AppArmor is installed
 |           |           |  1.7.1.2      |   Ensure AppArmor is not disabled in bootloader configuration
 |           |           |  1.7.1.3      |   Ensure AppArmor profiles are in inforce or complain mode
-|           |           |  1.7.1.4      |   Ensure AppArmor profiles are enforcing
+|           |  \(SLES 1.6.2.2\) |  1.7.1.4      |   Ensure AppArmor profiles are enforcing | SLES only control in the RHEL 7 file, use 1.6.2.2 for the tag number
+|           |   \(SLES 1.6.3\)  |       |   Ensure SELinux or AppArmor are installed | SLES only control in the RHEL 7 file, use 1.6.3 for the tag number
 |  1.8.1.1  |  1.7.1.1  |  1.8.1.1      |   Install motd banners
 |  1.8.1.2  |  1.7.1.2  |  1.8.1.2      |   Install issue banners
 |  1.8.1.3  |  1.7.1.3  |  1.8.1.3      |   Install issue.net banners
@@ -72,7 +73,7 @@ Below are the tags used in the CIS roles.
 |  1.9.0    |           |  1.9.0        |   Ensure updated system | First control to be run chronologically in order to make sure things are in the same state for the rest of the play
 |  1.10.0   |           |               |   Ensure crypto policy is not legacy | we also set it to what the crypto_policy variable is set to|
 |  1.11.0   |           |               |   Ensure crypto policy is FUTURE or FIPS (skipped: not widely prevelent)
-|  2.1.1    |  2.1.7    |  2.1.1        |   Remove xinetd service
+|  2.1.1    |  2.1.7 \(SLES 2.1.11\)   |  2.1.1        |   Remove xinetd service
 |           |  2.1.1    |               |   Ensure chagen services are not enabled
 |           |  2.1.2    |               |   Ensure daytime services are not enabled
 |           |           |  2.1.2        |   Ensure openbsd-inetd is not installed
@@ -85,7 +86,7 @@ Below are the tags used in the CIS roles.
 |           |           |  2.2.1.2      |   Configure systemd-timesyncd
 |           |  2.2.1.2  |  2.2.1.4      |   Configure ntp |skipped in Ubuntu|
 |  2.2.2    |  2.2.2    |  2.2.2        |   Disable display manager
-|  2.2.3    |  2.2.21   |  2.2.16       |   Remove rsync
+|  2.2.3    |  2.2.21 \(SLES 2.2.18\) |  2.2.16       |   Remove rsync
 |  2.2.4    |  2.2.3    |  2.2.3        |   Remove avahi
 |  2.2.5    |  2.2.14   |  2.2.14       |   Remove snmp
 |  2.2.6    |  2.2.13   |  2.2.13       |   Remove Web proxy
@@ -100,12 +101,12 @@ Below are the tags used in the CIS roles.
 |  2.2.15   |  2.2.5    |  2.2.5        |   Remove DHCP server
 |           |  2.2.17   |  2.3.2        |   Remove rsh Server/Client
 |           |  2.2.18   |  2.3.3        |   Remove talk
-|           |  2.2.20   |               |   Remove tftp
+|           |  2.2.20 \(SLES 2.2.17\) |               |   Remove tftp
 |  2.2.16   |  2.2.4    |  2.2.4        |   Disable cups as we my not be able to uninstall it
 |  2.2.17   |  2.2.16   |  2.2.17       |   Remove NIS Server
 |  2.2.18   |  2.2.15   |  2.2.15       |   Configure mail MTA agent for local-only mode
 |  2.3.1    |           |  2.3.1        |   Remove NIS Client
-|  2.3.2    |  2.2.19   |  2.3.4        |   Remove telnet
+|  2.3.2    |  2.2.19 \(SLES 2.2.8\)  |  2.3.4        |   Remove telnet
 |  2.3.3    |           |  2.3.5        |   Remove openldap-clients
 |           |           |  3.1.0        |   Set host network parameters | host with single interface, or multiple interfaces but not routing between them
 |  3.1.1    |  3.1.1    |  3.1.2        |   Ensure IP forwarding is disabled | included in 3.1.0

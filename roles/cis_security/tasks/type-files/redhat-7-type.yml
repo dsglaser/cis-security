@@ -35,7 +35,7 @@
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
   - name: 1.8 - Ensure updated system
-    yum:
+    package:
       name: "*"
       state: latest
       security: true
@@ -101,7 +101,7 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process unused_filesystem list
-    yum:
+    package:
       name: unused_filesystems
       state: absent
 
@@ -518,6 +518,7 @@
           replace: gpgcheck = 1
         loop: "{{ yumrepos.stdout_lines }}"
         when: gpgcheck is defined and gpgcheck
+    when: ansible_distribution != "SLES"
     tags:
       - 1.2.2
       - 1.2.3
@@ -532,7 +533,7 @@
     block:
       # use the system package manager to install AIDE
       - name: 1.3.1 Ensure aide is installed
-        yum:
+        package:
           name: aide
           state: present
 
@@ -674,7 +675,7 @@
 
   # Use system package manager to remove the prelink package
   - name: 1.5.4 - Remove prelink package
-    yum:
+    package:
       name: prelink
       state: absent
     tags:
@@ -684,7 +685,7 @@
 
   # Use system package manager to install libselinux
   - name: 1.6.2 - Ensure SELinux is installed
-    yum:
+    package:
       name: libselinux
       state: present
     when: selinux is defined and selinux != "Disabled"
@@ -750,7 +751,7 @@
 
   # Use system package manager to remove package
   - name: 1.6.1.4 - Remove setroubleshoot
-    yum:
+    package:
       name: setroubleshoot
       state: absent
     tags:
@@ -758,7 +759,7 @@
 
   # Use system package manager to remove package
   - name: 1.6.1.5 - Remove MCS Translation Service
-    yum:
+    package:
       name: mcstrans
       state: absent
     tags:
@@ -786,7 +787,40 @@
     tags:
       - 1.6.1.5
 
-  # 1.8 Warning Banners
+  - name: 1.6.2 - Configure AppArmor (SLES only)
+    block:
+      - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
+        replace:
+          dest: /etc/default/grub
+          regexp: "{{ item }}"
+          replace: ""
+        with_items:
+          - apparmor=0
+        notify: rebuild grub
+        tags:
+          - 1.6.2.1
+
+      - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
+        shell: enforce /etc/apparmor.d/*
+        when: apparmor_level == "enforce"
+        failed_when: false
+        changed_when: false
+        tags:
+          - 1.6.2.2
+
+      - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
+        package_facts:
+          manager: auto
+
+      - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
+        debug:
+          msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
+        when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
+    when: ansible_distribution == "SLES"
+    tags:
+      - 1.6.2
+
+  # 1.7 Warning Banners
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.7.1.1 - Install motd banners
@@ -856,23 +890,14 @@
 
  ### Part 2, Services ###
   # Remove old, unused, insecure services
-  - name: 2.1.1 Remove unused services
-    yum:
-      name:
-        - rsh-server
-        - talk-server
-        - telnet-server
-      state: absent
-    tags:
-      - 2.1.1
 
-  - name: 2.1.2 - Remove xinetd  service  [controlled by host variable tftp_server]
-    yum:
+  - name: 2.1.7 - Remove xinetd  service  [controlled by host variable tftp_server]
+    package:
       name: xinetd
       state: absent
     when: tftp_server is defined and not tftp_server
     tags:
-      - 2.1.2
+      - 2.1.7
 
   # use replace to make sure that listed services are disabled
   - name: Disable non-tftp services (if we are a tftp server)
@@ -896,7 +921,7 @@
 
   # Set up the time server listed in the time_service variable
   - name: 2.2.1.1 - Verify {{ time_service }} is installed
-    yum:
+    package:
       name: "{{ time_service }}"
       state: present
     when: time_service == "chrony" or time_service == "ntp"
@@ -917,6 +942,7 @@
     notify: restart {{ time_service}}d
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   # Chrony and ntp argue if they are both active at the same time. Disable
   #  the other service.
@@ -928,6 +954,7 @@
     when: time_serve is defined and time_service == "ntp"
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   - name: 2.2.1.2 - disable ntpd if time_service is set to chrony
     systemd:
@@ -938,6 +965,7 @@
     ignore_errors: true
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   # Disable the display manager by changing the default boot target to multi-user
   - name: 2.2.2 - disable display manager if graphical desktop not needed
@@ -996,14 +1024,22 @@
 
   - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
-    when: dhcp_server is defined and not dhcp_server
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
+    when:  dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
   - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
+    when: ansible_distribution != "SLES"
+    tags:
+      - 2.2.6
+
+  - name: 2.2.6 - add openldap-servers to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap2' ] }}"
+    when: ansible_distribution == "SLES"
     tags:
       - 2.2.6
 
@@ -1030,7 +1066,7 @@
 
   - name: 2.2.10 - Remove httpd; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] + [ 'apache2' ] }}"
     when: http_server is defined and not http_server
     tags:
       - 2.2.10
@@ -1080,16 +1116,36 @@
     tags:
       - 2.2.17
 
-  - name: 2.3.3 - add talk to unneeded package list
+  - name: 2.2.18 - add talk to unneeded package list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'talk' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'talk-server' ] + [ 'talk' ] }}"
     tags:
+      - 2.2.18
       - 2.3.3
+
+  - name: 2.2.19 - add telnet to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'telnet-server' ] + [ 'telnet'] }}"
+    tags:
+      - 2.2.19
+      - 2.3.4
+
+  - name: 2.2.20 - add tftp to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'tftp' ] + [ 'tftp-server'] }}"
+    tags:
+      - 2.2.20
+
+  - name: 2.2.21 - add rsync to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'rsync' ] }}"
+    tags:
+      - 2.2.21
 
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    yum:
+    package:
       name: unneeded_packages
       state: absent
 
@@ -1288,7 +1344,7 @@
   - name: 3.4 - TCP Wrappers
     block:
       - name: 3.4.1 - Install tcpwrappers
-        yum:
+        package:
           name: tcp_wrappers
           state: present
 
@@ -1369,7 +1425,7 @@
   - name: 3.6 - Install firewalld
     block:
       - name: 3.6.1 - Install firewalld
-        yum:
+        package:
           name: "firewalld"
           state: present
         notify: start firewalld
@@ -1399,7 +1455,7 @@
   - name: 3.6.1 - Install iptables
     block:
       - name: 3.6.1 Install iptables
-        yum:
+        package:
           name:
             - "iptables"
             - "iptables-services"
@@ -1430,7 +1486,7 @@
   - name: 4.1 Install and configure system auditing
     block:
       - name: 4.1.1 - Install Audit
-        yum:
+        package:
           name:
             - audit
             - audit-libs
@@ -1686,7 +1742,7 @@
 
 
   - name: 4.2.1.1 - Ensure rsyslog is installed
-    yum:
+    package:
       name: rsyslog
       state: present
     tags:
@@ -1782,7 +1838,7 @@
   # Ensure rsyslog package is installed (4.2.3) moved to before 4.2.1.1 which is the package install
 
   - name: 4.3 - Ensure logrotate is installed and configured
-    yum:
+    package:
       name: logrotate
       state: present
     tags:
@@ -1864,7 +1920,7 @@
           - 5.2.1
 
       # Control 5.2.2, Ensure SSH Protocol is set to 2, is not supported in OpenSSH
-      # supplied by Red Hat any longer. Omitting
+      # supplied by Red Hat (or SUSE 15) any longer. Omitting
 
       - name: 5.2.3 - Set LogLevel to {{ ssh_log_level }} or more verbose, but not debug
         replace:

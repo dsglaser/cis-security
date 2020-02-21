@@ -26,7 +26,12 @@ Benchmark Versions:
 | Fedora 31 | \(Fedora 28\) v1.1.0 |
 | Oracle Linux 7 | v2.2.0 |
 | Oracle Linux 8 | v1.0.0 |
+| SUSE Linux Enterprise 15 SP1 | \(SUSE Linux Enterprise 12\) v2.1.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
+
+- Some distributions use older CIS benchmarks that were the most recent at the time of creation. Efforts have
+been made to update the controls to work with the newer operating systems. Older versions of the benchmarks are listed in parenthesis.
+- SUSE Linux Enterprise 15 SP1 uses the RHEL 7 task file since their controls are so similar. If you want to exclude a SUSE tag, make sure you use the associated RHEL 7 tag number if they are different.  Tags can be found in the [controls_list](./controls_list.md) file.
 
 ### Requirements
 To implement the role correctly, you will require the following

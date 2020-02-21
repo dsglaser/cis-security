@@ -7,7 +7,7 @@ selinux: "enforcing"            # Options are enforcing, permissive, and disable
 selinux_policy: "targeted"      # Options are targeted, minimum, or mls. Control has no default
 crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGAC
 
-## Ubuntu and ubuntu clonse using apparbor
+## Ubuntu, ubuntu clones, and SLES using apparbor
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 time_service: "chrony"             # Option for RHEL7/Ubuntu only. RHEL8 only ships with chrony and this variable is not used
