@@ -2183,8 +2183,8 @@
 
       - name: Determine if we are currently using sha512 password
         lineinfile:
-          dest: /etc/pam.d/common-password
-          regexp: '*pam_unix.so*sha512'
+          path: /etc/pam.d/common-password
+          regexp: 'pam_unix.so*sha512'
           state: absent
         check_mode: yes
         changed_when: false
@@ -2193,10 +2193,10 @@
         when: ansible_distribution == "SLES"
 
       - name: Determine if we are currently using sha512 password
-        lineinfile:
+        replace:
           dest: /etc/pam.d/common-password
           regexp: 'pam_unix.so'
-          line: 'pam_unix.so    sha512'
+          replace: 'pam_unix.so    sha512'
         when: ansible_distribution == "SLES" and not sha512_exist.found
     tags:
       5.3.4
