@@ -1931,11 +1931,21 @@
     tags:
       - 5.1.8
 
-  - name: 5.1.1 - Ensure cron is enabled
+  - name: 5.1.1 - Ensure cron is enabled (RHEL Clones)
     service:
       name: crond
       enabled: yes
       state: started
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.1.1
+
+  - name: 5.1.1 - Ensure cron is enabled (SLES)
+    service:
+      name: cron
+      enabled: yes
+      state: started
+    when: ansible_distribution == "SLES"
     tags:
       - 5.1.1
 
