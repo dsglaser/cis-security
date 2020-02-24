@@ -726,150 +726,161 @@
 
   # 1.6 Mandatory Access Control
 
-  # Use system package manager to install libselinux (RHEL CLones)
-  - name: 1.6.2 - Ensure SELinux is installed
-    package:
-      name: libselinux
-      state: present
-    when: (selinux is defined and selinux != "Disabled") and ansible_distribution != "SLES"
-    tags:
-      - 1.6.2
-
-  # Use system package manager to install libselinux (SLES)
-  - name: 1.6.2 - Ensure SELinux is installed
-    package:
-      name: libselinux1
-      state: present
-    when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "SLES"
-    tags:
-      - 1.6.2
-  # Use the replace module to remove any disablment of selinux in grub if
-  #  it isn't expressly disabled from a variable
-  - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
-    replace:
-      dest: /etc/default/grub
-      regexp: "{{ item }}"
-      replace: ""
-    with_items:
-      - selinux=0
-      - enforcing=0
-    when: selinux is defined and selinux != "Disabled"
-    notify: rebuild grub
-    tags:
-      - 1.6.1.1
-
-  # Replace the current selinux policy with whatever the variable is set for
-  - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
-    replace:
-      dest=/etc/selinux/config
-      regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
-      replace="SELINUXTYPE={{ selinux_policy }}"
-    when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
-    tags:
-      - 1.6.1.2
-
-  # Check to see if machine currently has selinux disabled
-  - name: 1.6.1.2 - Find current state of selinux
-    shell: /sbin/getenforce
-    register: selinux_status
-    changed_when: false
-    tags:
-      - 1.6.1.2
-
-  # If we are going to be enabling selinux in passive or enforcing mode,
-  #  set the autorelabel and notify the machine to reboot
-  - name: 1.6.1.2 - If disabled and we are enabling it, autorelabel
-    file:
-      path: /.autorelabel
-      owner: root
-      group: root
-      mode: 0644
-      state: touch
-    when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
-    notify: reboot
-    tags:
-      - 1.6.1.2
-
-  # Replace the current selinux mode with what the variable is set to
-  - name: 1.6.1.3 - Set SELinux to {{ selinux | lower }}
-    replace:
-      dest: /etc/selinux/config
-      regexp: "^SELINUX=((?!{{ selinux }}).)*$"
-      replace: "SELINUX={{ selinux | lower }}"
-    when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
-    tags:
-      - 1.6.1.3
-
-  # Use system package manager to remove package
-  - name: 1.6.1.4 - Remove setroubleshoot
-    package:
-      name: setroubleshoot
-      state: absent
-    tags:
-      - 1.6.1.4
-
-  # Use system package manager to remove package
-  - name: 1.6.1.5 - Remove MCS Translation Service
-    package:
-      name: mcstrans
-      state: absent
-    tags:
-      - 1.6.1.5
-
-  # Let the user know if there are any processes that are not running under the
-  #  a selinux context
-  - name: 1.6.1.6 - Report on unconfined running services
+  # SLES does not provide a policy for selinux, so enabling it will freeze a system. For SLES skip
+  #  This section
+  - name: 1.6.0 - Mandatory Access Control
     block:
-      # use ps and grep to find services running under initrc context
-      - name: 1.6.1.5 - Generate report on unconfined running services
-        shell: /usr/bin/ps -eZ | egrep "initrc"
-        register: unconfined_services_out
-        failed_when: unconfined_services_out.rc == "2"
-        changed_when: false
+      # Use system package manager to install libselinux (RHEL CLones)
+      - name: 1.6.2 - Ensure SELinux is installed
+        package:
+          name: libselinux
+          state: present
+        when: (selinux is defined and selinux != "Disabled") and ansible_distribution != "SLES"
+        tags:
+          - 1.6.2
 
-      # Print any findings to the user
-      - name: 1.6.1.5 - Report on unconfined running services to user
-        debug:
-          msg:
-            - "Unconfined processes found:"
-            - "{{ unconfined_services_out.stdout_lines }}"
-        changed_when: true
-        when: unconfined_services_out.stdout
-    tags:
-      - 1.6.1.5
+      # Use system package manager to install libselinux (SLES)
+      - name: 1.6.2 - Ensure SELinux is installed
+        package:
+          name: "{{ item }}"
+          state: present
+        when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "SLES"
+        loop:
+          - libselinux1
+          - selinux-tools
+        tags:
+          - 1.6.2
 
-  - name: 1.6.2 - Configure AppArmor (SLES only)
-    block:
-      - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
+      # Use the replace module to remove any disablment of selinux in grub if
+      #  it isn't expressly disabled from a variable
+      - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
         replace:
           dest: /etc/default/grub
           regexp: "{{ item }}"
           replace: ""
         with_items:
-          - apparmor=0
+          - selinux=0
+          - enforcing=0
+        when: selinux is defined and selinux != "Disabled"
         notify: rebuild grub
         tags:
-          - 1.6.2.1
+          - 1.6.1.1
 
-      - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
-        shell: enforce /etc/apparmor.d/*
-        when: apparmor_level == "enforce"
-        failed_when: false
+      # Replace the current selinux policy with whatever the variable is set for
+      - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
+        replace:
+          dest=/etc/selinux/config
+          regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
+          replace="SELINUXTYPE={{ selinux_policy }}"
+        when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
+        tags:
+          - 1.6.1.2
+
+      # Check to see if machine currently has selinux disabled
+      - name: 1.6.1.2 - Find current state of selinux
+        shell: /sbin/getenforce
+        register: selinux_status
         changed_when: false
         tags:
-          - 1.6.2.2
+          - 1.6.1.2
 
-      - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
-        package_facts:
-          manager: auto
+      # If we are going to be enabling selinux in passive or enforcing mode,
+      #  set the autorelabel and notify the machine to reboot
+      - name: 1.6.1.2 - If disabled and we are enabling it, autorelabel
+        file:
+          path: /.autorelabel
+          owner: root
+          group: root
+          mode: 0644
+          state: touch
+        when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
+        notify: reboot
+        tags:
+          - 1.6.1.2
 
-      - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
-        debug:
-          msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
-        when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
-    when: ansible_distribution == "SLES"
+      # Replace the current selinux mode with what the variable is set to
+      - name: 1.6.1.3 - Set SELinux to {{ selinux | lower }}
+        replace:
+          dest: /etc/selinux/config
+          regexp: "^SELINUX=((?!{{ selinux }}).)*$"
+          replace: "SELINUX={{ selinux | lower }}"
+        when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
+        tags:
+          - 1.6.1.3
+
+      # Use system package manager to remove package
+      - name: 1.6.1.4 - Remove setroubleshoot
+        package:
+          name: setroubleshoot
+          state: absent
+        tags:
+          - 1.6.1.4
+
+      # Use system package manager to remove package
+      - name: 1.6.1.5 - Remove MCS Translation Service
+        package:
+          name: mcstrans
+          state: absent
+        tags:
+          - 1.6.1.5
+
+      # Let the user know if there are any processes that are not running under the
+      #  a selinux context
+      - name: 1.6.1.6 - Report on unconfined running services
+        block:
+          # use ps and grep to find services running under initrc context
+          - name: 1.6.1.5 - Generate report on unconfined running services
+            shell: /usr/bin/ps -eZ | egrep "initrc"
+            register: unconfined_services_out
+            failed_when: unconfined_services_out.rc == "2"
+            changed_when: false
+
+          # Print any findings to the user
+          - name: 1.6.1.5 - Report on unconfined running services to user
+            debug:
+              msg:
+                - "Unconfined processes found:"
+                - "{{ unconfined_services_out.stdout_lines }}"
+            changed_when: true
+            when: unconfined_services_out.stdout
+        tags:
+          - 1.6.1.5
+
+      - name: 1.6.2 - Configure AppArmor (SLES only)
+        block:
+          - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
+            replace:
+              dest: /etc/default/grub
+              regexp: "{{ item }}"
+              replace: ""
+            with_items:
+              - apparmor=0
+            notify: rebuild grub
+            tags:
+              - 1.6.2.1
+
+          - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
+            shell: enforce /etc/apparmor.d/*
+            when: apparmor_level == "enforce"
+            failed_when: false
+            changed_when: false
+            tags:
+              - 1.6.2.2
+
+          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
+            package_facts:
+              manager: auto
+
+          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
+            debug:
+              msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
+            when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
+        when: ansible_distribution == "SLES"
+        tags:
+          - 1.6.2
+    when: ansible_distribution != "SLES"
     tags:
-      - 1.6.2
+      - 1.6.0
 
   # 1.7 Warning Banners
 

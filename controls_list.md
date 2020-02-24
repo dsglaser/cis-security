@@ -50,6 +50,7 @@ Below are the tags used in the CIS roles.
 |  1.6.1    |  1.5.1    |  1.6.4        |   Ensure core dumps are restricted
 |           |  1.5.2    |  1.6.1        |   Ensure XD/NX support is enabled
 |  1.6.2    |  1.5.3    |  1.6.2        |   Ensure address space layout reandomization (ASLR) is enabled
+|  1.6.0    |  1.6.0 \(SLES: skipped\) | | | Configure SELinux | SLES supports SELinux, but does not provide a policy, so enabling it will crash the system, so we are skipping it on SLES)
 |  1.7.1.1  |  1.6.2    |               |   Ensure SELinux is installed
 |  1.7.1.2  |  1.6.1.1  |               |   Ensure SELinux is not disabled in bootloader configuration
 |  1.7.1.3  |  1.6.1.3  |               |   Set SELinux policy
