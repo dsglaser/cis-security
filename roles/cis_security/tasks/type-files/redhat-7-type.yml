@@ -726,15 +726,23 @@
 
   # 1.6 Mandatory Access Control
 
-  # Use system package manager to install libselinux
+  # Use system package manager to install libselinux (RHEL CLones)
   - name: 1.6.2 - Ensure SELinux is installed
     package:
       name: libselinux
       state: present
-    when: selinux is defined and selinux != "Disabled"
+    when: (selinux is defined and selinux != "Disabled") and ansible_distribution != "SLES"
     tags:
       - 1.6.2
 
+  # Use system package manager to install libselinux (SLES)
+  - name: 1.6.2 - Ensure SELinux is installed
+    package:
+      name: libselinux1
+      state: present
+    when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "SLES"
+    tags:
+      - 1.6.2
   # Use the replace module to remove any disablment of selinux in grub if
   #  it isn't expressly disabled from a variable
   - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration

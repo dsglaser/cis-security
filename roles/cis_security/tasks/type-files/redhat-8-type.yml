@@ -510,9 +510,11 @@
     block:
       # use the system package manager to install AIDE
       - name: 1.4.1 Ensure aide is installed
-        dnf:
+        package:
           name: aide
           state: present
+        tags:
+          - 1.4.1
 
       # AIDE requires initialization the first time and it takes time on a large system.
       # DUse stat module on the file that should be there if it is set up.
@@ -520,13 +522,42 @@
         stat:
           path: /var/lib/aide/aide.db.gz
         register: aide_path
+        tags:
+          - 1.4.1
+
+      - name: 1.4.1 - Set up database file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database=file:((?!{{ aide_db_name }}).)*$"
+          replace: "database=file:{{ aide_db_name }}"
+        tags:
+          - 1.4.1
+
+      - name: 1.4.1 - Set up database_out file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database_out=file:((?!{{ aide_new_db_name }}).)*$"
+          replace: "database_out=file:{{ aide_new_db_name }}"
+        tags:
+          - 1.4.1
+
+      - name: 1.4.1 - enable gzip compression for database
+        lineinfile:
+          dest: /etc/aide.conf
+          regexp: '^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$'
+          line: "gzip_dbout={{ aide_gzip }}"
+          state: present
+        tags:
+          - 1.4.1
 
       # stat returns a lot of information. 'exists' is true if the file exists and 'isreg'
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
-      - name: 1.4.1 - Initialize AIDE if it hasn't been already
+      - name: 1.4.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
         shell: /usr/sbin/aide --init
-        when: not aide_path.stat.exists or not aide_path.stat.isreg
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
+        tags:
+          - 1.4.1
 
       # AIDE creates the new database as a different name. Use the copy module with
       #  the remote_src argument to copy the file on the remote machine to another location
@@ -539,6 +570,8 @@
           mode: preserve
         when: not aide_path.stat.exists or not aide_path.stat.isreg
         changed_when: false
+        tags:
+          - 1.4.1
 
       # Copy in the already configured systemd service file using the copy module.
       # Be sure to set the selinux context.
@@ -552,6 +585,8 @@
           mode: 0644
           setype: systemd_unit_file_t
         notify: restart aidecheck
+        tags:
+          - 1.4.2
 
       # Copy in the already configured systemd timer file using the copy module.
       # Be sure to set the selinux context.
@@ -565,6 +600,8 @@
           mode: 0644
           setype: systemd_unit_file_t
         notify: restart aidecheck
+        tags:
+          - 1.4.2
     tags:
       - 1.4.0
 
