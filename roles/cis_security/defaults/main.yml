@@ -17,9 +17,9 @@ time_server: "2.rhel.pool.ntp.org" # Time server for ntp, chrony, or timedatectl
 sudo_log: "/var/log/sudoers"    # log file for sudo
 
 # AIDE configuration settings
-aide_db_name:  "/var/lib/aide.db.gz"        # Database name that AIDE will look for for comparison
-aide_new_db_name: "/var/lib/aide.db.new.gz" # Database name created during an --init run
-aide_gzip: yes                              # 'yes' or 'no' to enable gzip compression on database
+aide_db_name:  "/var/lib/aide/aide.db.gz"        # Database name that AIDE will look for for comparison
+aide_new_db_name: "/var/lib/aide/aide.db.new.gz" # Database name created during an --init run
+aide_gzip: "yes"                              # 'yes' or 'no' to enable gzip compression on database
 
 # Yum repos and system updates
 update_system: false            # Update the system to the latest during the role run
