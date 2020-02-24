@@ -2180,12 +2180,33 @@
         shell: /usr/sbin/authconfig --test | /usr/bin/grep sha512
         register: auth_out
         changed_when: auth_out.rc != 0
+        when: ansible_distribution != "SLES"
+
+      - name: Determine if we are currently using sha512 password
+        lineinfile:
+          dest: /etc/pam.d/common-password
+          regexp: '*pam_unix.so*sha512'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: sha512_exist
+        failed_when: false
+        when: ansible_distribution == "SLES"
 
       - name: SHA-512 Password setting
         shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
-        when: auth_out.rc != 0
+        when: auth_out.rc != 0 and ansible_distribution != "SLES"
+
+      - name: Determine if we are currently using sha512 password
+        lineinfile:
+          dest: /etc/pam.d/common-password
+          regexp: 'pam_unix.so'
+          line: 'pam_unix.so    sha512'
+        failed_when: false
+        when: ansible_distribution == "SLES" and not sha512_exist.found
     tags:
       5.3.4
+
   - name: 5.4.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
