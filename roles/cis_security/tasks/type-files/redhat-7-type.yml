@@ -544,6 +544,25 @@
           path: /var/lib/aide/aide.db.gz
         register: aide_path
 
+      - name: 1.3.1 - Set up database file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database=file:((?!{{ aide_db_name }}).)*$"
+          replace: "database=file:{{ aide_db_name }}"
+
+      - name: 1.3.1 - Set up database_out file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database=file:((?!{{ aide_new_db_name }}).)*$"
+          replace: "database=file:{{ aide_new_db_name }}"
+
+      - name: 1.3.1 - enable gzip compression for database
+        lineinfile:
+          dest: /etc/aide.conf
+          regexp: '^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$'
+          line: "gzip_dbout={{ aide_gzip }}"
+          state: present
+
       # stat returns a lot of information. 'exists' is true if the file exists and 'isreg'
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
