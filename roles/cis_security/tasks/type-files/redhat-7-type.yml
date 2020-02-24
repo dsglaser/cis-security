@@ -2256,6 +2256,19 @@
     loop:
       - /etc/bashrc
       - /etc/profile
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.4.4
+
+  - name: 5.4.4 - Ensure umask is set (SLES)
+    replace:
+      path: "{{ item }}"
+      replace: "     umask {{ default_umask }}"
+      regexp: '^\s*umask\s*022'
+    when: ansible_distribution != "SLES"
+    loop:
+      - /etc/bash.bashrc.local
+      - /etc/profile.local
     tags:
       - 5.4.4
 
