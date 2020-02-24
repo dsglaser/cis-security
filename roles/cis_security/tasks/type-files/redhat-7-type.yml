@@ -559,8 +559,8 @@
       - name: 1.3.1 - Set up database_out file location
         replace:
           dest: /etc/aide.conf
-          regexp: "^database=file:((?!{{ aide_new_db_name }}).)*$"
-          replace: "database=file:{{ aide_new_db_name }}"
+          regexp: "^database_out=file:((?!{{ aide_new_db_name }}).)*$"
+          replace: "database_out=file:{{ aide_new_db_name }}"
         tags:
           - 1.3.1
 
