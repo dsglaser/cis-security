@@ -2241,17 +2241,6 @@
   # 5.4.2, Ensure all system accounts do not have an active shell,
   # is not easily automated. Will revisit later
 
-  - name: Ensure shell timeout is {{ shell_timeout }} seconds or less (5.4.5)
-    blockinfile:
-      path: "{{ item }}"
-      block: "TMOUT={{ shell_timeout }}"
-      marker: "# {mark} Ansible Managed CIS Timeout"
-    loop:
-      - /etc/bashrc
-      - /etc/profile
-    tags:
-      - 5.4.5
-
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.4.3 - Ensure default group for root is GID 0
     shell: /usr/sbin/usermod -g 0 root
@@ -2269,6 +2258,31 @@
       - /etc/profile
     tags:
       - 5.4.4
+
+  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less
+    blockinfile:
+      path: "{{ item }}"
+      block: "TMOUT={{ shell_timeout }}"
+      marker: "# {mark} Ansible Managed CIS Timeout"
+    loop:
+      - /etc/bashrc
+      - /etc/profile
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.4.5
+
+  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less (SLES)
+    blockinfile:
+      path: "{{ item }}"
+      block: "TMOUT={{ shell_timeout }}"
+      marker: "# {mark} Ansible Managed CIS Timeout"
+      create: yes
+    loop:
+      - /etc/bash.bashrc.local
+      - /etc/profile.local
+    when: ansible_distribution == "SLES"
+    tags:
+      - 5.4.5
 
   # 5.5.5,  Ensure root login is restricted to system console
   # not easily automatable because of the various TTYs on a machine
