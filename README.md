@@ -1,6 +1,6 @@
 # cis-security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), and Ubuntu 18.04 LTS.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS.
 
 ### Introduction
 
@@ -105,3 +105,4 @@ defaults or set them as host variables.
 - 1/22/2020 - dsglaser@gmail.com - Added enhanced selinux controls
 - 2/18/2020 - dsglaser@gmail.com - Added support for Ubuntu 18.04 LTS, added RHEL clone links
 - 2/20/2020 - dsglaser@gmail.com - Fixed numerous tests and rearranged network controls
+- 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
