@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 ## Find issues in user's PATH variable
 
 if [ "`echo $PATH | grep ::`" != "" ]; then

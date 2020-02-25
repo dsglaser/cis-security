@@ -35,7 +35,7 @@
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
   - name: 1.8 - Ensure updated system
-    yum:
+    package:
       name: "*"
       state: latest
       security: true
@@ -101,7 +101,7 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process unused_filesystem list
-    yum:
+    package:
       name: unused_filesystems
       state: absent
 
@@ -518,6 +518,7 @@
           replace: gpgcheck = 1
         loop: "{{ yumrepos.stdout_lines }}"
         when: gpgcheck is defined and gpgcheck
+    when: ansible_distribution != "SLES"
     tags:
       - 1.2.2
       - 1.2.3
@@ -532,9 +533,11 @@
     block:
       # use the system package manager to install AIDE
       - name: 1.3.1 Ensure aide is installed
-        yum:
+        package:
           name: aide
           state: present
+        tags:
+          - 1.3.1
 
       # AIDE requires initialization the first time and it takes time on a large system.
       # DUse stat module on the file that should be there if it is set up.
@@ -542,13 +545,48 @@
         stat:
           path: /var/lib/aide/aide.db.gz
         register: aide_path
+        tags:
+          - 1.3.1
+
+      - name: 1.3.1 - Set up database file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database=file:((?!{{ aide_db_name }}).)*$"
+          replace: "database=file:{{ aide_db_name }}"
+        tags:
+          - 1.3.1
+
+      - name: 1.3.1 - Set up database_out file location
+        replace:
+          dest: /etc/aide.conf
+          regexp: "^database_out=file:((?!{{ aide_new_db_name }}).)*$"
+          replace: "database_out=file:{{ aide_new_db_name }}"
+        tags:
+          - 1.3.1
+
+      - name: 1.3.1 - enable gzip compression for database
+        lineinfile:
+          dest: /etc/aide.conf
+          regexp: '^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$'
+          line: "gzip_dbout={{ aide_gzip }}"
+          state: present
+        tags:
+          - 1.3.1
 
       # stat returns a lot of information. 'exists' is true if the file exists and 'isreg'
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
-      - name: 1.3.1 - Initialize AIDE if it hasn't been already
+      - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
         shell: /usr/sbin/aide --init
-        when: not aide_path.stat.exists or not aide_path.stat.isreg
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
+        tags:
+          - 1.3.1
+
+      - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
+        shell: /usr/bin/aide --init
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
+        tags:
+          - 1.3.1
 
       # AIDE creates the new database as a different name. Use the copy module with
       #  the remote_src argument to copy the file on the remote machine to another location
@@ -561,6 +599,8 @@
           mode: preserve
         when: not aide_path.stat.exists or not aide_path.stat.isreg
         changed_when: false
+        tags:
+          - 1.3.1
 
       # Copy in the already configured systemd service file using the copy module.
       # Be sure to set the selinux context.
@@ -574,6 +614,8 @@
           mode: 0644
           setype: systemd_unit_file_t
         notify: restart aidecheck
+        tags:
+          - 1.3.2
 
       # Copy in the already configured systemd timer file using the copy module.
       # Be sure to set the selinux context.
@@ -587,6 +629,8 @@
           mode: 0644
           setype: systemd_unit_file_t
         notify: restart aidecheck
+        tags:
+          - 1.3.2
     tags:
       - 1.3.0
 
@@ -674,7 +718,7 @@
 
   # Use system package manager to remove the prelink package
   - name: 1.5.4 - Remove prelink package
-    yum:
+    package:
       name: prelink
       state: absent
     tags:
@@ -682,111 +726,163 @@
 
   # 1.6 Mandatory Access Control
 
-  # Use system package manager to install libselinux
-  - name: 1.6.2 - Ensure SELinux is installed
-    yum:
-      name: libselinux
-      state: present
-    when: selinux is defined and selinux != "Disabled"
-    tags:
-      - 1.6.2
-
-  # Use the replace module to remove any disablment of selinux in grub if
-  #  it isn't expressly disabled from a variable
-  - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
-    replace:
-      dest: /etc/default/grub
-      regexp: "{{ item }}"
-      replace: ""
-    with_items:
-      - selinux=0
-      - enforcing=0
-    when: selinux is defined and selinux != "Disabled"
-    notify: rebuild grub
-    tags:
-      - 1.6.1.1
-
-  # Replace the current selinux policy with whatever the variable is set for
-  - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
-    replace:
-      dest=/etc/selinux/config
-      regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
-      replace="SELINUXTYPE={{ selinux_policy }}"
-    when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
-    tags:
-      - 1.6.1.2
-
-  # Check to see if machine currently has selinux disabled
-  - name: 1.6.1.2 - Find current state of selinux
-    shell: /sbin/getenforce
-    register: selinux_status
-    changed_when: false
-    tags:
-      - 1.6.1.2
-
-  # If we are going to be enabling selinux in passive or enforcing mode,
-  #  set the autorelabel and notify the machine to reboot
-  - name: 1.6.1.2 - If disabled and we are enabling it, autorelabel
-    file:
-      path: /.autorelabel
-      owner: root
-      group: root
-      mode: 0644
-      state: touch
-    when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
-    notify: reboot
-    tags:
-      - 1.6.1.2
-
-  # Replace the current selinux mode with what the variable is set to
-  - name: 1.6.1.3 - Set SELinux to {{ selinux | lower }}
-    replace:
-      dest: /etc/selinux/config
-      regexp: "^SELINUX=((?!{{ selinux }}).)*$"
-      replace: "SELINUX={{ selinux | lower }}"
-    when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
-    tags:
-      - 1.6.1.3
-
-  # Use system package manager to remove package
-  - name: 1.6.1.4 - Remove setroubleshoot
-    yum:
-      name: setroubleshoot
-      state: absent
-    tags:
-      - 1.6.1.4
-
-  # Use system package manager to remove package
-  - name: 1.6.1.5 - Remove MCS Translation Service
-    yum:
-      name: mcstrans
-      state: absent
-    tags:
-      - 1.6.1.5
-
-  # Let the user know if there are any processes that are not running under the
-  #  a selinux context
-  - name: 1.6.1.6 - Report on unconfined running services
+  # SLES does not provide a policy for selinux, so enabling it will freeze a system. For SLES skip
+  #  This section
+  - name: 1.6.0 - Mandatory Access Control
     block:
-      # use ps and grep to find services running under initrc context
-      - name: 1.6.1.5 - Generate report on unconfined running services
-        shell: /usr/bin/ps -eZ | egrep "initrc"
-        register: unconfined_services_out
-        failed_when: unconfined_services_out.rc == "2"
+      # Use system package manager to install libselinux (RHEL CLones)
+      - name: 1.6.2 - Ensure SELinux is installed
+        package:
+          name: libselinux
+          state: present
+        when: (selinux is defined and selinux != "Disabled") and ansible_distribution != "SLES"
+        tags:
+          - 1.6.2
+
+      # Use system package manager to install libselinux (SLES)
+      - name: 1.6.2 - Ensure SELinux is installed
+        package:
+          name: "{{ item }}"
+          state: present
+        when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "SLES"
+        loop:
+          - libselinux1
+          - selinux-tools
+        tags:
+          - 1.6.2
+
+      # Use the replace module to remove any disablment of selinux in grub if
+      #  it isn't expressly disabled from a variable
+      - name: 1.6.1.1 - Ensure SELinux is not disabled in bootloader configuration
+        replace:
+          dest: /etc/default/grub
+          regexp: "{{ item }}"
+          replace: ""
+        with_items:
+          - selinux=0
+          - enforcing=0
+        when: selinux is defined and selinux != "Disabled"
+        notify: rebuild grub
+        tags:
+          - 1.6.1.1
+
+      # Replace the current selinux policy with whatever the variable is set for
+      - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
+        replace:
+          dest=/etc/selinux/config
+          regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
+          replace="SELINUXTYPE={{ selinux_policy }}"
+        when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
+        tags:
+          - 1.6.1.2
+
+      # Check to see if machine currently has selinux disabled
+      - name: 1.6.1.2 - Find current state of selinux
+        shell: /sbin/getenforce
+        register: selinux_status
         changed_when: false
+        tags:
+          - 1.6.1.2
 
-      # Print any findings to the user
-      - name: 1.6.1.5 - Report on unconfined running services to user
-        debug:
-          msg:
-            - "Unconfined processes found:"
-            - "{{ unconfined_services_out.stdout_lines }}"
-        changed_when: true
-        when: unconfined_services_out.stdout
+      # If we are going to be enabling selinux in passive or enforcing mode,
+      #  set the autorelabel and notify the machine to reboot
+      - name: 1.6.1.2 - If disabled and we are enabling it, autorelabel
+        file:
+          path: /.autorelabel
+          owner: root
+          group: root
+          mode: 0644
+          state: touch
+        when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
+        notify: reboot
+        tags:
+          - 1.6.1.2
+
+      # Replace the current selinux mode with what the variable is set to
+      - name: 1.6.1.3 - Set SELinux to {{ selinux | lower }}
+        replace:
+          dest: /etc/selinux/config
+          regexp: "^SELINUX=((?!{{ selinux }}).)*$"
+          replace: "SELINUX={{ selinux | lower }}"
+        when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
+        tags:
+          - 1.6.1.3
+
+      # Use system package manager to remove package
+      - name: 1.6.1.4 - Remove setroubleshoot
+        package:
+          name: setroubleshoot
+          state: absent
+        tags:
+          - 1.6.1.4
+
+      # Use system package manager to remove package
+      - name: 1.6.1.5 - Remove MCS Translation Service
+        package:
+          name: mcstrans
+          state: absent
+        tags:
+          - 1.6.1.5
+
+      # Let the user know if there are any processes that are not running under the
+      #  a selinux context
+      - name: 1.6.1.6 - Report on unconfined running services
+        block:
+          # use ps and grep to find services running under initrc context
+          - name: 1.6.1.5 - Generate report on unconfined running services
+            shell: /usr/bin/ps -eZ | egrep "initrc"
+            register: unconfined_services_out
+            failed_when: unconfined_services_out.rc == "2"
+            changed_when: false
+
+          # Print any findings to the user
+          - name: 1.6.1.5 - Report on unconfined running services to user
+            debug:
+              msg:
+                - "Unconfined processes found:"
+                - "{{ unconfined_services_out.stdout_lines }}"
+            changed_when: true
+            when: unconfined_services_out.stdout
+        tags:
+          - 1.6.1.5
+
+      - name: 1.6.2 - Configure AppArmor (SLES only)
+        block:
+          - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
+            replace:
+              dest: /etc/default/grub
+              regexp: "{{ item }}"
+              replace: ""
+            with_items:
+              - apparmor=0
+            notify: rebuild grub
+            tags:
+              - 1.6.2.1
+
+          - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
+            shell: enforce /etc/apparmor.d/*
+            when: apparmor_level == "enforce"
+            failed_when: false
+            changed_when: false
+            tags:
+              - 1.6.2.2
+
+          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
+            package_facts:
+              manager: auto
+
+          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
+            debug:
+              msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
+            when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
+        when: ansible_distribution == "SLES"
+        tags:
+          - 1.6.2
+    when: ansible_distribution != "SLES"
     tags:
-      - 1.6.1.5
+      - 1.6.0
 
-  # 1.8 Warning Banners
+  # 1.7 Warning Banners
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.7.1.1 - Install motd banners
@@ -856,23 +952,14 @@
 
  ### Part 2, Services ###
   # Remove old, unused, insecure services
-  - name: 2.1.1 Remove unused services
-    yum:
-      name:
-        - rsh-server
-        - talk-server
-        - telnet-server
-      state: absent
-    tags:
-      - 2.1.1
 
-  - name: 2.1.2 - Remove xinetd  service  [controlled by host variable tftp_server]
-    yum:
+  - name: 2.1.7 - Remove xinetd  service  [controlled by host variable tftp_server]
+    package:
       name: xinetd
       state: absent
     when: tftp_server is defined and not tftp_server
     tags:
-      - 2.1.2
+      - 2.1.7
 
   # use replace to make sure that listed services are disabled
   - name: Disable non-tftp services (if we are a tftp server)
@@ -896,7 +983,7 @@
 
   # Set up the time server listed in the time_service variable
   - name: 2.2.1.1 - Verify {{ time_service }} is installed
-    yum:
+    package:
       name: "{{ time_service }}"
       state: present
     when: time_service == "chrony" or time_service == "ntp"
@@ -917,6 +1004,7 @@
     notify: restart {{ time_service}}d
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   # Chrony and ntp argue if they are both active at the same time. Disable
   #  the other service.
@@ -928,6 +1016,7 @@
     when: time_serve is defined and time_service == "ntp"
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   - name: 2.2.1.2 - disable ntpd if time_service is set to chrony
     systemd:
@@ -938,6 +1027,7 @@
     ignore_errors: true
     tags:
       - 2.2.1.2
+      - 2.2.1.3
 
   # Disable the display manager by changing the default boot target to multi-user
   - name: 2.2.2 - disable display manager if graphical desktop not needed
@@ -996,14 +1086,22 @@
 
   - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
-    when: dhcp_server is defined and not dhcp_server
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
+    when:  dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
   - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
+    when: ansible_distribution != "SLES"
+    tags:
+      - 2.2.6
+
+  - name: 2.2.6 - add openldap-servers to removal list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap2' ] }}"
+    when: ansible_distribution == "SLES"
     tags:
       - 2.2.6
 
@@ -1030,7 +1128,7 @@
 
   - name: 2.2.10 - Remove httpd; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] + [ 'apache2' ] }}"
     when: http_server is defined and not http_server
     tags:
       - 2.2.10
@@ -1080,16 +1178,36 @@
     tags:
       - 2.2.17
 
-  - name: 2.3.3 - add talk to unneeded package list
+  - name: 2.2.18 - add talk to unneeded package list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'talk' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'talk-server' ] + [ 'talk' ] }}"
     tags:
+      - 2.2.18
       - 2.3.3
+
+  - name: 2.2.19 - add telnet to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'telnet-server' ] + [ 'telnet'] }}"
+    tags:
+      - 2.2.19
+      - 2.3.4
+
+  - name: 2.2.20 - add tftp to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'tftp' ] + [ 'tftp-server'] }}"
+    tags:
+      - 2.2.20
+
+  - name: 2.2.21 - add rsync to unneeded package list
+    set_fact:
+      unneeded_packages: "{{ unneeded_packages + [ 'rsync' ] }}"
+    tags:
+      - 2.2.21
 
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    yum:
+    package:
       name: unneeded_packages
       state: absent
 
@@ -1288,7 +1406,7 @@
   - name: 3.4 - TCP Wrappers
     block:
       - name: 3.4.1 - Install tcpwrappers
-        yum:
+        package:
           name: tcp_wrappers
           state: present
 
@@ -1369,7 +1487,7 @@
   - name: 3.6 - Install firewalld
     block:
       - name: 3.6.1 - Install firewalld
-        yum:
+        package:
           name: "firewalld"
           state: present
         notify: start firewalld
@@ -1399,7 +1517,7 @@
   - name: 3.6.1 - Install iptables
     block:
       - name: 3.6.1 Install iptables
-        yum:
+        package:
           name:
             - "iptables"
             - "iptables-services"
@@ -1430,7 +1548,7 @@
   - name: 4.1 Install and configure system auditing
     block:
       - name: 4.1.1 - Install Audit
-        yum:
+        package:
           name:
             - audit
             - audit-libs
@@ -1686,7 +1804,7 @@
 
 
   - name: 4.2.1.1 - Ensure rsyslog is installed
-    yum:
+    package:
       name: rsyslog
       state: present
     tags:
@@ -1782,7 +1900,7 @@
   # Ensure rsyslog package is installed (4.2.3) moved to before 4.2.1.1 which is the package install
 
   - name: 4.3 - Ensure logrotate is installed and configured
-    yum:
+    package:
       name: logrotate
       state: present
     tags:
@@ -1813,11 +1931,21 @@
     tags:
       - 5.1.8
 
-  - name: 5.1.1 - Ensure cron is enabled
+  - name: 5.1.1 - Ensure cron is enabled (RHEL Clones)
     service:
       name: crond
       enabled: yes
       state: started
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.1.1
+
+  - name: 5.1.1 - Ensure cron is enabled (SLES)
+    service:
+      name: cron
+      enabled: yes
+      state: started
+    when: ansible_distribution == "SLES"
     tags:
       - 5.1.1
 
@@ -1864,7 +1992,7 @@
           - 5.2.1
 
       # Control 5.2.2, Ensure SSH Protocol is set to 2, is not supported in OpenSSH
-      # supplied by Red Hat any longer. Omitting
+      # supplied by Red Hat (or SUSE 15) any longer. Omitting
 
       - name: 5.2.3 - Set LogLevel to {{ ssh_log_level }} or more verbose, but not debug
         replace:
@@ -2048,16 +2176,31 @@
 
   - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
     block:
-      - name: Determine if we are currently using sha512 password algorithm
-        shell: /usr/sbin/authconfig --test | /usr/bin/grep sha512
-        register: auth_out
-        changed_when: auth_out.rc != 0
-
       - name: SHA-512 Password setting
         shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
-        when: auth_out.rc != 0
+        when: ansible_distribution != "SLES"
+        failed_when: false
+
+      - name: Determine if we are currently using sha512 password
+        lineinfile:
+          path: /etc/pam.d/common-password
+          regexp: 'pam_unix.so*sha512'
+          state: absent
+        check_mode: yes
+        changed_when: false
+        register: sha512_exist
+        failed_when: false
+        when: ansible_distribution == "SLES"
+
+      - name: Determine if we are currently using sha512 password
+        replace:
+          dest: /etc/pam.d/common-password
+          regexp: 'pam_unix.so'
+          replace: 'pam_unix.so    sha512'
+        when: ansible_distribution == "SLES" and not sha512_exist.found
     tags:
       5.3.4
+
   - name: 5.4.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
     lineinfile:
       dest: /etc/login.defs
@@ -2098,17 +2241,6 @@
   # 5.4.2, Ensure all system accounts do not have an active shell,
   # is not easily automated. Will revisit later
 
-  - name: Ensure shell timeout is {{ shell_timeout }} seconds or less (5.4.5)
-    blockinfile:
-      path: "{{ item }}"
-      block: "TMOUT={{ shell_timeout }}"
-      marker: "# {mark} Ansible Managed CIS Timeout"
-    loop:
-      - /etc/bashrc
-      - /etc/profile
-    tags:
-      - 5.4.5
-
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.4.3 - Ensure default group for root is GID 0
     shell: /usr/sbin/usermod -g 0 root
@@ -2124,8 +2256,46 @@
     loop:
       - /etc/bashrc
       - /etc/profile
+    when: ansible_distribution != "SLES"
     tags:
       - 5.4.4
+
+  - name: 5.4.4 - Ensure umask is set (SLES)
+    replace:
+      path: "{{ item }}"
+      replace: "     umask {{ default_umask }}"
+      regexp: '^\s*umask\s*022'
+    when: ansible_distribution != "SLES"
+    loop:
+      - /etc/bash.bashrc.local
+      - /etc/profile.local
+    tags:
+      - 5.4.4
+
+  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less
+    blockinfile:
+      path: "{{ item }}"
+      block: "TMOUT={{ shell_timeout }}"
+      marker: "# {mark} Ansible Managed CIS Timeout"
+    loop:
+      - /etc/bashrc
+      - /etc/profile
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.4.5
+
+  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less (SLES)
+    blockinfile:
+      path: "{{ item }}"
+      block: "TMOUT={{ shell_timeout }}"
+      marker: "# {mark} Ansible Managed CIS Timeout"
+      create: yes
+    loop:
+      - /etc/bash.bashrc.local
+      - /etc/profile.local
+    when: ansible_distribution == "SLES"
+    tags:
+      - 5.4.5
 
   # 5.5.5,  Ensure root login is restricted to system console
   # not easily automatable because of the various TTYs on a machine
@@ -2172,12 +2342,22 @@
       mode: 0000
     loop:
       - shadow
-      - gshadow
     tags:
       - 6.1.3
+
+  - name: 6.1.[3,5] - Ensure permissions on /etc/shadow /etc/gshadow
+    file:
+      path: /etc/{{ item }}
+      owner: root
+      group: root
+      mode: 0000
+    loop:
+      - gshadow
+    when: ansible_distribution != "SLES"
+    tags:
       - 6.1.5
 
-  - name: 6.1.[6-9] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
+  - name: 6.1.[6-8] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
     file:
       path: /etc/{{ item }}
       owner: root
@@ -2187,11 +2367,21 @@
       - passwd-
       - shadow-
       - group-
-      - gshadow-
     tags:
       - 6.1.6
       - 6.1.7
       - 6.1.8
+
+  - name: 6.1.9 - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
+    file:
+      path: /etc/{{ item }}
+      owner: root
+      group: root
+      mode: 0000
+    with_items:
+      - gshadow-
+    when: ansible_distribution != "SLES"
+    tags:
       - 6.1.9
 
   # Control 6.1.10, Ensure no world writable files exist, is system dependent so we are only

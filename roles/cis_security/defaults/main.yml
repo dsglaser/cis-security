@@ -7,7 +7,7 @@ selinux: "enforcing"            # Options are enforcing, permissive, and disable
 selinux_policy: "targeted"      # Options are targeted, minimum, or mls. Control has no default
 crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGAC
 
-## Ubuntu and ubuntu clonse using apparbor
+## Ubuntu, ubuntu clones, and SLES using apparbor
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 time_service: "chrony"             # Option for RHEL7/Ubuntu only. RHEL8 only ships with chrony and this variable is not used
@@ -15,6 +15,11 @@ time_service: "chrony"             # Option for RHEL7/Ubuntu only. RHEL8 only sh
 time_server: "2.rhel.pool.ntp.org" # Time server for ntp, chrony, or timedatectl
 
 sudo_log: "/var/log/sudoers"    # log file for sudo
+
+# AIDE configuration settings
+aide_db_name:  "/var/lib/aide/aide.db.gz"        # Database name that AIDE will look for for comparison
+aide_new_db_name: "/var/lib/aide/aide.db.new.gz" # Database name created during an --init run
+aide_gzip: "yes"                              # 'yes' or 'no' to enable gzip compression on database
 
 # Yum repos and system updates
 update_system: false            # Update the system to the latest during the role run
