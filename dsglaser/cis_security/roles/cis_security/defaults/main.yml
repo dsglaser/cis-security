@@ -84,5 +84,3 @@ password_inactive_lock_days: 30
 # Environtment settings, all settings below match controls
 shell_timeout: 900
 default_umask: "027"            # Control is 027 or more strict
-
-

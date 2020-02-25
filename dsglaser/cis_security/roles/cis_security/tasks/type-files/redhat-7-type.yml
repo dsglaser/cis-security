@@ -1562,11 +1562,11 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
-          - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)' , replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
-          - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)' , replace: 'space_left_action = email' } # 4.1.2.2
-          - { find: '^action_mail_acct\s+=\s+(^root)*$' , replace: 'action_mail_acct = root' } # 4.1.2.2
-          - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)' , replace: 'admin_space_left_action = suspend' } # 4.1.2.2
+          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
+          - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)', replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
+          - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)', replace: 'space_left_action = email' } # 4.1.2.2
+          - { find: '^action_mail_acct\s+=\s+(^root)*$', replace: 'action_mail_acct = root' } # 4.1.2.2
+          - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)', replace: 'admin_space_left_action = suspend' } # 4.1.2.2
         tags:
           - 4.1.1.2
           - 4.1.1.3
@@ -2592,4 +2592,3 @@
         when: duplicate_groups.stdout
     tags:
       - 6.2.19
-
