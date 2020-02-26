@@ -1832,21 +1832,17 @@
 
   # This control is early in order to create the files. This will
   # make sure they are available when cron starts
-  - name: Find the number of allow files in /etc for cron (5.1.8)
-    shell: /usr/bin/find /etc -maxdepth 1 -name *.allow -type f
-    register: allow_files
-    changed_when: allow_files.rc != 0
-    tags:
-      - 5.1.8
-
-  - name: Create the allow files (5.1.8)
-    file:
-      path: "{{ item }}"
-      state: touch
+  - name: Create the cron/at allow files (5.1.8)
+    copy:
+      dest: "{{ item }}"
+      content: ""
+      force: no
+      owner: root
+      group: root
+      mode: 0644
     with_items:
       - /etc/cron.allow
       - /etc/at.allow
-    when: allow_files.stdout.find('cron') == -1 or allow_files.stdout.find('at') == -1
     tags:
       - 5.1.8
 

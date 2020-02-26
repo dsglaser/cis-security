@@ -1863,7 +1863,7 @@
   # make sure they are available when cron starts
   - name: Create the cron/at allow files (5.1.8)
     copy:
-      path: "{{ item }}"
+      dest: "{{ item }}"
       content: ""
       force: no
       owner: root

@@ -1923,7 +1923,7 @@
   # make sure they are available when cron starts
   - name: Create the cron/at allow files (5.1.8)
     copy:
-      path: "{{ item }}"
+      dest: "{{ item }}"
       content: ""
       force: no
       owner: root
@@ -2269,7 +2269,7 @@
       path: "{{ item }}"
       replace: "     umask {{ default_umask }}"
       regexp: '^\s*umask\s*022'
-    when: ansible_distribution != "SLES"
+    when: ansible_distribution == "SLES"
     loop:
       - /etc/bash.bashrc.local
       - /etc/profile.local

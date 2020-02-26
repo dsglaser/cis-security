@@ -106,6 +106,41 @@ to measure every need as currently written and shell or command has been utilize
 has the effect of bringing down the quality score on Ansible Galaxy, but the roles can be run multiple times
 without fear of breaking.
 
+### Learning Tool
+A secondary purpose of this collection is to show numerous ways that Ansible can be used to
+manage systems with various modules. The first time a module is used it is commented on many times
+to explain what the module is doing. Other times you may see something like the following:
+
+```
+  - name: 5.4.4 - Ensure umask is set
+    replace:
+      path: "{{ item }}"
+      replace: "     umask {{ default_umask }}"
+      regexp: '^\s*umask\s*022'
+    loop:
+      - /etc/bashrc
+      - /etc/profile
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.4.4
+
+  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less
+    blockinfile:
+      path: "{{ item }}"
+      block: "TMOUT={{ shell_timeout }}"
+      marker: "# {mark} Ansible Managed CIS Timeout"
+    loop:
+      - /etc/bashrc
+      - /etc/profile
+    when: ansible_distribution != "SLES"
+    tags:
+      - 5.4.5
+```
+Both of these tasks manipulate the same file in the same way. They could have been written
+with the same module, even in the same task with a loop, but here it illustrates different
+ways files can be manipuldated with modules.
+
+
 ### Change Log
 - 1/20/2020 - dsglaser@gmail.com - Initial creation
 - 1/22/2020 - dsglaser@gmail.com - Added enhanced selinux controls
