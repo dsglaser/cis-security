@@ -70,7 +70,7 @@ ssh_grace_time: 60              # Control is for 60 seconds or less
 ssh_max_sessions: 4             # Control is 4 sessions from a single host
 ssh_login_banner: issue.net     # a file with no path will exist in the role's files directory, an absolute path will exist on the control host
 
-# Password settings, all settings below match controls
+# Password and account settings, all settings below match controls
 password_min_length: 14
 password_req_digit: true
 password_req_upper: true
@@ -84,9 +84,25 @@ password_history: 24              # number of passwords to remember. Windows onl
 account_lockout_duration: 15      # Windows only setting
 account_lockout_threshold: 10     # Windows only setting
 account_reset_duration: 15        # Windows only setting
-nework_logon_right:               # Windows only setting: Users that have access to log on from the network
+network_logon_right:              # Windows only setting: Users that have access to log on from the network
   - "Administrators"
   - "Authenticated Users"
+local_logon_right:                # Windows only setting: Users that have access to log onto the console
+  - "Administrators"
+rds_logon_right:                  # Windows only setting: Users that have access to log onto the system through Remote Desktop Services
+  - "Adminsitrators"
+  - "Remote Desktop Users"
+adjust_memory_quotas:             # Windows only setting: Users that can adjust the memory quotas for a process
+  - "Administrators"
+  - "LOCAL SERVICE"
+  - "NETWORK SERVICE"
+backup_operators:                 # Windows only setting: Users that can backup files and diretories via a backup application
+  - "Administrators"
+time_operators:                   # Windows only setting: Users that can set the system time
+  - "Administrators"
+  - "LOCAL SERVICE"
+symbolic_link_right:              # Windows only setting: Users that can create symbolic links. If Hyper-V is installed, this should include "Virtual Machines"
+  - "Administrators"
 
 # Environtment settings, all settings below match controls
 shell_timeout: 900

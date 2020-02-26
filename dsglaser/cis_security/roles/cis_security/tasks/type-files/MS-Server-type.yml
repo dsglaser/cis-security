@@ -15,6 +15,17 @@
   # Use a variable so it prints out the correct version.
   - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
 
+  - name: Determine if we are a domain controller
+    set_fact:
+      domain_role: "none"
+    when: windows_domain_role == "Stand-alone server"
+  - set_fact:
+      domain_role: "member"
+    when: windows_domain_role == "Member server"
+  - set_fact:
+      domain_role: "controller"
+    when: windows_domain_role == "Primary domain controller" or windows_domain_role == "Backup domain controller"
+
   # The win_wsecurity_policy module modifies the security policy of the machine with the value
   #  supplied. You can get a list of the current settings on your system by running
   #  SecEdit.exe /export /cfg output.ini
@@ -109,8 +120,319 @@
 
   # Control 2.2.2 is for Domain controllers only
 
+  # Control 2.2.3 is for Member Servers only
   - name: 2.2.3 - Ensure Access this computer from network is restricted
     win_user_right:
       name: SeNetworkLogonRight
-      users: network_logon_right
+      users: "{{ network_logon_right }}"
       action: set
+    tags:
+      - 2.2.3
+
+  - name: 2.2.4 - Ensure Act as part of operating system is set to no one.
+    win_user_right:
+      name: SeTcbPrivilege
+      users: []
+      action: set
+    tags:
+      - 2.2.4
+
+  # 2.2.5 - is for DCs only
+
+  - name: 2.2.6 - Ensure Adjust memory quotas for a process is restricted
+    win_user_right:
+      name: SeIncreaseQuotaPrivilege
+      users: "{{ adjust_memory_quotas }}"
+      action: set
+    tags:
+      - 2.2.6
+
+  - name: 2.2.7 - Ensure Access this computer from console is restricted
+    win_user_right:
+      name: SeInteractiveLogonRight
+      users: "{{ local_logon_right }}"
+      action: set
+    tags:
+      - 2.2.7
+
+  # 2.2.8 is for DCs only
+
+  - name: 2.2.9 - Ensure allow long on through RDS is restricted
+    win_user_right:
+      name: SeRemoteInteractiveLogonRight
+      users: "{{ rds_logon_right }}"
+      action: set
+    tags:
+      - 2.2.9
+
+  - name: 2.2.10 - Ensure backup operators are restricted
+    win_user_right:
+      name: SeBackupPrivilege
+      users: "{{ backup_operators }}"
+      action: set
+    tags:
+      - 2.2.10
+
+  - name: 2.2.[11,12] - Ensure the ability to change the time is restricted
+    win_user_right:
+      name: SeSystemtimePrivilege
+      users: "{{ time_operators }}"
+      action: set
+    loop:
+      - SeSystemtimePrivilege
+      - SeTimeZonePrivilege
+    tags:
+      - 2.2.11
+      - 2.2.12
+
+  - name: 2.2.13 - Ensure Create a page file is set to Administrator
+    win_user_right:
+      name: SeCreatePagefilePrivilege
+      users: "Administrators"
+      action: set
+    tags:
+      - 2.2.13
+
+  - name: 2.2.14 - Ensure no one can create a token object
+    win_user_right:
+      name: SeCreateTokenPrivilege
+      users: []
+      action: set
+    tags:
+      - 2.2.14
+
+  - name: 2.2.15 - Ensure Create Global Objects is restricted
+    win_user_right:
+      name: SeCreateTokenPrivilege
+      users:
+        - Administrators
+        - LOCAL SERVICE
+        - NETWORK SERVICE
+        - SERVICE
+      action: set
+    tags:
+      - 2.2.15
+
+  - name: 2.2.16 - Ensure no one can create global shared objects
+    win_user_right:
+      name: SeCreateGlobalPrivilege
+      users: []
+      action: set
+    tags:
+      - 2.2.16
+
+  # Control 2.2.18 is only for DCs
+
+  - name: 2.2.18 - Ensure symbolic link creation is restricted
+    win_user_right:
+      name: SeCreateSymbolicLinkPrivilege
+      users: "{{ symbolic_link_right }}"
+      action: set
+    tags:
+      - 2.2.18
+
+  - name: 2.2.19 - Ensure 'Debug programs' is set to 'Administrators'
+    win_user_right:
+      name: SeDebugPrivilege
+      users: "Administrators"
+      action: set
+    tags:
+      - 2.2.19
+
+  # Control 2.2.20 is only for DCs
+
+  # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
+
+  - name: 2.2.[22-25] - Ensure deny local, remote, and batch logons includes 'Guests'
+    win_user_right:
+      name: "{{ item }}"
+      users: "Guests"
+      action: add
+    loop:
+      - SeDenyBatchLogonRight
+      - SeDenyServiceLogonRight
+      - SeDenyInteractiveLogonRight
+      - SeDenyRemoteInteractiveLogonRight
+    tags:
+      - 2.2.22
+      - 2.2.23
+      - 2.2.24
+      - 2.2.25
+
+  # control 2.2.26, if configured will deny any local user from logging in remotely. need to test before implmentation: Skipping
+
+  # Control 2.2.27 is only for DCs
+
+  - name: 2.2.28 - Ensure 'Enable computer and user accounts to be trusted for delegation' is set to 'No One'
+    win_user_right:
+      name: SeEnableDelegationPrivilege
+      users: []
+      action: set
+    when: domain_role == "member"
+    tags:
+      - 2.2.28
+
+  - name: 2.2.29 - Ensure 'Debug programs' is set to 'Administrators'
+    win_user_right:
+      name: SeRemoteShutdownPrivilege
+      users: "Administrators"
+      action: set
+    tags:
+      - 2.2.29
+
+  # Control 2.2.30 has a lot of exceptions for server roles. Skipping
+
+  # 2.2.32 - A member server with Web Server (IIS) Role with Web Services role needs to have "IIS_IUSRS"
+  #  added to this list, but DC's do not. Disable on member services if you have the above roles
+  - name: 2.2.31 - Ensure 'Impersonate a client after authentication' is restricted
+    win_user_right:
+      name: SeImpersonatePrivilege
+      users: "{{ item }}"
+      action: set
+    loop:
+      - Administrators
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+      - SERVICE
+    tags:
+      - 2.2.31
+
+  - name: 2.2.33 - Ensure 'Increase scheduling priority' is restricted
+    win_user_right:
+      name: SeIncreaseBasePriorityPrivilege
+      users: "{{ item }}"
+      action: set
+    loop:
+      - Administrators
+      - 'Window Manager\Window Manager Group'
+    tags:
+      - 2.2.33
+
+  - name: 2.2.34 - Ensure 'Load and unload device drivers' is restricted
+    win_user_right:
+      name: SeLoadDriverPrivilege
+      users: "Administrators"
+      action: set
+    tags:
+      - 2.2.34
+
+  - name: 2.2.35 - Ensure 'Lock pages in memory' is set to 'No One'
+    win_user_right:
+      name: SeLockMemoryPrivilege
+      users: []
+      action: set
+    tags:
+      - 2.2.35
+
+  - name: 2.2.36 - Ensure 'Log in as a batch job is set to 'Administrators'
+    win_user_right:
+      name: SeBatchLogonRight
+      users:
+        - Administrators
+      action: set
+    when: domain_role == "controller"
+    tags:
+      - 2.2.36
+
+  # If you are running an Exchange environment, exclude this task (both tags!) on DCs and include "Exchange Servers" in
+  #  an Exchange server playbook/role
+  - name: 2.2.[37,38] - Ensure 'Manage auditing and security log' is set to Adminstrators
+    win_user_right:
+      name: SeSecurityPrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.37
+      - 2.2.38
+
+  - name: 2.2.39 - Ensure 'Modify an object label' is set to 'No One'
+    win_user_right:
+      name: SeRelabelPrivilege
+      users: []
+      action: set
+    tags:
+      - 2.2.39
+
+  - name: 2.2.40 - Ensure 'Modify firmware environment values' is set to 'Administrators'
+    win_user_right:
+      name: SeSystemEnvironmentPrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.41
+
+  - name: 2.2.41 - Ensure 'Perform volume maintenance tasks' is set to 'Administrators'
+    win_user_right:
+      name: SeManageVolumePrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.41
+
+  - name: 2.2.42 - Ensure 'Profile single process' is set to 'Administrators'
+    win_user_right:
+      name: SeProfileSingleProcessPrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.42
+
+  - name: 2.2.43 - Ensure 'Profile system performance' is restricted
+    win_user_right:
+      name: SeSystemProfilePrivilege
+      users:
+        - Administrators
+        - 'NT Service\WdiServiceHost'
+      action: set
+    tags:
+      - 2.2.43
+
+  - name: 2.2.44 - Ensure 'Replace a process level token' is restricted
+    win_user_right:
+      name: SeAssignPrimaryTokenPrivilege
+      users:
+        - 'LOCAL SERVICE'
+        - 'NETWORK SERVICE'
+      action: set
+    tags:
+      - 2.2.44
+
+  - name: 2.2.45 - Ensure 'Restore files and directories' is set to 'Administrators'
+    win_user_right:
+      name: SeRestorePrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.45
+
+  - name: 2.2.46 - Ensure 'Shut down the System' is set to 'Administrators'
+    win_user_right:
+      name: SeShutdownPrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.46
+
+  - name: 2.2.47 - Ensure 'Synchronize directory service data' is set to 'No One'
+    win_user_right:
+      name: SeSyncAgentPrivilege
+      users: []
+      action: set
+    when: domain_role == "controller"
+    tags:
+      - 2.2.47
+
+  - name: 2.2.46 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
+    win_user_right:
+      name: SeTakeOwnershipPrivilege
+      users:
+        - Administrators
+      action: set
+    tags:
+      - 2.2.48
