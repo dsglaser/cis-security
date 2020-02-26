@@ -81,9 +81,7 @@
     win_security_policy:
       section: System Access
       key: LockoutBadCount
-      value: "{{ account_lockout_threshold }}"
-    vars:
-      account_lockout_threshold: '{{ (account_lockout_threshold <= 0 ) | ternary(10, account_lockout_threshold) }}'
+      value: '{{ (account_lockout_threshold <= 0 ) | ternary(10, account_lockout_threshold) }}'
     tags:
       - 1.2.2
 
