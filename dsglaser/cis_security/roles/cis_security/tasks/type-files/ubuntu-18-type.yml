@@ -1194,7 +1194,7 @@
 
       - name: 3.3.[4-5] - Set permissions on tcpwrappers files
         file:
-          path: "{{item}}"
+          path: "{{ item }}"
           owner: root
           group: root
           mode: 0644
@@ -1718,32 +1718,40 @@
 
   - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
-      - name: 4.2.1.6 - Find all rsyslog files where module is loaded
-        shell: /bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
-        register: rsyslog_module_out
-        changed_when: false
-        failed_when: rsyslog_module_out.rc == "2"
+      - name: 4.2.1.6 - Find all rsyslog conf files in /etc/rsyslog.d
+        find:
+          paths: "/etc/rsyslog.d"
+          patterns: "*.conf"
+        register: rsyslog_module_found
 
-      - name: 4.2.1.6 - Find all rsyslog files where TCP port is set
-        shell: /bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
-        register: rsyslog_tcp_out
-        changed_when: false
-        failed_when: rsyslog_tcp_out.rc == "2"
-
-      - name: 4.2.1.6 - Disable loading module on non log hosts
+      - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (rsyslog.d conf files)
         lineinfile:
-          dest: "{{ item }}"
+          dest: "{{ item.path }}"
           regexp: '^\$ModLoad\s+imtcp'
           state: absent
-        loop: "{{ rsyslog_module_out.stdout_lines }}"
+        loop: "{{ rsyslog_module_found.files }}"
         when: log_host is defined and not log_host
 
-      - name: 4.2.1.6 - Disable TCP port listening on non log hosts
+      - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (main rsyslog conf file)
         lineinfile:
-          dest: "{{ item }}"
+          dest: "/etc/rsyslog.conf"
+          regexp: '^\$ModLoad\s+imtcp'
+          state: absent
+        when: log_host is defined and not log_host
+
+      - name: 4.2.1.6 - Disable TCP port listening on non log hosts (rsylog.d conf files)
+        lineinfile:
+          dest: "{{ item.path }}"
           regexp: '^\$InputTCPServerRun'
           state: absent
-        loop: "{{ rsyslog_tcp_out.stdout_lines }}"
+        loop: "{{ rsyslog_module_found.files }}"
+        when: log_host is defined and not log_host
+
+      - name: 4.2.1.6 - Disable TCP port listening on non log hosts (main rsyslog conf file)
+        lineinfile:
+          dest: "/etc/rsyslog.conf"
+          regexp: '^\$InputTCPServerRun'
+          state: absent
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Enable loading of imtcp module on log hosts
