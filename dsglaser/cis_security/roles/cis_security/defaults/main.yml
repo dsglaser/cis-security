@@ -84,6 +84,9 @@ password_history: 24              # number of passwords to remember. Windows onl
 account_lockout_duration: 15      # Windows only setting
 account_lockout_threshold: 10     # Windows only setting
 account_reset_duration: 15        # Windows only setting
+nework_logon_right:               # Windows only setting: Users that have access to log on from the network
+  - "Administrators"
+  - "Authenticated Users"
 
 # Environtment settings, all settings below match controls
 shell_timeout: 900

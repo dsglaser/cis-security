@@ -99,10 +99,18 @@
     tags:
       - 1.2.1
 
-  - name: 1.2.4 - Ensure Access Credential Manager as a trusted caller is set to No One
+  - name: 2.2.1 - Ensure Access Credential Manager as a trusted caller is set to No One
     win_user_right:
       name: SeTrustedCredManAccessPrivilege
       users: []
       action: set
     tags:
-      - 1.2.4
+      - 2.2.1
+
+  # Control 2.2.2 is for Domain controllers only
+
+  - name: 2.2.3 - Ensure Access this computer from network is restricted
+    win_user_right:
+      name: SeNetworkLogonRight
+      users: network_logon_right
+      action: set
