@@ -1,0 +1,44 @@
+---
+# Task file for CIS Controls
+# This file is commented to help view what Ansible Automation is doing
+#  and under what circumstances.
+
+# Some blocks below have tasks with tags and some without. Blocks of tasks that
+#  contain multiple controls have tasks with tags. Blocks that consist of a
+#  single control and are just put together for convience sake, do not have
+#  sub-block tasks with tags.
+
+# Comments about how the modules are used will become more infrequent as
+#  the file goes along to avoid repeating oneself.
+
+  # Let the user know what version of the controls file is running
+  # Use a variable so it prints out the correct version.
+  - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
+
+  - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
+    win_security_policy:
+      section: System Access
+      key: PasswordHistorySize
+      value: "{{ password_history }}"
+    tags:
+      - 1.1.1
+
+  - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
+    win_security_policy:
+      section: System Access
+      key: MaximumPasswordAge
+      value: "{{ password_expire_days }}"
+    when: password_expire_days != "0"
+    tags:
+      - 1.1.2
+
+  - name: 1.1.2 - Default to 60 days if password expire days is set to 0
+    win_security_policy:
+      section: System Access
+      key: MaximumPasswordAge
+      value: 60
+    when: password_expire_days == "0"
+    tags:
+      - 1.1.2
+
+
