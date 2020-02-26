@@ -26,21 +26,15 @@
     tags:
       - 1.1.1
 
+  # 1.2.2 states that the max age should not be 0, if it is this will change the value to 60 automatically
+  #  without telling the operator!
+  # The ternary operator here is used to change the value of password_expire_days if it's
+  #  value is less than 1.
   - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
     win_security_policy:
       section: System Access
       key: MaximumPasswordAge
-      value: "{{ password_expire_days }}"
-    when: password_expire_days != "0"
-    tags:
-      - 1.1.2
-
-  - name: 1.1.2 - Default to 60 days if password expire days is set to 0
-    win_security_policy:
-      section: System Access
-      key: MaximumPasswordAge
-      value: 60
-    when: password_expire_days == "0"
+      value: '{{ (password_expire_days|int < 1 ) | ternary(60, password_expire_days) }}'
     tags:
       - 1.1.2
 
@@ -77,27 +71,38 @@
       - 1.1.5
 
   # control 1.2.2 has to come first to enable account lockout, if not the other settings can't be set.
+  # 1.2.2 states that the threshold should not be 0, if it is this will change the value to 10 automatically
+  #  without telling the operator!
+  # The ternary operator here is used to change the value of account_lockout_threshold if it's
+  #  value is less than 1.
   - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
     win_security_policy:
       section: System Access
       key: LockoutBadCount
-      value: '{{ (account_lockout_threshold <= 0 ) | ternary(10, account_lockout_threshold) }}'
+      value: '{{ (account_lockout_threshold|int < 1 ) | ternary(10, account_lockout_threshold) }}'
     tags:
       - 1.2.2
-
-#  - name: 1.2.2 - Ensure Account lockout threshold, if set to 0, defaults to 10
-#    win_security_policy:
-#      section: System Access
-#      key: LockoutBadCount
-#      value: 10
-#    when: account_lockout_threshold != "0"
-#    tags:
-#      - 1.2.2
 
   - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
     win_security_policy:
       section: System Access
-      key: LockoutDuratoin
+      key: LockoutDuration
       value: "{{ account_lockout_duration }}"
     tags:
       - 1.2.1
+
+  - name: 1.2.3 - Ensure Reset account lockout counter after is set to 15 or more minutes
+    win_security_policy:
+      section: System Access
+      key: ResetLockoutCount
+      value: '{{ (account_reset_duration|int < 15 ) | ternary(15, account_reset_duration) }}'
+    tags:
+      - 1.2.3
+
+  - name: 1.2.4 - Ensure Access Credential Manager as a trusted caller is set to No One
+    win_security_policy:
+      section: Privilege Rights
+      key: SeTrustedCredManAccessPrivilege
+      value: ''
+    tags:
+      - 1.2.4

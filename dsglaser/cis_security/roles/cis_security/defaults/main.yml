@@ -83,6 +83,7 @@ password_inactive_lock_days: 30
 password_history: 24              # number of passwords to remember. Windows only setting
 account_lockout_duration: 15      # Windows only setting
 account_lockout_threshold: 10     # Windows only setting
+account_reset_duration: 15        # Windows only setting
 
 # Environtment settings, all settings below match controls
 shell_timeout: 900
