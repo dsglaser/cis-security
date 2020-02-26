@@ -70,7 +70,7 @@
     tags:
       - 1.1.5
 
-  # control 1.2.2 has to come first to enable account lockout, if not the other settings can't be set.
+  # The order for this controls has to be particular, if not they won't apply correctly.
   # 1.2.2 states that the threshold should not be 0, if it is this will change the value to 10 automatically
   #  without telling the operator!
   # The ternary operator here is used to change the value of account_lockout_threshold if it's
@@ -100,9 +100,9 @@
       - 1.2.1
 
   - name: 1.2.4 - Ensure Access Credential Manager as a trusted caller is set to No One
-    win_security_policy:
-      section: Privilege Rights
-      key: SeTrustedCredManAccessPrivilege
-      value: ''
+    win_user_right:
+      name: SeTrustedCredManAccessPrivilege
+      users: []
+      action: set
     tags:
       - 1.2.4
