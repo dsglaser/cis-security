@@ -15,6 +15,9 @@
   # Use a variable so it prints out the correct version.
   - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
 
+  # The win_wsecurity_policy module modifies the security policy of the machine with the value
+  #  supplied. You can get a list of the current settings on your system by running
+  #  SecEdit.exe /export /cfg output.ini
   - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
     win_security_policy:
       section: System Access
@@ -41,4 +44,62 @@
     tags:
       - 1.1.2
 
+  - name: 1.1.3 - Ensure minimum password age is set to "{{ password_min_days }}"
+    win_security_policy:
+      section: System Access
+      key: MinimumPasswordAge
+      value: "{{ password_min_days }}"
+    tags:
+      - 1.1.3
 
+  - name: 1.1.4 - Ensure minimum password length is set to "{{ password_min_length }}"
+    win_security_policy:
+      section: System Access
+      key: MinimumPasswordLength
+      value: "{{ password_min_length }}"
+    tags:
+      - 1.1.4
+
+  - name: 1.1.5 - Ensure 'Password must meet complexity requirements' is set to enbled
+    win_security_policy:
+      section: System Access
+      key: PasswordComplexity
+      value: 1
+    tags:
+      - 1.1.5
+
+  - name: 1.1.6 - Ensure passwords are not stored with reversible encryption
+    win_security_policy:
+      section: System Access
+      key: ClearTextPassword
+      value: 0
+    tags:
+      - 1.1.5
+
+  # control 1.2.2 has to come first to enable account lockout, if not the other settings can't be set.
+  - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
+    win_security_policy:
+      section: System Access
+      key: LockoutBadCount
+      value: "{{ account_lockout_threshold }}"
+    vars:
+      account_lockout_threshold: '{{ (account_lockout_threshold <= 0 ) | ternary(10, account_lockout_threshold) }}'
+    tags:
+      - 1.2.2
+
+#  - name: 1.2.2 - Ensure Account lockout threshold, if set to 0, defaults to 10
+#    win_security_policy:
+#      section: System Access
+#      key: LockoutBadCount
+#      value: 10
+#    when: account_lockout_threshold != "0"
+#    tags:
+#      - 1.2.2
+
+  - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
+    win_security_policy:
+      section: System Access
+      key: LockoutDuratoin
+      value: "{{ account_lockout_duration }}"
+    tags:
+      - 1.2.1
