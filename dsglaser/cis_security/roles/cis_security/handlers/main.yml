@@ -57,10 +57,12 @@
     daemon_reload: yes
 
 # Call the grub config file rebuilding program
+# There is no grub module, so we have to do it with shell
 - name: rebuild grub
   shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Call the grub config file rebuilding program on ubuntu
+# There is no grub module, so we have to do it with shell
 - name: rebuild ubuntu-grub
   shell: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
 
@@ -83,9 +85,6 @@
   loop:
     - net.ipv4.route.flush
     - net.ipv6.route.flush
-
-- name: reload systemctl
-  shell: /usr/sbin/systemctl daemon-reload
 
 - name: restart timesyncd
   systemd:

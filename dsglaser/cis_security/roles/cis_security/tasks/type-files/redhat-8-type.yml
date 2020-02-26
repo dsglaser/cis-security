@@ -436,7 +436,6 @@
   - name: 1.2.[3,4] - Ensure GPG keys are configured
     block:
       # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
-
       - name: 1.2.4 - set master yum.conf gpgcheck to '1'
         replace:
           dest: /etc/yum.conf
@@ -453,19 +452,19 @@
 
       # Find all files in /etc/yum.repos.d and add them to a list variable
       - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
-        shell: /usr/bin/find /etc/yum.repos.d/*
+        find:
+          paths: "/etc/yum.repos.d"
+          patterns: "*.repo"
         register: yumrepos
-        failed_when: yumrepos.rc == "2"
-        changed_when: yumrepos.rc == "1"
         when: gpgcheck is defined and gpgcheck
 
       # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.4 - Set all repos gpgchecks to '1'
         replace:
-          dest: "{{ item }}"
+          dest: "{{ item.path }}"
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: gpgcheck = 1
-        loop: "{{ yumrepos.stdout_lines }}"
+        with_items: "{{ yumrepos.files }}"
         when: gpgcheck is defined and gpgcheck
     tags:
       - 1.2.3
@@ -1489,11 +1488,11 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]' , replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
-          - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)' , replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
-          - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)' , replace: 'space_left_action = email' } # 4.1.2.2
-          - { find: '^action_mail_acct\s+=\s+(^root)*$' , replace: 'action_mail_acct = root' } # 4.1.2.2
-          - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)' , replace: 'admin_space_left_action = suspend' } # 4.1.2.2
+          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
+          - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)', replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
+          - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)', replace: 'space_left_action = email' } # 4.1.2.2
+          - { find: '^action_mail_acct\s+=\s+(^root)*$', replace: 'action_mail_acct = root' } # 4.1.2.2
+          - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)', replace: 'admin_space_left_action = suspend' } # 4.1.2.2
         tags:
           - 4.1.2.1
           - 4.1.2.2
@@ -1749,32 +1748,40 @@
 
   - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
-      - name: 4.2.1.6 - Find all rsyslog files where module is loaded
-        shell: /usr/bin/grep -l -s -E "$ModLoad\s+imtcp" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
-        register: rsyslog_module_out
-        changed_when: false
-        failed_when: rsyslog_module_out.rc == "2"
+      - name: 4.2.1.6 - Find all rsyslog conf files in /etc/rsyslog.d
+        find:
+          paths: "/etc/rsyslog.d"
+          patterns: "*.conf"
+        register: rsyslog_module_found
 
-      - name: 4.2.1.6 - Find all rsyslog files where TCP port is set
-        shell: /usr/bin/grep -l -s -E "$InputTCPServerRun" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
-        register: rsyslog_tcp_out
-        changed_when: false
-        failed_when: rsyslog_tcp_out.rc == "2"
-
-      - name: 4.2.1.6 - Disable loading module on non log hosts
+      - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (rsyslog.d conf files)
         lineinfile:
-          dest: "{{ item }}"
+          dest: "{{ item.path }}"
           regexp: '^\$ModLoad\s+imtcp'
           state: absent
-        loop: "{{ rsyslog_module_out.stdout_lines }}"
+        loop: "{{ rsyslog_module_found.files }}"
         when: log_host is defined and not log_host
 
-      - name: 4.2.1.6 - Disable TCP port listening on non log hosts
+      - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (main rsyslog conf file)
         lineinfile:
-          dest: "{{ item }}"
+          dest: "/etc/rsyslog.conf"
+          regexp: '^\$ModLoad\s+imtcp'
+          state: absent
+        when: log_host is defined and not log_host
+
+      - name: 4.2.1.6 - Disable TCP port listening on non log hosts (rsylog.d conf files)
+        lineinfile:
+          dest: "{{ item.path }}"
           regexp: '^\$InputTCPServerRun'
           state: absent
-        loop: "{{ rsyslog_tcp_out.stdout_lines }}"
+        loop: "{{ rsyslog_module_found.files }}"
+        when: log_host is defined and not log_host
+
+      - name: 4.2.1.6 - Disable TCP port listening on non log hosts (main rsyslog conf file)
+        lineinfile:
+          dest: "/etc/rsyslog.conf"
+          regexp: '^\$InputTCPServerRun'
+          state: absent
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Enable loading of imtcp module on log hosts
@@ -1854,21 +1861,17 @@
 
   # This control is early in order to create the files. This will
   # make sure they are available when cron starts
-  - name: Find the number of allow files in /etc for cron (5.1.8)
-    shell: /usr/bin/find /etc -maxdepth 1 -name *.allow -type f
-    register: allow_files
-    changed_when: allow_files.rc != 0
-    tags:
-      - 5.1.8
-
-  - name: Create the allow files (5.1.8)
-    file:
-      path: "{{ item }}"
-      state: touch
+  - name: Create the cron/at allow files (5.1.8)
+    copy:
+      dest: "{{ item }}"
+      content: ""
+      force: no
+      owner: root
+      group: root
+      mode: 0644
     with_items:
       - /etc/cron.allow
       - /etc/at.allow
-    when: allow_files.stdout.find('cron') == -1 or allow_files.stdout.find('at') == -1
     tags:
       - 5.1.8
 
@@ -2546,5 +2549,3 @@
           msg: "Shadow group exists in /etc/group. Remove"
         changed_when: true
         when: shadow_out.stdout
-
-

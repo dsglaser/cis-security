@@ -77,12 +77,11 @@ password_req_upper: true
 password_req_lower: true
 password_req_special: true
 password_min_days: 7
-password_expire_days: 365
+password_expire_days: 365         # Windows has this control set to 60 days
 password_warning_days: 7
 password_inactive_lock_days: 30
+password_history: 24              # number of passwords to remember. Windows only setting
 
 # Environtment settings, all settings below match controls
 shell_timeout: 900
 default_umask: "027"            # Control is 027 or more strict
-
-
