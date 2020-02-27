@@ -203,7 +203,7 @@
 
   - name: 2.2.15 - Ensure Create Token object is restricted
     win_user_right:
-      name: SeCreateTokenPrivilege
+      name: SeCreateGlobalPrivilege
       users:
         - "Administrators"
         - "LOCAL SERVICE"
@@ -213,9 +213,9 @@
     tags:
       - 2.2.15
 
-  - name: 2.2.16 - Ensure no one can create global shared objects
+  - name: 2.2.16 - Ensure no one can create permanent shared objects
     win_user_right:
-      name: SeCreateGlobalPrivilege
+      name: SeCreatePermanentPrivilege
       users: []
       action: set
     tags:
