@@ -78,13 +78,17 @@ password_req_lower: true
 password_req_special: true
 password_min_days: 7              # Windows has this control listed as 1 day
 password_expire_days: 365         # Windows has this control listed as 24 days
-password_warning_days: 7
+password_warning_days: 7          # Windows has this control listed as 'between 5 and 14 days'
 password_inactive_lock_days: 30
 password_history: 24              # number of passwords to remember. Windows only setting
 account_lockout_duration: 15      # Windows only setting
 account_lockout_threshold: 10     # Windows only setting
 account_reset_duration: 15        # Windows only setting
+cached_logins: 4                  # Windows only setting: Number of login credentials to cache
 enable_guest: false               # Windows only setting: enable guest account
+rename_guest: "Guest"             # Windows only setting: name of guest account. Will have no effect if enable_gues variable is set to false
+enable_Administrator: true        # Windows only setting: enable Administrator account
+rename_Administrator: "Administrator" # Windows only setting: name of Administrator account. Will have no effect if enable_Administrator variable is set to false
 network_logon_right:              # Windows only setting: Users that have access to log on from the network
   - "Administrators"
   - "Authenticated Users"
@@ -104,7 +108,16 @@ time_operators:                   # Windows only setting: Users that can set the
   - "LOCAL SERVICE"
 symbolic_link_right:              # Windows only setting: Users that can create symbolic links. If Hyper-V is installed, this should include "Virtual Machines"
   - "Administrators"
+max_machine_account_days: 30      # Windows only setting: Maximum number of days a machine can keep its password before changing. A zero here will
+                                  #  automatically be changed to 30 by the task to force some password rotation
 
 # Environtment settings, all settings below match controls
 shell_timeout: 900
-default_umask: "027"            # Control is 027 or more strict
+default_umask: "027"              # Control is 027 or more strict
+inactivity_timeout: 900           # Windows only setting: Number of seconds before screen saver. A zero here will default to 900 for some security
+
+smart_card_removal: 1             # Windows only setting. what do do when a smart card used for authentication is removed.
+                                  # Options that can be set in or take effect:
+                                  #  1 - Lock Workstation
+                                  #  2 - Force Logoff
+                                  #  3 - Disconnect if a Remote Desktop Services session
