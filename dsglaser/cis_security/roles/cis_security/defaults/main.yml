@@ -121,3 +121,4 @@ smart_card_removal: 1             # Windows only setting. what do do when a smar
                                   #  1 - Lock Workstation
                                   #  2 - Force Logoff
                                   #  3 - Disconnect if a Remote Desktop Services session
+smb_inactivity_minutes: 15        # Windows only setting. Minutes until server suspends SMB connection due to inactivity

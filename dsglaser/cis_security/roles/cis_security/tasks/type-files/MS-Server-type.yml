@@ -201,14 +201,14 @@
     tags:
       - 2.2.14
 
-  - name: 2.2.15 - Ensure Create Global Objects is restricted
+  - name: 2.2.15 - Ensure Create Token object is restricted
     win_user_right:
       name: SeCreateTokenPrivilege
       users:
-        - Administrators
-        - LOCAL SERVICE
-        - NETWORK SERVICE
-        - SERVICE
+        - "Administrators"
+        - "LOCAL SERVICE"
+        - "NETWORK SERVICE"
+        - "SERVICE"
       action: set
     tags:
       - 2.2.15
@@ -299,11 +299,10 @@
   - name: 2.2.33 - Ensure 'Increase scheduling priority' is restricted
     win_user_right:
       name: SeIncreaseBasePriorityPrivilege
-      users: "{{ item }}"
+      users:
+        - Administrators
+        - 'Window Manager\Window Manager Group'
       action: set
-    loop:
-      - Administrators
-      - 'Window Manager\Window Manager Group'
     tags:
       - 2.2.33
 
@@ -703,7 +702,7 @@
   # This control can cause a performance hit due to the need to sign every packet.
   - name: 2.3.8.1 - Require SMB packet signing
     win_regedit:
-      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
       name: RequireSecuritySignature
       data: 1
       type: dword
@@ -712,9 +711,28 @@
 
   - name: 2.3.8.2 - Sign communications (if server agrees)
     win_regedit:
-      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
       name: EnableSecuritySignature
       data: 1
       type: dword
     tags:
-      - 2.3.8.1
+      - 2.3.8.2
+
+  - name: 2.3.8.3 - send uncencrypted password to third-party SMB servers
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
+      name: EnablePlainTextPassword
+      data: 0
+      type: dword
+    tags:
+      - 2.3.8.3
+
+  # 2.3.9 - Microsoft network server
+  - name: 2.3.9.3 - SMB inactivty suspension
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: AutoDisconnect
+      data: "{{ smb_inactivity_minutes }}"
+      type: dword
+    tags:
+      - 2.3.8.3
