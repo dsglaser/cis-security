@@ -728,11 +728,403 @@
       - 2.3.8.3
 
   # 2.3.9 - Microsoft network server
-  - name: 2.3.9.3 - SMB inactivty suspension
+  - name: 2.3.9.1 - SMB inactivty suspension
     win_regedit:
       path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
       name: AutoDisconnect
       data: "{{ smb_inactivity_minutes }}"
       type: dword
     tags:
-      - 2.3.8.3
+      - 2.3.9.1
+
+  # This control can cause a performance hit due to the need to sign every packet.
+  - name: 2.3.9.2 - Digitally sign communications (always)
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: RequireSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.2
+
+  - name: 2.3.9.3 - Digitally sign communications (if client agrees)
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: EnableSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.3
+
+  - name: 2.3.9.4 - Disconnect clients when logon hours expire
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: enableforcedlogoff
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.4
+
+  - name: 2.3.9.5 - SPN target name validation level
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: SMBServerNameHardeningLevel
+      data: "{{ snp_level }}"
+      type: dword
+    when: snp_level == "1" or snp_level == "2"
+    tags:
+      - 2.3.9.5
+
+  # 2.3.10 Network Access
+  # control 2.3.10.1 - Disallow anonymous SID/Name translation disabled until constant is discovered
+
+  - name: 2.3.10.2 - Do not allow enumeration of SAM accounts
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: RestrictAnonymousSAM
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.2
+
+  - name: 2.3.10.3 - Do not allow enumeration of SAM accounts and shares
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: RestrictAnonymous
+      data: 1
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 2.3.10.3
+
+  - name: 2.3.10.4 - Do not allow storage of passwords and creds for network auth
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: DisableDomainCreds
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.4
+
+  - name: 2.3.10.5 - Let 'Everyone' permissions apply to anonymous users is disabled
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: EveryoneIncludesAnonymous
+      data: 0
+      type: dword
+    tags:
+      - 2.3.10.5
+
+  - name: 2.3.10.6 - Named pipes can be accessed anonymously (DC only)
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: ['LSARPC', 'NETLOGON', 'SAMR']
+      type: multistring
+    when: domain_role == "controller"
+    tags:
+      - 2.3.10.6
+
+  - name: 2.3.10.7 - Named pipes can be accessed anonymously (member servers)
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: []
+      type: multistring
+    when: domain_role == "member"
+    tags:
+      - 2.3.10.7
+
+  - name: 2.3.10.8 - Remotely accessible registry paths
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: ['System\CurrentControlSet\Control\ProductOptions', 'System\CurrentControlSet\Control\Server Applicatoins', 'Software\Microsoft\Windows NT\CurrentVersion']
+      type: multistring
+    tags:
+      - 2.3.10.8
+
+  # TODO - check server roles and add extra paths as needed
+  - name: 2.3.10.9 - Remotely accessible registry paths and subpaths
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: >
+        ['System\CurrentControlSet\Control\Print\Printers',
+        'System\CurrentControlSet\Services\Eventlog',
+        'Software\Microsoft\OLAP Server',
+        'Software\Microsoft\Windows NT\CurrentVersion\Print',
+        'Software\Microsoft\Windows NT\CurrentVersion\Windows',
+        'System\CurrentControlSet\Control\ContentIndex',
+        'System\CurrentControlSet\Control\Terminal Server',
+        'System\CurrentControlSet\Control\Terminal Server\UserConfig',
+        'System\CurrentControlSet\Control\Terminal Server\DefaultUserConfiguration',
+        'Software\Microsoft\Windows NT\CurrentVersion\Perflib',
+        'System\CurrentControlSet\Services\SysmonLog']
+      type: multistring
+    tags:
+      - 2.3.10.9
+
+  - name: 2.3.10.10 - Restrict anonymous access to named pipes
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: RestrictNullSessAccess
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.10
+
+  - name: 2.3.10.11 - Restrict anonymous access to named pipes
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: restrictremotesam
+      data: 'O:BAG:BAD:(A;;RC;;;BA)'
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 2.3.10.11
+
+  - name: 2.3.10.12 - Clear all shares that can be accessd anonymously
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: NullSessionShares
+      state: absent
+      delete_key: no
+    tags:
+      - 2.3.10.12
+
+  - name: 2.3.10.13 - Local users authenticate as themselves
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: ForceGuest
+      data: 0
+      type: dword
+    tags:
+      - 2.3.10.13
+
+  # 2.3.11 - Network Security
+  - name: 2.3.11.1 - Use machine ID for NTLM
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: UseMachineId
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.1
+
+  - name: 2.3.11.2 - Disallow LocalSystem NULL session fallback
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0'
+      name: AllowNullSessionFallback
+      data: 0
+      type: dword
+    tags:
+      - 2.3.11.2
+
+  - name: 2.3.11.3 - Disallow PKU2U auth requests
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\pku2u'
+      name: AllowOnlineID
+      data: 0
+      type: dword
+    tags:
+      - 2.3.11.3
+
+  # Find the control to read up on this. The encryption types get converted to a dword in the
+  #  registry, so the allowed types from the control are added here. Other choices will require
+  #  you to add them and pull the converted dword to change
+  - name: 2.3.11.4 - Supported Kerberos encryption types
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters'
+      name: SupportedEncryptionTypes
+      data: 2147483640
+      type: dword
+    tags:
+      - 2.3.11.4
+
+  - name: 2.3.11.5 - Do not store LAN Manager hash on password change
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NoLMHash
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.5
+
+  - name: 2.3.11.6 - Force Logoff when logon hours expire
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NoLMHash
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.6
+
+  - name: 2.3.11.7 - LAN Manager authentication - Send NTLMv2 reponse, refuse LM & NTLM
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: LmCompatibilityLevel
+      data: 5
+      type: dword
+    tags:
+      - 2.3.11.7
+
+  - name: 2.3.11.8 - LDAP Client signing
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LDAP'
+      name: LDAPClientIntegrity
+      data: "{{ ldap_client_signing }}"
+      type: dword
+    when: ldap_client_signing|int > "0" and ldap_client_signing|int < "3"
+    tags:
+      - 2.3.11.8
+
+  # TODO -  2.3.11.9 - Set minimum security for NTLM SSP based clients
+  # TODO -  2.3.11.10 - Set minimum security for NTLM SSP based servers
+
+
+  # 2.3.12 - Recovery console - no controls in 2019 Server
+
+  # 2.3.13 - Shutdown
+  - name: 2.3.13.1 - Disable system from shuting down without having to log on
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: ShutdownWithoutLogon
+      data: 0
+      type: dword
+    tags:
+      - 2.3.13.1
+
+  # 2.3.14 - System cryptography - no controls for 2019 Server
+
+  # 2.3.15 - System objects
+  - name: 2.3.15.1 - Require case insensitivity for now windows subsystems
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel'
+      name: ObCaseInsensitive
+      data: 1
+      type: dword
+    tags:
+      - 2.3.15.1
+
+  - name: 2.3.15.2 - Streghten default permissions of system objects
+    win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel'
+      name: ProtectionMode
+      data: 1
+      type: dword
+    tags:
+      - 2.3.15.2
+
+  # 2.3.16 - System Settings - No controls for 2019 Server
+
+  # 2.3.17 - User Account Control
+  - name: 2.3.17.1 - Ensure UAC, admin approval mode for built-in admin account is enabled
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: FilterAdministratorToken
+      data: 1
+      type: dword
+    when: domain_role == "member" or domain_role == "controller"
+    tags:
+      - 2.3.17.1
+
+  - name: 2.3.17.2 - Ensure UAC, behavior of the elevation prompt for admins
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: ConsentPromptBehaviorAdmin
+      data: "{{{ uac_prompt_for_consent_admin }}"
+      type: dword
+    tags:
+      - 2.3.17.2
+
+  - name: 2.3.17.3 - Ensure UAC, behavior of the elevation prompt for standard users
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: ConsentPromptBehaviorUser
+      data: "{{{ uac_prompt_for_consent_user }}"
+      type: dword
+    tags:
+      - 2.3.17.3
+
+  - name: 2.3.17.4 - Ensure UAC, direct app installations prompt for elevation
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableInstallerDetection
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.4
+
+  - name: 2.3.17.5 - Ensure UAC, Only elevate UIAccess aps that are installed in secure location
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableSecureUIAPaths
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.5
+
+  - name: 2.3.17.6 - Ensure UAC, Run all admins in Admin Approval Mode
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableLUA
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.6
+
+  - name: 2.3.17.7 - Ensure UAC, Switch to secure desktop when prompting for elevation
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: PromptOnSecureDesktop
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.7
+
+  - name: 2.3.17.8 - Ensure UAC, Virtualize file and registry write failures to per-user locations
+    win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableVirtualization
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.8
+
+  # 3 Event Log - No controls for Server 2019
+
+  # 4 Restricted Groups - No controls for Server 2019
+
+  # 5 System Services - No controls for Server 2019
+
+  # 6 Registry - No contorls for Server 2019
+
+  # 7 File System - No controls for Server 2019
+
+  # 8 Wired Network - No controls for Serer 2019
+
+  # 9 Windows Firewall - TODO
+
+  # 10 Network List Manager Policies - No controls for Server 2019
+
+  # 11 Wireless network policies - No controls for Server 2019
+
+  # 12 Public Key Policies - No controls for Server 2019
+
+  # 13 Software Restriction Policies - No controls for Server 2019
+
+  # 14 NAP client configuratin - No controls for Server 2019
+
+  # 15 Application Control Policies - No controls for Server 2019
+
+  # 16 IP Security Policies - No controls for Server 2019
+
+  # 17 Advanced Audit Policy Configuration
+  - name: 17.1.1 - Ensure Audit credential validation is set to 'success and failure'
+    win_audit_policy_system:
+      subcategory: "Audit Credential Validation"
+      audit_type: success, failure
+    tags:
+      - 17.1.1
+

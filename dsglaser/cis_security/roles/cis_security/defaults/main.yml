@@ -122,3 +122,22 @@ smart_card_removal: 1             # Windows only setting. what do do when a smar
                                   #  2 - Force Logoff
                                   #  3 - Disconnect if a Remote Desktop Services session
 smb_inactivity_minutes: 15        # Windows only setting. Minutes until server suspends SMB connection due to inactivity
+spn_level: 1                      # Windows only setting. level of validation with shared folders the server performs on the service principal name
+                                  # Options that can be set in or take effect:
+                                  #  1 - Accept if provided by client
+                                  #  2 - Required from client
+ldap_client_signing: 1            # Windows only setting. Sign ldap client communications
+                                  # Options that can be set to take effect:
+                                  #  1 - Negotiate signing
+                                  #  2 - Require signing
+uac_prompt_for_consent_admin: 2   # Windows only setting. When to prompt admins for elevated Admin Approval Mode
+                                  #  0 - Elevate without prompting
+                                  #  1 - Prompt for credentials on the secure desktop
+                                  #  2 - Prompt for consent on the secure desktop (default)
+                                  #  3 - Prompt for credentials
+                                  #  4 - Prompt for consent
+                                  #  5 - Prompt for consent for non-Windows binaries
+uac_prompt_for_consent_user: 3    # Windows only setting. When to prompt users for elevated Admin Approval Mode
+                                  #  0 - Automatically deny elevation requests
+                                  #  1 - Prompt for credentials on the secure desktop
+                                  #  3 - Prompt for credentials
