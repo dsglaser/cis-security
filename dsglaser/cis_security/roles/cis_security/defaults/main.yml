@@ -90,7 +90,7 @@ network_logon_right:              # Windows only setting: Users that have access
 local_logon_right:                # Windows only setting: Users that have access to log onto the console
   - "Administrators"
 rds_logon_right:                  # Windows only setting: Users that have access to log onto the system through Remote Desktop Services
-  - "Adminsitrators"
+  - "Administrators"
   - "Remote Desktop Users"
 adjust_memory_quotas:             # Windows only setting: Users that can adjust the memory quotas for a process
   - "Administrators"

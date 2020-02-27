@@ -18,13 +18,13 @@
   - name: Determine if we are a domain controller
     set_fact:
       domain_role: "none"
-    when: windows_domain_role == "Stand-alone server"
+    when: ansible_facts.windows_domain_role == "Stand-alone server"
   - set_fact:
       domain_role: "member"
-    when: windows_domain_role == "Member server"
+    when: ansible_facts.windows_domain_role == "Member server"
   - set_fact:
       domain_role: "controller"
-    when: windows_domain_role == "Primary domain controller" or windows_domain_role == "Backup domain controller"
+    when: ansible_facts.windows_domain_role == "Primary domain controller" or ansible_facts.windows_domain_role == "Backup domain controller"
 
   # The win_wsecurity_policy module modifies the security policy of the machine with the value
   #  supplied. You can get a list of the current settings on your system by running
@@ -287,13 +287,12 @@
   - name: 2.2.31 - Ensure 'Impersonate a client after authentication' is restricted
     win_user_right:
       name: SeImpersonatePrivilege
-      users: "{{ item }}"
+      users:
+        - "Administrators"
+        - "LOCAL SERVICE"
+        - "NETWORK SERVICE"
+        - "SERVICE"
       action: set
-    loop:
-      - Administrators
-      - LOCAL SERVICE
-      - NETWORK SERVICE
-      - SERVICE
     tags:
       - 2.2.31
 
@@ -428,7 +427,7 @@
     tags:
       - 2.2.47
 
-  - name: 2.2.46 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
+  - name: 2.2.48 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
     win_user_right:
       name: SeTakeOwnershipPrivilege
       users:
@@ -436,3 +435,14 @@
       action: set
     tags:
       - 2.2.48
+
+  # 2.3.1 - Disable Administrator Account
+
+  - name: 2.3.1.2 - Ensure 'Accounts Block Microsoft accounts' is set to 'Users can't add or log on with Microsoft accounts'
+    win_regedit:
+      path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+      name: NoConnectedUser
+      data: 3
+      type: dword
+    tags:
+      - 2.3.1.2
