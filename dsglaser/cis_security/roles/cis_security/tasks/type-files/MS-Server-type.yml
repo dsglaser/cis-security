@@ -769,9 +769,9 @@
     win_regedit:
       path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
       name: SMBServerNameHardeningLevel
-      data: "{{ snp_level }}"
+      data: "{{ spn_level }}"
       type: dword
-    when: snp_level == "1" or snp_level == "2"
+    when: spn_level == "1" or spn_level == "2"
     tags:
       - 2.3.9.5
 
@@ -1123,7 +1123,7 @@
   # 17 Advanced Audit Policy Configuration
   - name: 17.1.1 - Ensure Audit credential validation is set to 'success and failure'
     win_audit_policy_system:
-      subcategory: "Audit Credential Validation"
+      subcategory: "Credential Validation"
       audit_type: success, failure
     tags:
       - 17.1.1
