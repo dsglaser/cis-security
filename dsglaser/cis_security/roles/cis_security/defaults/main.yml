@@ -141,3 +141,8 @@ uac_prompt_for_consent_user: 3    # Windows only setting. When to prompt users f
                                   #  0 - Automatically deny elevation requests
                                   #  1 - Prompt for credentials on the secure desktop
                                   #  3 - Prompt for credentials
+screensaver_grace_time: 0         # Windows only setting. Seconds from screen saver start until computer locks
+win_application_log_size: "32768" # Windows only setting. Max application event log file size
+win_security_log_size: "196608"   # Windows only setting. Max security event log file size
+win_setup_log_size: "32768"      # Windows only setting. Max setup event log file size
+win_system_log_size: "32768"      # Windows only setting. Max setup event log file size
