@@ -146,7 +146,7 @@ win_application_log_size: "32768" # Windows only setting. Max application event 
 win_security_log_size: "196608"   # Windows only setting. Max security event log file size
 win_setup_log_size: "32768"      # Windows only setting. Max setup event log file size
 win_system_log_size: "32768"      # Windows only setting. Max setup event log file size
-diable_automatic_updates: "0"     # Windows only setting. Disable automatic updates. Set to '1' to disable automatic updates. (Choose if using 3rd party update systems)
+disable_automatic_updates: "0"     # Windows only setting. Disable automatic updates. Set to '1' to disable automatic updates. (Choose if using 3rd party update systems)
 au_update_options: "4"            # Windows only setting. Configure automatic updates. Possible values
                                   #  2 - Notify for download and auto install (Notify before downloading any updates)
                                   #  3 - Auto download and notify for install (Download the updates automatically and notify when they are ready to be installed.) (Default setting)
