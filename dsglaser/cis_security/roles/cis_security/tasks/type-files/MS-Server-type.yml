@@ -1574,7 +1574,7 @@
       name: fBlockNonDomain
       value: 1
       type: dword
-    when: domain_role = "member"
+    when: domain_role == "member"
 
   # 18.6 - Printers - No Server 2019 controls
   # 18.7 - Start Menu and Task bar
