@@ -89,14 +89,20 @@ enable_guest: false               # Windows only setting: enable guest account
 rename_guest: "Guest"             # Windows only setting: name of guest account. Will have no effect if enable_gues variable is set to false
 enable_Administrator: true        # Windows only setting: enable Administrator account
 rename_Administrator: "Administrator" # Windows only setting: name of Administrator account. Will have no effect if enable_Administrator variable is set to false
-network_logon_right:              # Windows only setting: Users that have access to log on from the network
+dc_network_logon_right:              # Windows only setting: Users that have access to log on from the network (domain controllers)
+  - "Administrators"
+  - "Authenticated Users"
+  - "ENTERPRISE DOMAIN CONTROLLERS"
+ms_network_logon_right:              # Windows only setting: Users that have access to log on from the network (member servers and standalone servers)
   - "Administrators"
   - "Authenticated Users"
 local_logon_right:                # Windows only setting: Users that have access to log onto the console
   - "Administrators"
-rds_logon_right:                  # Windows only setting: Users that have access to log onto the system through Remote Desktop Services
+dc_rds_logon_right:               # Windows only setting: Users that have access to log onto the system through Remote Desktop Services (domain controller)
   - "Administrators"
   - "Remote Desktop Users"
+ms_rds_logon_right:               # Windows only setting: Users that have access to log onto the system through Remote Desktop Services (member or standalone server)
+  - "Administrators"
 adjust_memory_quotas:             # Windows only setting: Users that can adjust the memory quotas for a process
   - "Administrators"
   - "LOCAL SERVICE"
@@ -106,8 +112,11 @@ backup_operators:                 # Windows only setting: Users that can backup 
 time_operators:                   # Windows only setting: Users that can set the system time
   - "Administrators"
   - "LOCAL SERVICE"
-symbolic_link_right:              # Windows only setting: Users that can create symbolic links. If Hyper-V is installed, this should include "Virtual Machines"
+dc_symbolic_link_right:              # Windows only setting: Users that can create symbolic links.
   - "Administrators"
+ms_symbolic_link_right:              # Windows only setting: Users that can create symbolic links. If Hyper-V is installed, this should include "Virtual Machines"
+  - "Administrators"
+  - 'NT VIRTUAL MACHINE\Virtual Machines'
 max_machine_account_days: 30      # Windows only setting: Maximum number of days a machine can keep its password before changing. A zero here will
                                   #  automatically be changed to 30 by the task to force some password rotation
 
@@ -165,4 +174,3 @@ au_update_day: "0"                # Windows only setting. Configure which day au
 au_update_time: "3"               # Windows only setting. Configure what time automatic updates will be installed.
                                   #  Only takes effect if "automatic_updates" == "4". This is the hour portion of the
                                   #   time only. "3" means 03:00am. Set this value to '24' for windows to automatically pick a time
-screensaver_filename: "scrnsave.scr" # Windows only setting. Filename of screen saver to use

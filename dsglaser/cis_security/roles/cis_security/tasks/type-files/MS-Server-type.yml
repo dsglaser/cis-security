@@ -35,412 +35,475 @@
   # The win_wsecurity_policy module modifies the security policy of the machine with the value
   #  supplied. You can get a list of the current settings on your system by running
   #  SecEdit.exe /export /cfg output.ini
-  - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
-    win_security_policy:
-      section: System Access
-      key: PasswordHistorySize
-      value: "{{ password_history }}"
+
+  - name: 1.1 Password Policy
+    block:
+      - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
+        win_security_policy:
+          section: System Access
+          key: PasswordHistorySize
+          value: "{{ password_history }}"
+        tags:
+          - 1.1.1
+
+      # 1.1.2 states that the max age should not be 0, if it is this will change the value to 60 automatically
+      #  without telling the operator!
+      # The ternary operator here is used to change the value of password_expire_days if it's
+      #  value is less than 1.
+      - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
+        win_security_policy:
+          section: System Access
+          key: MaximumPasswordAge
+          value: '{{ (password_expire_days|int < 1 ) | ternary(60, password_expire_days) }}'
+        tags:
+          - 1.1.2
+
+      - name: 1.1.3 - Ensure minimum password age is set to "{{ password_min_days }}"
+        win_security_policy:
+          section: System Access
+          key: MinimumPasswordAge
+          value: "{{ password_min_days }}"
+        tags:
+          - 1.1.3
+
+      - name: 1.1.4 - Ensure minimum password length is set to "{{ password_min_length }}"
+        win_security_policy:
+          section: System Access
+          key: MinimumPasswordLength
+          value: "{{ password_min_length }}"
+        tags:
+          - 1.1.4
+
+      - name: 1.1.5 - Ensure 'Password must meet complexity requirements' is set to enbled
+        win_security_policy:
+          section: System Access
+          key: PasswordComplexity
+          value: 1
+        tags:
+          - 1.1.5
+
+      - name: 1.1.6 - Ensure passwords are not stored with reversible encryption
+        win_security_policy:
+          section: System Access
+          key: ClearTextPassword
+          value: 0
+        tags:
+          - 1.1.5
     tags:
-      - 1.1.1
+      - 1.1.0
 
-  # 1.2.2 states that the max age should not be 0, if it is this will change the value to 60 automatically
-  #  without telling the operator!
-  # The ternary operator here is used to change the value of password_expire_days if it's
-  #  value is less than 1.
-  - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
-    win_security_policy:
-      section: System Access
-      key: MaximumPasswordAge
-      value: '{{ (password_expire_days|int < 1 ) | ternary(60, password_expire_days) }}'
+  - name: 1.2 - Account Lockout Policy
+    block:
+      # The order for this controls has to be particular, if not they won't apply correctly.
+      # 1.2.2 states that the threshold should not be 0, if it is this will change the value to 10 automatically
+      #  without telling the operator!
+      # The ternary operator here is used to change the value of account_lockout_threshold if it's
+      #  value is less than 1.
+      - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
+        win_security_policy:
+          section: System Access
+          key: LockoutBadCount
+          value: '{{ (account_lockout_threshold|int < 1 ) | ternary(10, account_lockout_threshold) }}'
+        tags:
+          - 1.2.2
+
+      - name: 1.2.3 - Ensure Reset account lockout counter after is set to 15 or more minutes
+        win_security_policy:
+          section: System Access
+          key: ResetLockoutCount
+          value: '{{ (account_reset_duration|int < 15 ) | ternary(15, account_reset_duration) }}'
+        tags:
+          - 1.2.3
+
+      - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
+        win_security_policy:
+          section: System Access
+          key: LockoutDuration
+          value: "{{ account_lockout_duration }}"
+        tags:
+          - 1.2.1
     tags:
-      - 1.1.2
+      - 1.2.0
 
-  - name: 1.1.3 - Ensure minimum password age is set to "{{ password_min_days }}"
-    win_security_policy:
-      section: System Access
-      key: MinimumPasswordAge
-      value: "{{ password_min_days }}"
+  # 2 Local Policies
+  # 2.1 Audit Policy
+  # 2.2 - User Rights Policy
+  - name: 2.2.0 - User rights policy
+    block:
+      - name: 2.2.1 - Ensure Access Credential Manager as a trusted caller is set to No One
+        win_user_right:
+          name: SeTrustedCredManAccessPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.1
+
+      - name: 2.2.2 - Ensure Access this computer from network is restricted
+        win_user_right:
+          name: SeNetworkLogonRight
+          users: "{{ dc_network_logon_right }}"
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.2
+
+      - name: 2.2.3 - Ensure Access this computer from network is restricted
+        win_user_right:
+          name: SeNetworkLogonRight
+          users: "{{ ms_network_logon_right }}"
+          action: set
+        when: domain_role != "controller"
+        tags:
+          - 2.2.3
+
+      - name: 2.2.4 - Ensure Act as part of operating system is set to no one.
+        win_user_right:
+          name: SeTcbPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.4
+
+      - name: 2.2.5 - Add workstations to domain  set to administrators only
+        win_user_right:
+          name: SeMachineAccountPrivilege
+          users:
+            - "Administrators"
+          action: set
+        tags:
+          - 2.2.5
+
+      - name: 2.2.6 - Ensure Adjust memory quotas for a process is restricted
+        win_user_right:
+          name: SeIncreaseQuotaPrivilege
+          users: "{{ adjust_memory_quotas }}"
+          action: set
+        tags:
+          - 2.2.6
+
+      - name: 2.2.7 - Ensure Access this computer from console is restricted
+        win_user_right:
+          name: SeInteractiveLogonRight
+          users: "{{ local_logon_right }}"
+          action: set
+        tags:
+          - 2.2.7
+
+      - name: 2.2.8 - Ensure allow long on through RDS is restricted (domain controllers)
+        win_user_right:
+          name: SeRemoteInteractiveLogonRight
+          users: "{{ dc_rds_logon_right }}"
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.8
+
+      - name: 2.2.9 - Ensure allow long on through RDS is restricted (member or standalone servers)
+        win_user_right:
+          name: SeRemoteInteractiveLogonRight
+          users: "{{ ms_rds_logon_right }}"
+          action: set
+        when: domain_role != "controller"
+        tags:
+          - 2.2.9
+
+      - name: 2.2.10 - Ensure backup operators are restricted
+        win_user_right:
+          name: SeBackupPrivilege
+          users: "{{ backup_operators }}"
+          action: set
+        tags:
+          - 2.2.10
+
+      - name: 2.2.[11,12] - Ensure the ability to change the time is restricted
+        win_user_right:
+          name: SeSystemtimePrivilege
+          users: "{{ time_operators }}"
+          action: set
+        loop:
+          - SeSystemtimePrivilege
+          - SeTimeZonePrivilege
+        tags:
+          - 2.2.11
+          - 2.2.12
+
+      - name: 2.2.13 - Ensure Create a page file is set to Administrator
+        win_user_right:
+          name: SeCreatePagefilePrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.13
+
+      - name: 2.2.14 - Ensure no one can create a token object
+        win_user_right:
+          name: SeCreateTokenPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.14
+
+      - name: 2.2.15 - Ensure Create Token object is restricted
+        win_user_right:
+          name: SeCreateGlobalPrivilege
+          users:
+            - "Administrators"
+            - "LOCAL SERVICE"
+            - "NETWORK SERVICE"
+            - "SERVICE"
+          action: set
+        tags:
+          - 2.2.15
+
+      - name: 2.2.16 - Ensure no one can create permanent shared objects
+        win_user_right:
+          name: SeCreatePermanentPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.16
+
+      - name: 2.2.17 - Ensure symbolic link creation is restricted (domain controller)
+        win_user_right:
+          name: SeCreateSymbolicLinkPrivilege
+          users: "{{ dc_symbolic_link_right }}"
+          action: set
+        tags:
+          - 2.2.17
+
+      - name: 2.2.18 - Ensure symbolic link creation is restricted (member or standalone server )
+        win_user_right:
+          name: SeCreateSymbolicLinkPrivilege
+          users: "{{ ms_symbolic_link_right }}"
+          action: set
+        tags:
+          - 2.2.18
+
+      - name: 2.2.19 - Ensure 'Debug programs' is set to 'Administrators'
+        win_user_right:
+          name: SeDebugPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.19
+
+      - name: 2.2.20 - Deny accesss to this computer from network (domain computer)
+        win_user_right:
+          name: SeDenyNetworkLogonRight
+          users: "Guests"
+          action: add
+        when: domain_role == "controller"
+        tags:
+          - 2.2.20
+
+      - name: 2.2.20 - Deny accesss to this computer from network (domain computer)
+        win_user_right:
+          name: SeDenyNetworkLogonRight
+          users:
+            - "Local account and member of Administrators group"
+            - "Guests"
+          action: add
+        when: domain_role == "member"
+        tags:
+          - 2.2.20
+
+      # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
+
+      - name: 2.2.[22-25] - Ensure deny local, remote, and batch logons includes 'Guests'
+        win_user_right:
+          name: "{{ item }}"
+          users: "Guests"
+          action: add
+        loop:
+          - SeDenyBatchLogonRight
+          - SeDenyServiceLogonRight
+          - SeDenyInteractiveLogonRight
+          - SeDenyRemoteInteractiveLogonRight
+        tags:
+          - 2.2.22
+          - 2.2.23
+          - 2.2.24
+          - 2.2.25
+
+      # control 2.2.26, if configured will deny any local user from logging in remotely. need to test before implmentation: Skipping
+
+      # Control 2.2.27 is only for DCs
+
+      - name: 2.2.28 - Ensure 'Enable computer and user accounts to be trusted for delegation' is set to 'No One'
+        win_user_right:
+          name: SeEnableDelegationPrivilege
+          users: []
+          action: set
+        when: domain_role == "member"
+        tags:
+          - 2.2.28
+
+      - name: 2.2.29 - Ensure 'Debug programs' is set to 'Administrators'
+        win_user_right:
+          name: SeRemoteShutdownPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.29
+
+      # Control 2.2.30 has a lot of exceptions for server roles. Skipping
+
+      # 2.2.32 - A member server with Web Server (IIS) Role with Web Services role needs to have "IIS_IUSRS"
+      #  added to this list, but DC's do not. Disable on member services if you have the above roles
+      - name: 2.2.31 - Ensure 'Impersonate a client after authentication' is restricted
+        win_user_right:
+          name: SeImpersonatePrivilege
+          users:
+            - "Administrators"
+            - "LOCAL SERVICE"
+            - "NETWORK SERVICE"
+            - "SERVICE"
+          action: set
+        tags:
+          - 2.2.31
+
+      - name: 2.2.33 - Ensure 'Increase scheduling priority' is restricted
+        win_user_right:
+          name: SeIncreaseBasePriorityPrivilege
+          users:
+            - Administrators
+            - 'Window Manager\Window Manager Group'
+          action: set
+        tags:
+          - 2.2.33
+
+      - name: 2.2.34 - Ensure 'Load and unload device drivers' is restricted
+        win_user_right:
+          name: SeLoadDriverPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.34
+
+      - name: 2.2.35 - Ensure 'Lock pages in memory' is set to 'No One'
+        win_user_right:
+          name: SeLockMemoryPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.35
+
+      - name: 2.2.36 - Ensure 'Log in as a batch job is set to 'Administrators'
+        win_user_right:
+          name: SeBatchLogonRight
+          users:
+            - Administrators
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.36
+
+      # If you are running an Exchange environment, exclude this task (both tags!) on DCs and include "Exchange Servers" in
+      #  an Exchange server playbook/role
+      - name: 2.2.[37,38] - Ensure 'Manage auditing and security log' is set to Adminstrators
+        win_user_right:
+          name: SeSecurityPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.37
+          - 2.2.38
+
+      - name: 2.2.39 - Ensure 'Modify an object label' is set to 'No One'
+        win_user_right:
+          name: SeRelabelPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.39
+
+      - name: 2.2.40 - Ensure 'Modify firmware environment values' is set to 'Administrators'
+        win_user_right:
+          name: SeSystemEnvironmentPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.41
+
+      - name: 2.2.41 - Ensure 'Perform volume maintenance tasks' is set to 'Administrators'
+        win_user_right:
+          name: SeManageVolumePrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.41
+
+      - name: 2.2.42 - Ensure 'Profile single process' is set to 'Administrators'
+        win_user_right:
+          name: SeProfileSingleProcessPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.42
+
+      - name: 2.2.43 - Ensure 'Profile system performance' is restricted
+        win_user_right:
+          name: SeSystemProfilePrivilege
+          users:
+            - Administrators
+            - 'NT Service\WdiServiceHost'
+          action: set
+        tags:
+          - 2.2.43
+
+      - name: 2.2.44 - Ensure 'Replace a process level token' is restricted
+        win_user_right:
+          name: SeAssignPrimaryTokenPrivilege
+          users:
+            - 'LOCAL SERVICE'
+            - 'NETWORK SERVICE'
+          action: set
+        tags:
+          - 2.2.44
+
+      - name: 2.2.45 - Ensure 'Restore files and directories' is set to 'Administrators'
+        win_user_right:
+          name: SeRestorePrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.45
+
+      - name: 2.2.46 - Ensure 'Shut down the System' is set to 'Administrators'
+        win_user_right:
+          name: SeShutdownPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.46
+
+      - name: 2.2.47 - Ensure 'Synchronize directory service data' is set to 'No One'
+        win_user_right:
+          name: SeSyncAgentPrivilege
+          users: []
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.47
+
+      - name: 2.2.48 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
+        win_user_right:
+          name: SeTakeOwnershipPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.48
     tags:
-      - 1.1.3
+      - 2.2.0
 
-  - name: 1.1.4 - Ensure minimum password length is set to "{{ password_min_length }}"
-    win_security_policy:
-      section: System Access
-      key: MinimumPasswordLength
-      value: "{{ password_min_length }}"
-    tags:
-      - 1.1.4
-
-  - name: 1.1.5 - Ensure 'Password must meet complexity requirements' is set to enbled
-    win_security_policy:
-      section: System Access
-      key: PasswordComplexity
-      value: 1
-    tags:
-      - 1.1.5
-
-  - name: 1.1.6 - Ensure passwords are not stored with reversible encryption
-    win_security_policy:
-      section: System Access
-      key: ClearTextPassword
-      value: 0
-    tags:
-      - 1.1.5
-
-  # The order for this controls has to be particular, if not they won't apply correctly.
-  # 1.2.2 states that the threshold should not be 0, if it is this will change the value to 10 automatically
-  #  without telling the operator!
-  # The ternary operator here is used to change the value of account_lockout_threshold if it's
-  #  value is less than 1.
-  - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
-    win_security_policy:
-      section: System Access
-      key: LockoutBadCount
-      value: '{{ (account_lockout_threshold|int < 1 ) | ternary(10, account_lockout_threshold) }}'
-    tags:
-      - 1.2.2
-
-  - name: 1.2.3 - Ensure Reset account lockout counter after is set to 15 or more minutes
-    win_security_policy:
-      section: System Access
-      key: ResetLockoutCount
-      value: '{{ (account_reset_duration|int < 15 ) | ternary(15, account_reset_duration) }}'
-    tags:
-      - 1.2.3
-
-  - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
-    win_security_policy:
-      section: System Access
-      key: LockoutDuration
-      value: "{{ account_lockout_duration }}"
-    tags:
-      - 1.2.1
-
-  - name: 2.2.1 - Ensure Access Credential Manager as a trusted caller is set to No One
-    win_user_right:
-      name: SeTrustedCredManAccessPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.1
-
-  # Control 2.2.2 is for Domain controllers only
-
-  # Control 2.2.3 is for Member Servers only
-  - name: 2.2.3 - Ensure Access this computer from network is restricted
-    win_user_right:
-      name: SeNetworkLogonRight
-      users: "{{ network_logon_right }}"
-      action: set
-    tags:
-      - 2.2.3
-
-  - name: 2.2.4 - Ensure Act as part of operating system is set to no one.
-    win_user_right:
-      name: SeTcbPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.4
-
-  # 2.2.5 - is for DCs only
-
-  - name: 2.2.6 - Ensure Adjust memory quotas for a process is restricted
-    win_user_right:
-      name: SeIncreaseQuotaPrivilege
-      users: "{{ adjust_memory_quotas }}"
-      action: set
-    tags:
-      - 2.2.6
-
-  - name: 2.2.7 - Ensure Access this computer from console is restricted
-    win_user_right:
-      name: SeInteractiveLogonRight
-      users: "{{ local_logon_right }}"
-      action: set
-    tags:
-      - 2.2.7
-
-  # 2.2.8 is for DCs only
-
-  - name: 2.2.9 - Ensure allow long on through RDS is restricted
-    win_user_right:
-      name: SeRemoteInteractiveLogonRight
-      users: "{{ rds_logon_right }}"
-      action: set
-    tags:
-      - 2.2.9
-
-  - name: 2.2.10 - Ensure backup operators are restricted
-    win_user_right:
-      name: SeBackupPrivilege
-      users: "{{ backup_operators }}"
-      action: set
-    tags:
-      - 2.2.10
-
-  - name: 2.2.[11,12] - Ensure the ability to change the time is restricted
-    win_user_right:
-      name: SeSystemtimePrivilege
-      users: "{{ time_operators }}"
-      action: set
-    loop:
-      - SeSystemtimePrivilege
-      - SeTimeZonePrivilege
-    tags:
-      - 2.2.11
-      - 2.2.12
-
-  - name: 2.2.13 - Ensure Create a page file is set to Administrator
-    win_user_right:
-      name: SeCreatePagefilePrivilege
-      users: "Administrators"
-      action: set
-    tags:
-      - 2.2.13
-
-  - name: 2.2.14 - Ensure no one can create a token object
-    win_user_right:
-      name: SeCreateTokenPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.14
-
-  - name: 2.2.15 - Ensure Create Token object is restricted
-    win_user_right:
-      name: SeCreateGlobalPrivilege
-      users:
-        - "Administrators"
-        - "LOCAL SERVICE"
-        - "NETWORK SERVICE"
-        - "SERVICE"
-      action: set
-    tags:
-      - 2.2.15
-
-  - name: 2.2.16 - Ensure no one can create permanent shared objects
-    win_user_right:
-      name: SeCreatePermanentPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.16
-
-  # Control 2.2.18 is only for DCs
-
-  - name: 2.2.18 - Ensure symbolic link creation is restricted
-    win_user_right:
-      name: SeCreateSymbolicLinkPrivilege
-      users: "{{ symbolic_link_right }}"
-      action: set
-    tags:
-      - 2.2.18
-
-  - name: 2.2.19 - Ensure 'Debug programs' is set to 'Administrators'
-    win_user_right:
-      name: SeDebugPrivilege
-      users: "Administrators"
-      action: set
-    tags:
-      - 2.2.19
-
-  # Control 2.2.20 is only for DCs
-
-  # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
-
-  - name: 2.2.[22-25] - Ensure deny local, remote, and batch logons includes 'Guests'
-    win_user_right:
-      name: "{{ item }}"
-      users: "Guests"
-      action: add
-    loop:
-      - SeDenyBatchLogonRight
-      - SeDenyServiceLogonRight
-      - SeDenyInteractiveLogonRight
-      - SeDenyRemoteInteractiveLogonRight
-    tags:
-      - 2.2.22
-      - 2.2.23
-      - 2.2.24
-      - 2.2.25
-
-  # control 2.2.26, if configured will deny any local user from logging in remotely. need to test before implmentation: Skipping
-
-  # Control 2.2.27 is only for DCs
-
-  - name: 2.2.28 - Ensure 'Enable computer and user accounts to be trusted for delegation' is set to 'No One'
-    win_user_right:
-      name: SeEnableDelegationPrivilege
-      users: []
-      action: set
-    when: domain_role == "member"
-    tags:
-      - 2.2.28
-
-  - name: 2.2.29 - Ensure 'Debug programs' is set to 'Administrators'
-    win_user_right:
-      name: SeRemoteShutdownPrivilege
-      users: "Administrators"
-      action: set
-    tags:
-      - 2.2.29
-
-  # Control 2.2.30 has a lot of exceptions for server roles. Skipping
-
-  # 2.2.32 - A member server with Web Server (IIS) Role with Web Services role needs to have "IIS_IUSRS"
-  #  added to this list, but DC's do not. Disable on member services if you have the above roles
-  - name: 2.2.31 - Ensure 'Impersonate a client after authentication' is restricted
-    win_user_right:
-      name: SeImpersonatePrivilege
-      users:
-        - "Administrators"
-        - "LOCAL SERVICE"
-        - "NETWORK SERVICE"
-        - "SERVICE"
-      action: set
-    tags:
-      - 2.2.31
-
-  - name: 2.2.33 - Ensure 'Increase scheduling priority' is restricted
-    win_user_right:
-      name: SeIncreaseBasePriorityPrivilege
-      users:
-        - Administrators
-        - 'Window Manager\Window Manager Group'
-      action: set
-    tags:
-      - 2.2.33
-
-  - name: 2.2.34 - Ensure 'Load and unload device drivers' is restricted
-    win_user_right:
-      name: SeLoadDriverPrivilege
-      users: "Administrators"
-      action: set
-    tags:
-      - 2.2.34
-
-  - name: 2.2.35 - Ensure 'Lock pages in memory' is set to 'No One'
-    win_user_right:
-      name: SeLockMemoryPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.35
-
-  - name: 2.2.36 - Ensure 'Log in as a batch job is set to 'Administrators'
-    win_user_right:
-      name: SeBatchLogonRight
-      users:
-        - Administrators
-      action: set
-    when: domain_role == "controller"
-    tags:
-      - 2.2.36
-
-  # If you are running an Exchange environment, exclude this task (both tags!) on DCs and include "Exchange Servers" in
-  #  an Exchange server playbook/role
-  - name: 2.2.[37,38] - Ensure 'Manage auditing and security log' is set to Adminstrators
-    win_user_right:
-      name: SeSecurityPrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.37
-      - 2.2.38
-
-  - name: 2.2.39 - Ensure 'Modify an object label' is set to 'No One'
-    win_user_right:
-      name: SeRelabelPrivilege
-      users: []
-      action: set
-    tags:
-      - 2.2.39
-
-  - name: 2.2.40 - Ensure 'Modify firmware environment values' is set to 'Administrators'
-    win_user_right:
-      name: SeSystemEnvironmentPrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.41
-
-  - name: 2.2.41 - Ensure 'Perform volume maintenance tasks' is set to 'Administrators'
-    win_user_right:
-      name: SeManageVolumePrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.41
-
-  - name: 2.2.42 - Ensure 'Profile single process' is set to 'Administrators'
-    win_user_right:
-      name: SeProfileSingleProcessPrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.42
-
-  - name: 2.2.43 - Ensure 'Profile system performance' is restricted
-    win_user_right:
-      name: SeSystemProfilePrivilege
-      users:
-        - Administrators
-        - 'NT Service\WdiServiceHost'
-      action: set
-    tags:
-      - 2.2.43
-
-  - name: 2.2.44 - Ensure 'Replace a process level token' is restricted
-    win_user_right:
-      name: SeAssignPrimaryTokenPrivilege
-      users:
-        - 'LOCAL SERVICE'
-        - 'NETWORK SERVICE'
-      action: set
-    tags:
-      - 2.2.44
-
-  - name: 2.2.45 - Ensure 'Restore files and directories' is set to 'Administrators'
-    win_user_right:
-      name: SeRestorePrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.45
-
-  - name: 2.2.46 - Ensure 'Shut down the System' is set to 'Administrators'
-    win_user_right:
-      name: SeShutdownPrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.46
-
-  - name: 2.2.47 - Ensure 'Synchronize directory service data' is set to 'No One'
-    win_user_right:
-      name: SeSyncAgentPrivilege
-      users: []
-      action: set
-    when: domain_role == "controller"
-    tags:
-      - 2.2.47
-
-  - name: 2.2.48 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
-    win_user_right:
-      name: SeTakeOwnershipPrivilege
-      users:
-        - Administrators
-      action: set
-    tags:
-      - 2.2.48
-
+  # 2.3 - Security Options
   # 2.3.1 - Disable Administrator Account
 
   - name: 2.3.1.2 - Ensure 'Accounts - Block Microsoft accounts' is set to 'Users can't add or log on with Microsoft accounts'
@@ -634,74 +697,78 @@
       - 2.3.6
 
   # 2.3.7 - Interactive Logon
-  - name: 2.3.7.1 - Disable CAD Requirement
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
-      name: DisableCAD
-      data: 0
-      type: dword
-    tags:
-      - 2.3.7.1
+  - name: 2.3.7 - Interactive Logon
+    block:
+      - name: 2.3.7.1 - Disable CAD Requirement
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+          name: DisableCAD
+          data: 0
+          type: dword
+        tags:
+          - 2.3.7.1
 
-  - name: 2.3.7.2 - Don't disply last signed in user
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
-      name: DontDisplayLastUserName
-      data: 1
-      type: dword
-    tags:
-      - 2.3.7.2
+      - name: 2.3.7.2 - Don't disply last signed in user
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+          name: DontDisplayLastUserName
+          data: 1
+          type: dword
+        tags:
+          - 2.3.7.2
 
-  - name: 2.3.7.3 - Machine inactivtiy limit set to {{ inactivity_timeout }} but not 0
-    win_regedit:
-      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
-      name: InactivityTimeoutSecs
-      data: '{{ (inactivity_timeout|int < 1 ) | ternary(900, inactivity_timeout) }}'
-      type: dword
-    tags:
-      - 2.3.7.3
+      - name: 2.3.7.3 - Machine inactivtiy limit set to {{ inactivity_timeout }} but not 0
+        win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: InactivityTimeoutSecs
+          data: '{{ (inactivity_timeout|int < 1 ) | ternary(900, inactivity_timeout) }}'
+          type: dword
+        tags:
+          - 2.3.7.3
 
-  # 2.3.7.[4,5] - Message text for users attempting to log in: skipped
+      # 2.3.7.[4,5] - Message text for users attempting to log in: skipped
 
-  - name: 2.3.7.6 - Number of cached logins set to {{ cached_logins }} or fewer
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-      name: CachedLogonsCount
-      data: "{{ cached_logins }}"
-      type: dword
-    when: domain_role == "member"
-    tags:
-      - 2.3.7.6
+      - name: 2.3.7.6 - Number of cached logins set to {{ cached_logins }} or fewer
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: CachedLogonsCount
+          data: "{{ cached_logins }}"
+          type: dword
+        when: domain_role == "member"
+        tags:
+          - 2.3.7.6
 
-  - name: 2.3.7.7 - Number of days for password change warning {{ cached_logins }}
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-      name: PasswordExpiryWarning
-      data: "{{ password_warning_days }}"
-      type: dword
-    tags:
-      - 2.3.7.7
+      - name: 2.3.7.7 - Number of days for password change warning {{ cached_logins }}
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: PasswordExpiryWarning
+          data: "{{ password_warning_days }}"
+          type: dword
+        tags:
+          - 2.3.7.7
 
-  # if you have machines which need local cached credentials (such as a disconnected server), do not enable this
-  #  because without a DC connection, you will not be able to unlock your machine
-  - name: 2.3.7.8 - Require domain controller authentication to unlock workstation
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-      name: ForceUnlockLogon
-      data: 1
-      type: dword
-    tags:
-      - 2.3.7.8
+      # if you have machines which need local cached credentials (such as a disconnected server), do not enable this
+      #  because without a DC connection, you will not be able to unlock your machine
+      - name: 2.3.7.8 - Require domain controller authentication to unlock workstation
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: ForceUnlockLogon
+          data: 1
+          type: dword
+        tags:
+          - 2.3.7.8
 
-  - name: 2.3.7.9 - Smart-card removal behavior
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-      name: ScRemoveOptions
-      data: "{{ smart_card_removal }}"
-      type: dword
-    when: smart_card_removal == "1" or smart_card_removal == "2" or smart_card_removal == "3"
+      - name: 2.3.7.9 - Smart-card removal behavior
+        win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: ScRemoveOptions
+          data: "{{ smart_card_removal }}"
+          type: dword
+        when: smart_card_removal == "1" or smart_card_removal == "2" or smart_card_removal == "3"
+        tags:
+          - 2.3.7.9
     tags:
-      - 2.3.7.9
+      - 2.3.7
 
   # 2.3.8 - Microsoft network client
 
@@ -978,7 +1045,7 @@
   # TODO -  2.3.11.10 - Set minimum security for NTLM SSP based servers
 
 
-  # 2.3.12 - Recovery console - no controls in 2019 Server
+  # 2.3.12 - Recovery console
 
   # 2.3.13 - Shutdown
   - name: 2.3.13.1 - Disable system from shuting down without having to log on
@@ -990,7 +1057,7 @@
     tags:
       - 2.3.13.1
 
-  # 2.3.14 - System cryptography - no controls for 2019 Server
+  # 2.3.14 - System cryptography
 
   # 2.3.15 - System objects
   - name: 2.3.15.1 - Require case insensitivity for now windows subsystems
@@ -1011,7 +1078,7 @@
     tags:
       - 2.3.15.2
 
-  # 2.3.16 - System Settings - No controls for 2019 Server
+  # 2.3.16 - System Settings
 
   # 2.3.17 - User Account Control
   - name: 2.3.17.1 - Ensure UAC, admin approval mode for built-in admin account is enabled
@@ -1087,33 +1154,33 @@
     tags:
       - 2.3.17.8
 
-  # 3 Event Log - No controls for Server 2019
+  # 3 Event Log
 
-  # 4 Restricted Groups - No controls for Server 2019
+  # 4 Restricted Groups
 
-  # 5 System Services - No controls for Server 2019
+  # 5 System Services
 
-  # 6 Registry - No contorls for Server 2019
+  # 6 Registry
 
-  # 7 File System - No controls for Server 2019
+  # 7 File System
 
-  # 8 Wired Network - No controls for Serer 2019
+  # 8 Wired Network
 
   # 9 Windows Firewall - TODO
 
-  # 10 Network List Manager Policies - No controls for Server 2019
+  # 10 Network List Manager Policies
 
-  # 11 Wireless network policies - No controls for Server 2019
+  # 11 Wireless network policies
 
-  # 12 Public Key Policies - No controls for Server 2019
+  # 12 Public Key Policies
 
-  # 13 Software Restriction Policies - No controls for Server 2019
+  # 13 Software Restriction Policies
 
-  # 14 NAP client configuratin - No controls for Server 2019
+  # 14 NAP client configuratin
 
-  # 15 Application Control Policies - No controls for Server 2019
+  # 15 Application Control Policies
 
-  # 16 IP Security Policies - No controls for Server 2019
+  # 16 IP Security Policies
 
   # 17 Advanced Audit Policy Configuration
   - name: 17.1.1 - Ensure Audit credential validation is set to 'success and failure'
@@ -1211,7 +1278,7 @@
       - 18.1.1.2
 
   # 18.1.2 Regional and Language Options
-  # 18.1.2.1 - Handwriting Personalization - No controls for Server 2019
+  # 18.1.2.1 - Handwriting Personalization
 
   - name: 18.1.2.1 - Ensure 'Allow users to enable online speech recognition services' is disabled
     win_regedit:
@@ -1242,7 +1309,6 @@
       type: dword
     tags:
       - 18.3.1
-
 
   - name: 18.3.2 - Disable SMBv1 client driver
     win_regedit:
@@ -1410,9 +1476,9 @@
       - 18.4.11
 
   # 18.5 - Network Settings
-  # 18.5.1 - BITS service - No Server 2019 controls
-  # 18.5.2 - BranchCache - No Server 2019 controls
-  # 18.5.3 - DirectAccess Client Experience - No Server 2019 controls
+  # 18.5.1 - BITS service -
+  # 18.5.2 - BranchCache -
+  # 18.5.3 - DirectAccess Client Experience -
 
   - name: 18.5.4.1 - DNS Client - Turn off multicast name resolution
     win_regedit:
@@ -1433,8 +1499,8 @@
     tags:
       - 18.5.5.1
 
-  # 18.5.6 - Hotspot Authentication  - No Sever 2019 Controls
-  # 18.5.7 - Lanman Server - No Serer 2019 Controls
+  # 18.5.6 - Hotspot Authentication
+  # 18.5.7 - Lanman Server
 
   # 18.5.8 - Lanman Workstation
   - name: 18.5.8.1 - Disable insecure guest logons
@@ -1476,7 +1542,7 @@
       - 18.5.9.2
 
   # 18.5.10 - MS Peer-to-Peer Networking Services
-  # 18.5.10.1 - Peer Name Resolution Protocol - No Server 2019 Control
+  # 18.5.10.1 - Peer Name Resolution Protocol -
   - name: 18.5.10.1 - Turn off MS Peer-to-Peer Networking Services
     win_regedit:
       path: 'HKLM:\SOFTWARE\Policies\Microsoft\Peernet'
@@ -1487,7 +1553,7 @@
       - 18.5.10.1
 
   # 18.5.11 - Network Connections
-  # 18.5.11.1 - Windows Defender Firewall - No controls for Server 2019
+  # 18.5.11.1 - Windows Defender Firewall
   - name: 18.5.11.2 - Prohibit installation of Nework bridge on DNS domain network
     win_regedit:
       path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections'
@@ -1515,16 +1581,16 @@
     tags:
       - 18.5.11.4
 
-  # 18.5.12 - Network connectivity Status Indicator - No Server 2019 controls
-  # 18.5.13 - Network Isolation - No Server 2019 controls
-  # 18.5.14 - Network Provider- No Server 2019 controls
+  # 18.5.12 - Network connectivity Status Indicator -
+  # 18.5.13 - Network Isolation -
+  # 18.5.14 - Network Provider-
   # 18.5.14.1 - Ensure Hardended UNC Paths needs a number of settings, revisit
-  # 18.5.15 - Offline Files - No Server 2019 controls
-  # 18.5.16 - QoS Packet Scheduler - No Server 2019 controls
-  # 18.5.17 - SNMP - No Server 2019 controls
-  # 18.5.18 - SSl Configuration Settings - No Server 2019 controls
-  # 18.5.19 - TCPIP Settings - No Server 2019 controls
-  # 18.5.19.1 - IPv6 Transition Technologies - No Server 2019 controls
+  # 18.5.15 - Offline Files -
+  # 18.5.16 - QoS Packet Scheduler -
+  # 18.5.17 - SNMP -
+  # 18.5.18 - SSl Configuration Settings -
+  # 18.5.19 - TCPIP Settings -
+  # 18.5.19.1 - IPv6 Transition Technologies -
   - name: 18.5.19.2 - Disable IPV6
     win_regedit:
       path: 'HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters'
@@ -1576,7 +1642,7 @@
       type: dword
     when: domain_role == "member"
 
-  # 18.6 - Printers - No Server 2019 controls
+  # 18.6 - Printers -
   # 18.7 - Start Menu and Task bar
   # 18.7.1 - Notifications
   - name: 18.7.1.1 - Turn off notifications network usage
@@ -1588,9 +1654,9 @@
     tags:
       - 18.7.1.1
 
-  # 18.8 System - No Server 2019 Controls
-  # 18.8.1 - Access-Denied Assistance - No Server 2019 Controls
-  # 18.8.2 - App-V - No Server 2019 Controls
+  # 18.8 System -
+  # 18.8.1 - Access-Denied Assistance -
+  # 18.8.2 - App-V -
   # 18.8.3 - Audit Process Creation
   - name: 18.8.3.1 - Disable including command line in process creation events
     win_regedit:
@@ -1644,9 +1710,9 @@
       - 18.8.5.6
 
   # 18.8.5.7 Device Guard - This required a driver and software verification, skipping
-  # 18.8.6 - Device Health Attestation Service - No Server 2019 controls
+  # 18.8.6 - Device Health Attestation Service -
   # 18.8.7 - Device Installation
-  # 18.8.7.1 - Device Installation Restrictions - No Server 2019 controls
+  # 18.8.7.1 - Device Installation Restrictions -
   # 18.8.8 - Device Redirection
   # 18.8.9 - Disk NV Cache
   # 18.8.10 - Disk Quotas
@@ -3048,15 +3114,7 @@
   # 19.1.1 - Add or Remove Programs
   # 19.1.2 - Display
   # 19.1.3 - Personalization
-  - name: 19.1.3.1 - Enable Screen Saver
-    win_regedit:
-      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop'
-      name: ScreenSaveActive
-      value: 1
-      type: dword
-    tags:
-      - 19.1.3.1
-
+  # 19.1.3.1 - Enable Screensaver - set on a per user basis, skipping
   # 19.1.3.2 - Set screensaver name - set on a per user basis, skipping
   # 19.1.3.3 - Password protect screensaver - set on a per user basis, skipping
   # 19.1.3.4 - ScreenSaver timeout - set on a per user basis, skipping
