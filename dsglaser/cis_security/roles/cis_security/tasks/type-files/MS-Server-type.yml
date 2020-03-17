@@ -1382,6 +1382,7 @@
       name: DisableIPSourceRouting
       data: 2
       type: dword
+    when: not ipv6_disable
     tags:
       - 18.4.2
 
@@ -1463,6 +1464,7 @@
       name: TcpMaxDataRetransmissions
       value: 3
       type: dword
+    when: not ipv6_disable
     tags:
       - 18.4.10
 
@@ -1597,6 +1599,7 @@
       name: DisabledComponents
       value: 255
       type: dword
+    when: ipv6_disable
     tags:
       - 18.5.19.2
 
