@@ -1,4 +1,4 @@
-Below are the tags used in the CIS roles.
+Below are the tags used in the CIS roles on Linux Machines.
 
 |  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 | Control Description | Notes |
 | -----------------|--------------------- | -----------------|--------------------- | --------------------- |

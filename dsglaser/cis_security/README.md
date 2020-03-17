@@ -1,6 +1,6 @@
 # cis_security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
 
 ### Introduction
 
@@ -28,22 +28,29 @@ Benchmark Versions:
 | Oracle Linux 8 | v1.0.0 |
 | SUSE Linux Enterprise 15 SP1 | \(SUSE Linux Enterprise 12\) v2.1.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
+| Windows Server 2019 | v1.8.1 |
 
 - Some distributions use older CIS benchmarks that were the most recent at the time of creation. Efforts have
 been made to update the controls to work with the newer operating systems. Older versions of the benchmarks are listed in parenthesis.
-- SUSE Linux Enterprise 15 SP1 uses the RHEL 7 task file since their controls are so similar. If you want to exclude a SUSE tag, make sure you use the associated RHEL 7 tag number if they are different.  Tags can be found in the [controls_list](./docs/controls_list.md) file.
+- SUSE Linux Enterprise 15 SP1 uses the RHEL 7 task file since their controls are so similar. If you want to exclude a SUSE tag, make sure you use the associated RHEL 7 tag number if they are different.  Tags can be found in the appropriate controls_list file found in the docs directory.
 
 ### Requirements
 To implement the collection correctly, you will require the following
 
-- RHEL 7.6+ (or clone) or Ubuntu 18.04 LTS
+Control machine:
 - Ansible 2.7+
 - Machine connected to a package repository source (Satellite or yum repo)
+
+Target machine:
+- SSH connection with prviiledge escalation on Linux machines.
+  - Python interpreter
+- WinRM connection with user with admin priviledge for Windows. Alternatively you can use an SSH connection.
+  - PowerShell v3 or higher
 
 Some of the Ansible modules that are used require Ansible 2.7 and newer.
 
 For most of the collection to work, you will need to have a package repo where you can install packages for
-the target machine. Registering with Satellite, a package repository, or a local package collection is recommended before using this, unless you exclude any tags that install packages.
+the target machine. Registering with Satellite, a package repository, SCM, or a local package collection is recommended before using this, unless you exclude any tags that install packages.
 
 ### Use and Care
 The collection is designed to run on the machines in the chart above. It may run on other Red Hat and Ubuntu deriviatives, but it has not been tested on them. Upon initiation, the collection will automatically detect the OS and run the appropriate task list.
@@ -92,8 +99,8 @@ Some controls are surrouned by Ansible blocks that themselves have tags. Excludi
 to the block will exclude all of the tasks inside of the block. If the block's tag is **not** excluded,
 then individual tasks inside of the block can be excluded by excluding their tags.
 
-The list of tags and their associated crontol descriptions are listed in the [controls_list](./docs/controls_list.md) file
-in this directory.
+The list of tags and their associated crontol descriptions are listed in the [controls_list](./docs/controls_list.md) file for Linux and [control_list_win](./docs/controls_list_win.md_ file for Windows)
+in the docs directory.
 
 In addition to tags, there are a number of variables that can be set which will enable or disable
 tasks, or set values. These are explained and given default values in the **roles/cis-security/defaults/main.yml**
@@ -147,3 +154,4 @@ ways files can be manipuldated with modules.
 - 2/18/2020 - dsglaser@gmail.com - Added support for Ubuntu 18.04 LTS, added RHEL clone links
 - 2/20/2020 - dsglaser@gmail.com - Fixed numerous tests and rearranged network controls
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
+- 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
