@@ -5,7 +5,10 @@
 # command rather than the service module (which uses systemd)
 # https://access.redhat.com/solutions/2664811
 - name: restart auditd
-  shell: service auditd restart
+  service:
+    name: auditd
+    state: restarted
+    use: service
 
 # reboot a machine. Give it 10 minutes to come up in case it
 #  needs to do a selinux relabel

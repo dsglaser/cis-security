@@ -401,7 +401,7 @@
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
@@ -420,7 +420,7 @@
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
@@ -439,7 +439,7 @@
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
@@ -748,6 +748,7 @@
         loop:
           - libselinux1
           - selinux-tools
+          - python3-selinux
         tags:
           - 1.6.2
 
@@ -766,6 +767,14 @@
         tags:
           - 1.6.1.1
 
+      # re-gather system facts if we installed selinux packages.
+      #  If selinux wasn't installed, it will not populate ansible_selinux fact correctly, regathering
+      #  will pull it with the right information
+      - name: Regather facts
+        setup:
+        tags:
+          - 1.6.1.1
+
       # Replace the current selinux policy with whatever the variable is set for
       - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
         replace:
@@ -773,14 +782,6 @@
           regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
           replace="SELINUXTYPE={{ selinux_policy }}"
         when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
-        tags:
-          - 1.6.1.2
-
-      # Check to see if machine currently has selinux disabled
-      - name: 1.6.1.2 - Find current state of selinux
-        shell: /sbin/getenforce
-        register: selinux_status
-        changed_when: false
         tags:
           - 1.6.1.2
 
@@ -793,7 +794,7 @@
           group: root
           mode: 0644
           state: touch
-        when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
+        when: ansible_facts.ansible_selinux.status == "disabled" and selinux | lower != "disabled"
         notify: reboot
         tags:
           - 1.6.1.2
@@ -1033,11 +1034,11 @@
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
       # Find the current default run level. The systemctl module does not handle the
-      #  get-default routine
-      - name: 2.2.2 - Get current runlevel
-        shell: /usr/bin/systemctl get-default
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+      - name: 2.2.2 - get default runlevel
+        stat:
+          path: /etc/systemd/system/default.target
         register: default_runlevel_out
-        changed_when: false
         tags:
           - 2.2.2
 
@@ -1048,26 +1049,45 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stdout == "graphical.target"
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") amd mpt graphical_interface
         tags:
           - 2.2.2
 
       # Set the current run level. The systemctl module does not handle the
       #  isolate routine
-      - name: 2.2.2 - Set current runlevel
+      - name: 2.2.2 - Set current runlevel (non graphical)
         shell: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
-        when: default_runlevel_out.stdout == "graphical.target" and not graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
-      # Set the default run level. The systemctl module does not handle the
-      #  isolate routine
-      - name: 2.2.2 - Set default runlevel
-        shell: /usr/bin/systemctl set-default multi-user.target
-        changed_when: false
-    when: not graphical_interface
+      - name: 2.2.2 - Set current runlevel (graphical)
+        shell: /usr/bin/systemctl isolate graphical.target
+        register: isolate_out
+        changed_when: isolate_out.changed
+        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
+        tags:
+          - 2.2.2
+
+
+      # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
+      - name: 2.2.2 - Set default runlevel (non graphical)
+        file:
+          src: /lib/systemd/system/multi-user.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: not graphical_interface
+
+      - name: 2.2.2 - Set default runlevel (graphical)
+        file:
+          src: /lib/systemd/system/graphical.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: graphical_interface
     tags:
       - 2.2.2
 
@@ -2232,10 +2252,11 @@
     tags:
       - 5.4.1.3
 
+  # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
   - name: 5.4.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
-    shell: "/usr/sbin/useradd -D -f {{ password_inactive_lock_days }}"
-    register: useradd_out
-    changed_when: false
+    replace:
+      regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
+      line: "INACTIVE={{ password_inactive_lock_days }}"
     tags:
       - 5.4.1.4
 
