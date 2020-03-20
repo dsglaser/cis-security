@@ -37,6 +37,35 @@ galaxy_info:
   #   - 1.0
   #   - 7
   #   - 99.99
+  platforms:
+  - name: RedHat
+    versions:
+      - 8
+      - 7
+  - name: Fedora
+    versions:
+      - 28
+      - 29
+      - 30
+      - 31
+  - name: CentOS
+    versions:
+      - 7
+      - 8
+  - name: Oracle
+    versions:
+      - 7
+      - 8
+  - name: Ubuntu
+    versions:
+      - 18
+  - name: SLES
+    versions:
+      - 15
+  - name: Windows
+    versions:
+      - 10
+      - 2019
 
   galaxy_tags: []
     # List tags for your role here, one per line. A tag is a keyword that describes

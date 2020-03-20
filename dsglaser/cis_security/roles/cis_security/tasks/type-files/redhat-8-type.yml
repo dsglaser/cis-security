@@ -754,7 +754,7 @@
       group: root
       mode: 0644
       state: touch
-    when: ansible_facts.ansible_selinux.status == "disabled" and selinux | lower != "disabled"
+    when: ansible_selinux.status == "disabled" and selinux | lower != "disabled"
     notify: reboot
     tags:
       - 1.7.1.3
@@ -926,9 +926,10 @@
     tags:
       - 2.2.1.2
 
-  # Disable the display manager by changing the default boot target to multi-user
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
+      # Find the current default run level. The systemctl module does not handle the
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
       - name: 2.2.2 - get default runlevel
         stat:
           path: /etc/systemd/system/default.target
@@ -2236,6 +2237,7 @@
   # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
   - name: 5.5.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
     replace:
+      path: /etc/default/useradd
       regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
       line: "INACTIVE={{ password_inactive_lock_days }}"
     tags:

@@ -794,7 +794,7 @@
           group: root
           mode: 0644
           state: touch
-        when: ansible_facts.ansible_selinux.status == "disabled" and selinux | lower != "disabled"
+        when: ansible_selinux.status == "disabled" and selinux | lower != "disabled"
         notify: reboot
         tags:
           - 1.6.1.2
@@ -1049,7 +1049,7 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stat.lnk_target is search("graphical.target") amd mpt graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
@@ -1067,7 +1067,7 @@
         shell: /usr/bin/systemctl isolate graphical.target
         register: isolate_out
         changed_when: isolate_out.changed
-        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
         tags:
           - 2.2.2
 
@@ -2255,6 +2255,7 @@
   # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
   - name: 5.4.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
     replace:
+      path: /etc/default/useradd
       regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
       line: "INACTIVE={{ password_inactive_lock_days }}"
     tags:

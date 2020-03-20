@@ -878,15 +878,14 @@
 
   # 2.2.1.4 - Ensure NTP configured is skipped as it is not recommended on ubuntu
 
-  # Disable the display manager by changing the default boot target to multi-user
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
       # Find the current default run level. The systemctl module does not handle the
-      #  get-default routine
-      - name: 2.2.2 - Get current runlevel
-        shell: /bin/systemctl get-default
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+      - name: 2.2.2 - get default runlevel
+        stat:
+          path: /etc/systemd/system/default.target
         register: default_runlevel_out
-        changed_when: false
         tags:
           - 2.2.2
 
@@ -897,26 +896,44 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stdout == "graphical.target"
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
       # Set the current run level. The systemctl module does not handle the
-      #  isolate routine
-      - name: 2.2.2 - Set current runlevel
-        shell: /bin/systemctl isolate multi-user.target
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+      - name: 2.2.2 - Set current runlevel (non graphical)
+        shell: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
-        when: default_runlevel_out.stdout == "graphical.target" and not graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
-      # Set the default run level. The systemctl module does not handle the
-      #  isolate routine
-      - name: 2.2.2 - Set default runlevel
-        shell: /bin/systemctl set-default multi-user.target
-        changed_when: false
-    when: not graphical_interface
+      - name: 2.2.2 - Set current runlevel (graphical)
+        shell: /usr/bin/systemctl isolate graphical.target
+        register: isolate_out
+        changed_when: isolate_out.changed
+        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
+        tags:
+          - 2.2.2
+
+      # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
+      - name: 2.2.2 - Set default runlevel (non graphical)
+        file:
+          src: /lib/systemd/system/multi-user.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: not graphical_interface
+
+      - name: 2.2.2 - Set default runlevel (graphical)
+        file:
+          src: /lib/systemd/system/graphical.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: graphical_interface
     tags:
       - 2.2.2
 
