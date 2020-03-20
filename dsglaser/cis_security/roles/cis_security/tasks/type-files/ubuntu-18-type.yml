@@ -418,7 +418,7 @@
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
     shell: set -o pipefail ; /bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     args:
-      executeable: /bin/bash
+      executable: /bin/bash
     changed_when: false
     tags:
       - 1.1.21
