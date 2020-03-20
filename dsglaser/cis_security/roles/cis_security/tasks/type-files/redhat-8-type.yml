@@ -2235,11 +2235,15 @@
       - 5.5.1.3
 
   # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
+  # The defaults perms are 0644 on the file, but after useradd is run against it, it changes to 0600, so we'll change it as well
   - name: 5.5.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
     replace:
       path: /etc/default/useradd
       regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
-      line: "INACTIVE={{ password_inactive_lock_days }}"
+      replace: "INACTIVE={{ password_inactive_lock_days }}"
+      owner: root
+      group: root
+      mode: 0600
     tags:
       - 5.5.1.4
 
