@@ -2861,8 +2861,8 @@
       value: " {{ item.value }}"
       type: "{{ item.type }}"
     loop:
-      - { name: 'EnableSmartScreen', value: '1' , type: 'dword' }
-      - { name: 'ShellSmartScreenLevel', value: 'Block' , type: 'string' }
+      - { name: 'EnableSmartScreen', value: '1', type: 'dword' }
+      - { name: 'ShellSmartScreenLevel', value: 'Block', type: 'string' }
     tags:
       - 18.9.80.1.1
 

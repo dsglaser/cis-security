@@ -26,7 +26,7 @@
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
   - name: Determine the Minimum UID for new, non-system, accounts
-    shell: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
+    command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
     tags:
@@ -577,13 +577,13 @@
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
-        shell: /usr/sbin/aide --init
+        command: /usr/sbin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
         tags:
           - 1.3.1
 
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
-        shell: /usr/bin/aide --init
+        command: /usr/bin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
         tags:
           - 1.3.1
@@ -861,7 +861,7 @@
               - 1.6.2.1
 
           - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
-            shell: enforce /etc/apparmor.d/*
+            command: enforce /etc/apparmor.d/*
             when: apparmor_level == "enforce"
             failed_when: false
             changed_when: false
@@ -1056,7 +1056,7 @@
       # Set the current run level. The systemctl module does not handle the
       #  isolate routine
       - name: 2.2.2 - Set current runlevel (non graphical)
-        shell: /usr/bin/systemctl isolate multi-user.target
+        command: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
@@ -1064,7 +1064,7 @@
           - 2.2.2
 
       - name: 2.2.2 - Set current runlevel (graphical)
-        shell: /usr/bin/systemctl isolate graphical.target
+        command: /usr/bin/systemctl isolate graphical.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
@@ -1522,12 +1522,12 @@
         failed_when: false
 
       - name: 3.6.1 - Ensure default zone is set for firewalld
-        shell: /usr/bin/firewall-cmd --get-default-zone
+        command: /usr/bin/firewall-cmd --get-default-zone
         changed_when: false
         register: firewalld_zone
 
       - name: 3.6.1 - Set default zone
-        shell: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+        command: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
         when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
 
     when: enable_firewall is defined and enable_firewall == "firewalld"
@@ -1613,6 +1613,10 @@
         tags:
           - 4.1.1.3
 
+      - debug:
+          var: audit_exist
+        tags:
+          - 4.1.1.3
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 4.1.1.3 - enable audit service in grub
@@ -2223,18 +2227,13 @@
       - name: 5.3.4 - non-SLES password settings
         block:
           - name: 5.3.4 - Determine if we are currently using sha512 password
-            lineinfile:
-              path: /etc/pam.d/password-auth
-              regexp: 'pam_unix.so*sha512'
-              state: absent
-            check_mode: yes
-            changed_when: false
+            command: authconfig --test
             register: sha512_exist
-            failed_when: false
+            changed_when: false
 
           - name: 5.3.4 - SHA-512 Password setting
-            shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
-            when: not sha512_exit.found
+            command: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
+            when: not sha512_exist.stdout is search("sha512")
             failed_when: false
     tags:
       5.3.4
@@ -2287,7 +2286,7 @@
 
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.4.3 - Ensure default group for root is GID 0
-    shell: /usr/sbin/usermod -g 0 root
+    command: /usr/sbin/usermod -g 0 root
     changed_when: false
     tags:
       - 5.4.3
