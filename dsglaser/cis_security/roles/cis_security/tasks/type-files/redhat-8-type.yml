@@ -892,7 +892,7 @@
     tags:
       - 1.10.0
 
-  # 2 Services
+ ### Part 2, Services ###
   # Remove old, unused, insecure services
   - name: 2.1.1 - Remove xinetd service
     dnf:
@@ -962,7 +962,7 @@
         command: /usr/bin/systemctl isolate graphical.target
         register: isolate_out
         changed_when: isolate_out.changed
-        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
         tags:
           - 2.2.2
 
@@ -1068,7 +1068,7 @@
 
   - name: 2.2.15 - Remove dhcp-server; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when: dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.15
@@ -1102,7 +1102,7 @@
   #  to remove packages from the system that are not needed.
   - name: Process removal list
     dnf:
-      name: unneeded_packages
+      name: "{{ unneeded_packages }}"
       state: absent
 
   # Cups should be remove per control 2.2.16, but it may not be able to due to

@@ -953,7 +953,6 @@
 
  ### Part 2, Services ###
   # Remove old, unused, insecure services
-
   - name: 2.1.7 - Remove xinetd  service  [controlled by host variable tftp_server]
     package:
       name: xinetd
@@ -1014,7 +1013,7 @@
       name: chronyd
       state: stopped
       enabled: no
-    when: time_serve is defined and time_service == "ntp"
+    when: time_server is defined and time_service == "ntp"
     tags:
       - 2.2.1.2
       - 2.2.1.3
@@ -1054,7 +1053,7 @@
           - 2.2.2
 
       # Set the current run level. The systemctl module does not handle the
-      #  isolate routine
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
       - name: 2.2.2 - Set current runlevel (non graphical)
         command: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
@@ -1070,7 +1069,6 @@
         when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
         tags:
           - 2.2.2
-
 
       # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
       - name: 2.2.2 - Set default runlevel (non graphical)
@@ -1097,6 +1095,8 @@
   - name: create empty list for unneeded packages
     set_fact:
       unneeded_packages: []
+    tags:
+      - always
 
   - name: 2.2.3 - add avahi to unneeded package list
     set_fact:
@@ -1106,22 +1106,16 @@
 
   - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when:  dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
+  # openldap2 is the SLES package name for openldap-servers
   - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] + [ 'openldap2' ] }}"
     when: ansible_distribution != "SLES"
-    tags:
-      - 2.2.6
-
-  - name: 2.2.6 - add openldap-servers to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap2' ] }}"
-    when: ansible_distribution == "SLES"
     tags:
       - 2.2.6
 
@@ -1141,11 +1135,12 @@
 
   - name: 2.2.9 - Remove vsftpd; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'vsftpd' ] }}"
+      unneeded_packages: "{{ unneeded_packages + ['vsftpd'] }}"
     when: ftp_server is defined and not ftp_server
     tags:
       - 2.2.9
 
+  # apache2 is the SLES package name for httpd
   - name: 2.2.10 - Remove httpd; add to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] + [ 'apache2' ] }}"
@@ -1215,6 +1210,7 @@
   - name: 2.2.20 - add tftp to unneeded package list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'tftp' ] + [ 'tftp-server'] }}"
+    when: not tftp_server
     tags:
       - 2.2.20
 
@@ -1227,9 +1223,11 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    package:
-      name: unneeded_packages
+    yum:
+      name: "{{ unneeded_packages }}"
       state: absent
+    tags:
+      - always
 
   # Cups should be remove per control 2.2.4, but it may not be able to due to
   #  dependencies, so disable the service instead
@@ -1614,10 +1612,6 @@
         tags:
           - 4.1.1.3
 
-      - debug:
-          var: audit_exist
-        tags:
-          - 4.1.1.3
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 4.1.1.3 - enable audit service in grub
