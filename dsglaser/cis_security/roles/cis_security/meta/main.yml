@@ -37,6 +37,26 @@ galaxy_info:
   #   - 1.0
   #   - 7
   #   - 99.99
+  platforms:
+  - name: EL
+    versions:
+      - 8
+      - 7
+  - name: Fedora
+    versions:
+      - 28
+      - 29
+      - 30
+      - 31
+  - name: Ubuntu
+    versions:
+      - bionic
+  - name: SLES
+    versions:
+      - 15
+  - name: Windows
+    versions:
+      - 2019
 
   galaxy_tags: []
     # List tags for your role here, one per line. A tag is a keyword that describes

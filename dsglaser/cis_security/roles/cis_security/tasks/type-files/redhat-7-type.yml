@@ -26,7 +26,7 @@
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
   - name: Determine the Minimum UID for new, non-system, accounts
-    shell: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
+    command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
     tags:
@@ -401,7 +401,7 @@
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
@@ -420,7 +420,7 @@
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
@@ -439,7 +439,7 @@
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: /usr/bin/mount | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
@@ -577,13 +577,13 @@
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
-        shell: /usr/sbin/aide --init
+        command: /usr/sbin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
         tags:
           - 1.3.1
 
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
-        shell: /usr/bin/aide --init
+        command: /usr/bin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
         tags:
           - 1.3.1
@@ -748,6 +748,7 @@
         loop:
           - libselinux1
           - selinux-tools
+          - python3-selinux
         tags:
           - 1.6.2
 
@@ -766,6 +767,14 @@
         tags:
           - 1.6.1.1
 
+      # re-gather system facts if we installed selinux packages.
+      #  If selinux wasn't installed, it will not populate ansible_selinux fact correctly, regathering
+      #  will pull it with the right information
+      - name: Regather facts
+        setup:
+        tags:
+          - 1.6.1.1
+
       # Replace the current selinux policy with whatever the variable is set for
       - name: 1.6.1.2 - Set SELinux policy to {{ selinux_policy }}
         replace:
@@ -773,14 +782,6 @@
           regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
           replace="SELINUXTYPE={{ selinux_policy }}"
         when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
-        tags:
-          - 1.6.1.2
-
-      # Check to see if machine currently has selinux disabled
-      - name: 1.6.1.2 - Find current state of selinux
-        shell: /sbin/getenforce
-        register: selinux_status
-        changed_when: false
         tags:
           - 1.6.1.2
 
@@ -793,7 +794,7 @@
           group: root
           mode: 0644
           state: touch
-        when: selinux_status.stdout == "Disabled" and selinux | lower != "disabled"
+        when: ansible_selinux.status == "disabled" and selinux | lower != "disabled"
         notify: reboot
         tags:
           - 1.6.1.2
@@ -860,7 +861,7 @@
               - 1.6.2.1
 
           - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
-            shell: enforce /etc/apparmor.d/*
+            command: enforce /etc/apparmor.d/*
             when: apparmor_level == "enforce"
             failed_when: false
             changed_when: false
@@ -952,7 +953,6 @@
 
  ### Part 2, Services ###
   # Remove old, unused, insecure services
-
   - name: 2.1.7 - Remove xinetd  service  [controlled by host variable tftp_server]
     package:
       name: xinetd
@@ -1013,7 +1013,7 @@
       name: chronyd
       state: stopped
       enabled: no
-    when: time_serve is defined and time_service == "ntp"
+    when: time_server is defined and time_service == "ntp"
     tags:
       - 2.2.1.2
       - 2.2.1.3
@@ -1033,11 +1033,11 @@
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
       # Find the current default run level. The systemctl module does not handle the
-      #  get-default routine
-      - name: 2.2.2 - Get current runlevel
-        shell: /usr/bin/systemctl get-default
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+      - name: 2.2.2 - get default runlevel
+        stat:
+          path: /etc/systemd/system/default.target
         register: default_runlevel_out
-        changed_when: false
         tags:
           - 2.2.2
 
@@ -1048,26 +1048,44 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stdout == "graphical.target"
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
       # Set the current run level. The systemctl module does not handle the
-      #  isolate routine
-      - name: 2.2.2 - Set current runlevel
-        shell: /usr/bin/systemctl isolate multi-user.target
+      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+      - name: 2.2.2 - Set current runlevel (non graphical)
+        command: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
-        when: default_runlevel_out.stdout == "graphical.target" and not graphical_interface
+        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
         tags:
           - 2.2.2
 
-      # Set the default run level. The systemctl module does not handle the
-      #  isolate routine
-      - name: 2.2.2 - Set default runlevel
-        shell: /usr/bin/systemctl set-default multi-user.target
-        changed_when: false
-    when: not graphical_interface
+      - name: 2.2.2 - Set current runlevel (graphical)
+        command: /usr/bin/systemctl isolate graphical.target
+        register: isolate_out
+        changed_when: isolate_out.changed
+        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
+        tags:
+          - 2.2.2
+
+      # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
+      - name: 2.2.2 - Set default runlevel (non graphical)
+        file:
+          src: /lib/systemd/system/multi-user.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: not graphical_interface
+
+      - name: 2.2.2 - Set default runlevel (graphical)
+        file:
+          src: /lib/systemd/system/graphical.target
+          dest: /etc/systemd/system/default.target
+          owner: root
+          group: root
+        when: graphical_interface
     tags:
       - 2.2.2
 
@@ -1077,6 +1095,8 @@
   - name: create empty list for unneeded packages
     set_fact:
       unneeded_packages: []
+    tags:
+      - always
 
   - name: 2.2.3 - add avahi to unneeded package list
     set_fact:
@@ -1086,22 +1106,16 @@
 
   - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'dhcp-server' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when:  dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
+  # openldap2 is the SLES package name for openldap-servers
   - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] + [ 'openldap2' ] }}"
     when: ansible_distribution != "SLES"
-    tags:
-      - 2.2.6
-
-  - name: 2.2.6 - add openldap-servers to removal list
-    set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap2' ] }}"
-    when: ansible_distribution == "SLES"
     tags:
       - 2.2.6
 
@@ -1121,11 +1135,12 @@
 
   - name: 2.2.9 - Remove vsftpd; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'vsftpd' ] }}"
+      unneeded_packages: "{{ unneeded_packages + ['vsftpd'] }}"
     when: ftp_server is defined and not ftp_server
     tags:
       - 2.2.9
 
+  # apache2 is the SLES package name for httpd
   - name: 2.2.10 - Remove httpd; add to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] + [ 'apache2' ] }}"
@@ -1195,6 +1210,7 @@
   - name: 2.2.20 - add tftp to unneeded package list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'tftp' ] + [ 'tftp-server'] }}"
+    when: not tftp_server
     tags:
       - 2.2.20
 
@@ -1207,9 +1223,11 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    package:
-      name: unneeded_packages
+    yum:
+      name: "{{ unneeded_packages }}"
       state: absent
+    tags:
+      - always
 
   # Cups should be remove per control 2.2.4, but it may not be able to due to
   #  dependencies, so disable the service instead
@@ -1502,12 +1520,12 @@
         failed_when: false
 
       - name: 3.6.1 - Ensure default zone is set for firewalld
-        shell: /usr/bin/firewall-cmd --get-default-zone
+        command: /usr/bin/firewall-cmd --get-default-zone
         changed_when: false
         register: firewalld_zone
 
       - name: 3.6.1 - Set default zone
-        shell: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+        command: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
         when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
 
     when: enable_firewall is defined and enable_firewall == "firewalld"
@@ -1562,11 +1580,11 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
-          - { find: '^max_log_file_action\s+=\s+(ignore|syslog|suspend|rotate)', replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
-          - { find: '^space_left_action\s+=\s+(ignore|syslog|rotate|exec|suspend|single|halt)', replace: 'space_left_action = email' } # 4.1.2.2
-          - { find: '^action_mail_acct\s+=\s+(^root)*$', replace: 'action_mail_acct = root' } # 4.1.2.2
-          - { find: '^admin_space_left_action\s+=\s+(ignore|syslog|suspend|rotate|email|exec|single|halt)', replace: 'admin_space_left_action = suspend' } # 4.1.2.2
+          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.1.1
+          - { find: '^max_log_file_action\s+=\s+((?!keep_logs).)*$', replace: 'max_log_file_action = keep_logs' } # 4.1.1.2
+          - { find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email' } # 4.1.1.2
+          - { find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root' } # 4.1.1.2
+          - { find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend' } # 4.1.1.2
         tags:
           - 4.1.1.2
           - 4.1.1.3
@@ -1578,6 +1596,7 @@
           state: started
         tags:
           - 4.1.2
+
       - name: 4.1.1.3 - Ensure auditing for processes that start prior to auditd
       # We check here because we don't know what position the audit=1 is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
@@ -1609,14 +1628,9 @@
       #  the copy module to place each file independently and then motifying
       #  a restart of auditd if anything changes.
       - name: 4.1.4 - Ensure to collect events that modify date/time
-        copy:
+        template:
           dest: /etc/audit/rules.d/datetime.rules
-          content: |
-            -a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
-            -a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
-            -a always,exit -F arch=b64 -S clock_settime -k time-change
-            -a always,exit -F arch=b32 -S clock_settime -k time-change
-            -w /etc/localtime -p wa -k time-change
+          src: audit_rules/datetime.rules
           owner: root
           group: root
           mode: 0600
@@ -1625,14 +1639,9 @@
           - 4.1.4
 
       - name: 4.1.5 - Ensure events that modify user/group information are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/user-group-info.rules
-          content: |
-            -w /etc/group -p wa -k identity
-            -w /etc/passwd -p wa -k identity
-            -w /etc/gshadow -p wa -k identity
-            -w /etc/shadow -p wa -k identity
-            -w /etc/security/opasswd -p wa -k identity
+          src: audit_rules/user-group-info.rules
           owner: root
           group: root
           mode: 0600
@@ -1641,15 +1650,9 @@
           4.1.5
 
       - name: 4.1.6 - Ensure to collect events that modify network
-        copy:
+        template:
           dest: /etc/audit/rules.d/network.rules
-          content: |
-            -a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
-            -a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
-            -w /etc/issue -p wa -k system-locale
-            -w /etc/issue.net -p wa -k system-locale
-            -w /etc/hosts -p wa -k system-locale
-            -w /etc/sysconfig/network -p wa -k system-locale
+          src: audit_rules/network.rules
           owner: root
           group: root
           mode: 0600
@@ -1658,11 +1661,9 @@
           - 4.1.6
 
       - name: 4.1.7 - Ensure modifications to Mandatory Access Controls are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/MAC-policy.rules
-          content: |
-            -w /etc/selinux/ -p wa -k MAC-policy
-            -w /usr/share/selinux/ -p wa -k MAC-policy
+          src: audit_rules/MAC-policy.rules
           owner: root
           group: root
           mode: 0600
@@ -1671,11 +1672,9 @@
           4.1.7
 
       - name: 4.1.8 - Ensure system logins are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/login.rules
-          content: |
-            -w /var/log/faillog -p wa -k logins
-            -w /var/log/lastlog -p wa -k logins
+          src: audit_rules/login.rules
           owner: root
           group: root
           mode: 0600
@@ -1684,12 +1683,9 @@
           4.1.8
 
       - name: 4.1.9 - Ensure session initiation information is collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/sessions.rules
-          content: |
-            -w /var/run/utmp -p wa -k session
-            -w /var/log/wtmp -p wa -k logins
-            -w /var/log/btmp -p wa -k logins
+          src: audit_rules/sessions.rules
           owner: root
           group: root
           mode: 0600
@@ -1699,15 +1695,9 @@
 
       # This is the first control that we use the min_uid variable that we determined earlier
       - name: 4.1.10 - Ensure modifications to discretionary access controls are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/dac.rules
-          content: |
-            -a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
-            -a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
-            -a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
-            -a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
-            -a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
-            -a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k perm_mod
+          src: audit_rules/dac.rules
           owner: root
           group: root
           mode: 0600
@@ -1716,13 +1706,10 @@
           4.1.10
 
       - name: 4.1.10 - Ensure unsuccessful unauthorized file access attempts are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/bad-file-access.rules
-          content: |
-            -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k access
-            -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k access
-            -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k access
-            -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k access
+          content:
+          src: audit_rules/bad-file-access.rules
           owner: root
           group: root
           mode: 0600
@@ -1734,11 +1721,9 @@
       # skipping
 
       - name: 4.1.13 - Ensure successful file system mounts are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/file-system-mounts.rules
-          content: |
-            -a always,exit -F arch=b64 -S mount -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k mounts
-            -a always,exit -F arch=b32 -S mount -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k mounts
+          src: audit_rules/file-system-mounts.rules
           owner: root
           group: root
           mode: 0600
@@ -1747,11 +1732,9 @@
           4.1.13
 
       - name: 4.1.14 - Ensure file deletion events by users are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/delete.rules
-          content: |
-            -a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k delete
-            -a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>={{ min_uid.stdout }} -F auid!=4294967295 -k delete
+          src: audit_rules/delete.rules
           owner: root
           group: root
           mode: 0600
@@ -1760,12 +1743,9 @@
           4.1.14
 
       - name: 4.1.15 - Ensure sysadmin actions (sudolog) are collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/sudolog.rules
-          content: |
-            -w /etc/sudoers -p wa -k scope
-            -w /etc/sudoers.d/ -p wa -k scope
-            -w /var/log/sudoers -p wa -k actions
+          src: audit_rules/sudolog.rules
           owner: root
           group: root
           mode: 0600
@@ -1775,13 +1755,9 @@
           4.1.16
 
       - name: 4.1.17 - Ensure kernel module loading and unloading is collected
-        copy:
+        template:
           dest: /etc/audit/rules.d/modules.rules
-          content: |
-            -w /sbin/insmod -p x -k modules
-            -w /sbin/rmmod -p x -k modules
-            -w /sbin/modprobe -p x -k modules
-            -a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+          src: audit_rules/modules.rules
           owner: root
           group: root
           mode: 0600
@@ -2180,28 +2156,37 @@
 
   - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
     block:
-      - name: SHA-512 Password setting
-        shell: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
-        when: ansible_distribution != "SLES"
-        failed_when: false
+      - name: 5.3.4 - SLES specific password settings
+        block:
+          - name: 5.3.4 - Determine if we are currently using sha512 password
+            lineinfile:
+              path: /etc/pam.d/common-password
+              regexp: 'pam_unix.so*sha512'
+              state: absent
+            check_mode: yes
+            changed_when: false
+            register: sha512_exist
+            failed_when: false
 
-      - name: Determine if we are currently using sha512 password
-        lineinfile:
-          path: /etc/pam.d/common-password
-          regexp: 'pam_unix.so*sha512'
-          state: absent
-        check_mode: yes
-        changed_when: false
-        register: sha512_exist
-        failed_when: false
+          - name: 5.3.4 - Determine if we are currently using sha512 password
+            replace:
+              dest: /etc/pam.d/common-password
+              regexp: 'pam_unix.so'
+              replace: 'pam_unix.so    sha512'
+            when: not sha512_exist.found
         when: ansible_distribution == "SLES"
 
-      - name: Determine if we are currently using sha512 password
-        replace:
-          dest: /etc/pam.d/common-password
-          regexp: 'pam_unix.so'
-          replace: 'pam_unix.so    sha512'
-        when: ansible_distribution == "SLES" and not sha512_exist.found
+      - name: 5.3.4 - non-SLES password settings
+        block:
+          - name: 5.3.4 - Determine if we are currently using sha512 password
+            command: authconfig --test
+            register: sha512_exist
+            changed_when: false
+
+          - name: 5.3.4 - SHA-512 Password setting
+            command: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
+            when: not sha512_exist.stdout is search("sha512")
+            failed_when: false
     tags:
       5.3.4
 
@@ -2232,10 +2217,16 @@
     tags:
       - 5.4.1.3
 
+  # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
+  # The defaults perms are 0644 on the file, but after useradd is run against it, it changes to 0600, so we'll change it as well
   - name: 5.4.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
-    shell: "/usr/sbin/useradd -D -f {{ password_inactive_lock_days }}"
-    register: useradd_out
-    changed_when: false
+    replace:
+      path: /etc/default/useradd
+      regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
+      replace: "INACTIVE={{ password_inactive_lock_days }}"
+      owner: root
+      group: root
+      mode: 0600
     tags:
       - 5.4.1.4
 
@@ -2247,7 +2238,7 @@
 
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.4.3 - Ensure default group for root is GID 0
-    shell: /usr/sbin/usermod -g 0 root
+    command: /usr/sbin/usermod -g 0 root
     changed_when: false
     tags:
       - 5.4.3

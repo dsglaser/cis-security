@@ -5,7 +5,10 @@
 # command rather than the service module (which uses systemd)
 # https://access.redhat.com/solutions/2664811
 - name: restart auditd
-  shell: service auditd restart
+  service:
+    name: auditd
+    state: restarted
+    use: service
 
 # reboot a machine. Give it 10 minutes to come up in case it
 #  needs to do a selinux relabel
@@ -59,15 +62,15 @@
 # Call the grub config file rebuilding program
 # There is no grub module, so we have to do it with shell
 - name: rebuild grub
-  shell: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  command: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Call the grub config file rebuilding program on ubuntu
 # There is no grub module, so we have to do it with shell
 - name: rebuild ubuntu-grub
-  shell: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
+  command: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
 
 - name: update crypto_policy
-  shell: /usr/bin/update-crypto-policies
+  command: /usr/bin/update-crypto-policies
 
 - name: restart aidecheck
   systemd:

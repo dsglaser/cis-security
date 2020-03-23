@@ -13,23 +13,27 @@
 
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
-  - debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
+  - name: CIS Control Header
+    debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
     tags:
       - always
-  - name: Determine if we are a domain controller
-    set_fact:
-      domain_role: "none"
-    when: ansible_facts.windows_domain_role == "Stand-alone server"
-    tags:
-      - always
-  - set_fact:
-      domain_role: "member"
-    when: ansible_facts.windows_domain_role == "Member server"
-    tags:
-      - always
-  - set_fact:
-      domain_role: "controller"
-    when: ansible_facts.windows_domain_role == "Primary domain controller" or ansible_facts.windows_domain_role == "Backup domain controller"
+
+  - name: Set up the domain_role variable
+    block:
+      - name: Set if we are a standalone server
+        set_fact:
+          domain_role: "none"
+        when: ansible_facts.windows_domain_role == "Stand-alone server"
+
+      - name: Set if we are a domain member server
+        set_fact:
+          domain_role: "member"
+        when: ansible_facts.windows_domain_role == "Member server"
+
+      - name: Set if we are domain controller (primary or secondary)
+        set_fact:
+          domain_role: "controller"
+        when: ansible_facts.windows_domain_role == "Primary domain controller" or ansible_facts.windows_domain_role == "Backup domain controller"
     tags:
       - always
   # The win_wsecurity_policy module modifies the security policy of the machine with the value
@@ -2857,8 +2861,8 @@
       value: " {{ item.value }}"
       type: "{{ item.type }}"
     loop:
-      - { name: 'EnableSmartScreen', value: '1' , type: 'dword' }
-      - { name: 'ShellSmartScreenLevel', value: 'Block' , type: 'string' }
+      - { name: 'EnableSmartScreen', value: '1', type: 'dword' }
+      - { name: 'ShellSmartScreenLevel', value: 'Block', type: 'string' }
     tags:
       - 18.9.80.1.1
 
@@ -3216,4 +3220,3 @@
   # 19.7.45.1 Networking
   # 19.7.45.2 Playback
   # 19.7.45.2.1 'Prevent Codec Download'
-
