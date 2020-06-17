@@ -456,12 +456,13 @@
 
 # Control 1.1.18, 1.1.19, 1.1.20 are for removable media
 
+# REDO TO REPORT AND ACTION
   # Finda all local filesystem directories and set the sticky bit on world writable ones
-  - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
-    changed_when: false
-    tags:
-      - 1.1.21
+#  - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
+#    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+#    changed_when: false
+#    tags:
+#      - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
   # We check to see if the package that autofs belongs to (convienently called autofs)
@@ -1619,7 +1620,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
-        notify: rebuild ubuntu-grub
+        notify: rebuild grub
         when: not audit_exist.found
         tags:
           - 4.1.1.3
