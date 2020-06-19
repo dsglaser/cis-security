@@ -579,15 +579,10 @@
       #  run the initializatoin again.
       - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
         command: /usr/sbin/aide --init
-        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "RedHat"
         tags:
           - 1.3.1
 
-      - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
-        command: /usr/bin/aide --init
-        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
-        tags:
-          - 1.3.1
 
       # AIDE creates the new database as a different name. Use the copy module with
       #  the remote_src argument to copy the file on the remote machine to another location
@@ -736,20 +731,7 @@
         package:
           name: libselinux
           state: present
-        when: (selinux is defined and selinux != "Disabled") and ansible_distribution != "SLES"
-        tags:
-          - 1.6.2
-
-      # Use system package manager to install libselinux (SLES)
-      - name: 1.6.2 - Ensure SELinux is installed
-        package:
-          name: "{{ item }}"
-          state: present
-        when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "SLES"
-        loop:
-          - libselinux1
-          - selinux-tools
-          - python3-selinux
+        when: (selinux is defined and selinux != "Disabled") and ansible_distribution == "RedHat"
         tags:
           - 1.6.2
 
@@ -813,8 +795,12 @@
       # Use system package manager to remove package
       - name: 1.6.1.4 - Remove setroubleshoot
         package:
-          name: setroubleshoot
+          name: "{{ item }}"
           state: absent
+        loop:
+          - setroubleshoot
+          - setroubleshoot-server
+          - setroubleshoot-plugins
         tags:
           - 1.6.1.4
 
@@ -847,39 +833,6 @@
             when: unconfined_services_out.stdout
         tags:
           - 1.6.1.5
-
-      - name: 1.6.2 - Configure AppArmor (SLES only)
-        block:
-          - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
-            replace:
-              dest: /etc/default/grub
-              regexp: "{{ item }}"
-              replace: ""
-            with_items:
-              - apparmor=0
-            notify: rebuild grub
-            tags:
-              - 1.6.2.1
-
-          - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
-            command: enforce /etc/apparmor.d/*
-            when: apparmor_level == "enforce"
-            failed_when: false
-            changed_when: false
-            tags:
-              - 1.6.2.2
-
-          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
-            package_facts:
-              manager: auto
-
-          - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
-            debug:
-              msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
-            when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
-        when: ansible_distribution == "SLES"
-        tags:
-          - 1.6.2
     when: ansible_distribution != "SLES"
     tags:
       - 1.6.0
@@ -1049,7 +1002,8 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
+          daemon-reload: yes
+        when: "'gdm' in ansible_facts.packages and not graphical_interface"
         tags:
           - 2.2.2
 
@@ -1105,18 +1059,16 @@
     tags:
       - 2.2.3
 
-  - name: 2.2.5 - Disable dhcpd services [controlled by host variable dhcp_server]
+  - name: 2.2.5 - Disable dhcpd server [controlled by host variable dhcp_server]
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when:  dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.5
 
-  # openldap2 is the SLES package name for openldap-servers
   - name: 2.2.6 - add openldap-servers to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] + [ 'openldap2' ] }}"
-    when: ansible_distribution != "SLES"
+      unneeded_packages: "{{ unneeded_packages + [ 'openldap-servers' ] }}"
     tags:
       - 2.2.6
 
@@ -1141,10 +1093,9 @@
     tags:
       - 2.2.9
 
-  # apache2 is the SLES package name for httpd
   - name: 2.2.10 - Remove httpd; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] + [ 'apache2' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
     when: http_server is defined and not http_server
     tags:
       - 2.2.10
@@ -1401,21 +1352,7 @@
         when: not ipv6_disable_grub.found and ipv6_disable
         tags:
           - 3.3.3
-
-      # use sysctl module to disable ipv6 at the kernel level
-      - name: 3.3 - Disable IPv6 in sysctl
-        sysctl:
-          name: "{{ item }}"
-          value: "1"
-          reload: yes
-          state: present
-          sysctl_set: yes
-        loop:
-          - net.ipv6.conf.all.disable_ipv6
-          - net.ipv6.conf.default.disable_ipv6
-        tags:
-          - 3.3.3
-    when: not ipv6_disable
+    when: ipv6_disable
     tags:
       3.3.0
 
@@ -1426,7 +1363,7 @@
     block:
       - name: 3.4.1 - Install tcpwrappers
         package:
-          name: tcp_wrappers
+          name: "{{ tcpwrappers_pkg }}"
           state: present
 
       # use lineinfile to make sure everyone has access to tcpwrappers
@@ -1492,12 +1429,12 @@
   #  to remove packages from the system that are not needed.
       - name: 3.5.0 - Process uncommon network list
         lineinfile:
-          dest=/etc/modprobe.d/CIS.conf
-          line="install {{ item }} /bin/true"
-          state=present
-          create=yes
-        loop:
-          - uncommon_network
+          dest: /etc/modprobe.d/CIS.conf
+          line: "install {{ item }} /bin/true"
+          state: present
+          create: yes
+        with_items:
+          - "{{ uncommon_network  }}"
     tags:
       - 3.5.0
 
@@ -1586,6 +1523,7 @@
           - { find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email' } # 4.1.1.2
           - { find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root' } # 4.1.1.2
           - { find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend' } # 4.1.1.2
+        notify: restart auditd
         tags:
           - 4.1.1.2
           - 4.1.1.3
@@ -1921,15 +1859,6 @@
     tags:
       - 5.1.1
 
-  - name: 5.1.1 - Ensure cron is enabled (SLES)
-    service:
-      name: cron
-      enabled: yes
-      state: started
-    when: ansible_distribution == "SLES"
-    tags:
-      - 5.1.1
-
   - name: 5.1.2 - Ensure permissions on /etc/crontab
     file:
       path: /etc/crontab
@@ -1979,7 +1908,7 @@
         replace:
           path: /etc/ssh/sshd_config
           replace: "LogLevel {{ ssh_log_level | upper }}"
-          regexp: '^LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
+          regexp: '^#?LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
         notify:  restart sshd
         when: ssh_log_level == "INFO" or ssh_log_level == "WARN"
         tags:
@@ -2112,7 +2041,7 @@
           path: /etc/security/pwquality.conf
           line: dcredit = -1
           regexp: "^dcredit = -1"
-          insertafter: "^# dcredit = 0"
+          insertafter: "^# dcredit ="
         when: password_req_digit
 
       - name: 5.3.1 - require at least one uppercase letter in passwords
@@ -2120,7 +2049,7 @@
           path: /etc/security/pwquality.conf
           line: ucredit = -1
           regexp: "^ucredit = -1"
-          insertafter: "^# ucredit = 0"
+          insertafter: "^# ucredit ="
         when: password_req_upper
 
       - name: 5.3.1 - require at least one lowercase letter in passwords
@@ -2128,7 +2057,7 @@
           path: /etc/security/pwquality.conf
           line: lcredit = -1
           regexp: "^lcredit = -1"
-          insertafter: "^# lcredit = 0"
+          insertafter: "^# lcredit ="
         when: password_req_lower
 
       - name: 5.3.1 - Require at least one special character in passwords
@@ -2136,7 +2065,7 @@
           path: /etc/security/pwquality.conf
           line: ocredit = -1
           regexp: "^ocredit = -1"
-          insertafter: "^# ocredit = 0"
+          insertafter: "^# ocredit ="
         when: password_req_digit
 
       - name: 5.3.1 - Require at least {{ password_min_length }} characters in passwords
@@ -2144,7 +2073,7 @@
           path: /etc/security/pwquality.conf
           line: minlen = {{ password_min_length }}
           regexp: "^minlen = {{ password_min_length }}"
-          insertafter: "^# minlen = 9"
+          insertafter: "^# minlen ="
         when: password_req_digit
     tags:
       - 5.3.1
@@ -2157,37 +2086,15 @@
 
   - name: 5.3.4 - Ensure password hashing algorithm is set to sha-512
     block:
-      - name: 5.3.4 - SLES specific password settings
-        block:
-          - name: 5.3.4 - Determine if we are currently using sha512 password
-            lineinfile:
-              path: /etc/pam.d/common-password
-              regexp: 'pam_unix.so*sha512'
-              state: absent
-            check_mode: yes
-            changed_when: false
-            register: sha512_exist
-            failed_when: false
+    - name: 5.3.4 - Determine if we are currently using sha512 password
+      command: authconfig --test
+      register: sha512_exist
+      changed_when: false
 
-          - name: 5.3.4 - Determine if we are currently using sha512 password
-            replace:
-              dest: /etc/pam.d/common-password
-              regexp: 'pam_unix.so'
-              replace: 'pam_unix.so    sha512'
-            when: not sha512_exist.found
-        when: ansible_distribution == "SLES"
-
-      - name: 5.3.4 - non-SLES password settings
-        block:
-          - name: 5.3.4 - Determine if we are currently using sha512 password
-            command: authconfig --test
-            register: sha512_exist
-            changed_when: false
-
-          - name: 5.3.4 - SHA-512 Password setting
-            command: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
-            when: not sha512_exist.stdout is search("sha512")
-            failed_when: false
+    - name: 5.3.4 - SHA-512 Password setting
+      command: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
+      when: not sha512_exist.stdout is search("sha512")
+      failed_when: false
     tags:
       5.3.4
 
@@ -2256,18 +2163,6 @@
     tags:
       - 5.4.4
 
-  - name: 5.4.4 - Ensure umask is set (SLES)
-    replace:
-      path: "{{ item }}"
-      replace: "     umask {{ default_umask }}"
-      regexp: '^\s*umask\s*022'
-    when: ansible_distribution == "SLES"
-    loop:
-      - /etc/bash.bashrc.local
-      - /etc/profile.local
-    tags:
-      - 5.4.4
-
   - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less
     blockinfile:
       path: "{{ item }}"
@@ -2280,18 +2175,6 @@
     tags:
       - 5.4.5
 
-  - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less (SLES)
-    blockinfile:
-      path: "{{ item }}"
-      block: "TMOUT={{ shell_timeout }}"
-      marker: "# {mark} Ansible Managed CIS Timeout"
-      create: yes
-    loop:
-      - /etc/bash.bashrc.local
-      - /etc/profile.local
-    when: ansible_distribution == "SLES"
-    tags:
-      - 5.4.5
 
   # 5.5.5,  Ensure root login is restricted to system console
   # not easily automatable because of the various TTYs on a machine
@@ -2341,7 +2224,7 @@
     tags:
       - 6.1.3
 
-  - name: 6.1.[3,5] - Ensure permissions on /etc/shadow /etc/gshadow
+  - name: 6.1.[3,5] - Ensure permissions on /etc/gshadow
     file:
       path: /etc/{{ item }}
       owner: root
@@ -2353,7 +2236,7 @@
     tags:
       - 6.1.5
 
-  - name: 6.1.[6-8] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
+  - name: 6.1.[6-8] - Ensure permissions on /etc/passwd- /etc/shadow- /etc/group-
     file:
       path: /etc/{{ item }}
       owner: root
@@ -2368,7 +2251,7 @@
       - 6.1.7
       - 6.1.8
 
-  - name: 6.1.9 - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
+  - name: 6.1.9 - Ensure permissions on /etc/passwd- /etc/gshadow-
     file:
       path: /etc/{{ item }}
       owner: root
