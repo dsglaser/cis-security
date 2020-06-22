@@ -1032,7 +1032,7 @@
           dest: /etc/systemd/system/default.target
           owner: root
           group: root
-        when: not graphical_interface
+        when: not graphical_interface and ansible_distribution != "SLES"
 
       - name: 2.2.2 - Set default runlevel (graphical)
         file:
@@ -1040,7 +1040,7 @@
           dest: /etc/systemd/system/default.target
           owner: root
           group: root
-        when: graphical_interface
+        when: graphical_interface and ansible_distribution != "SLES"
     tags:
       - 2.2.2
 

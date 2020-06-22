@@ -50,6 +50,22 @@
     tags:
       - 1.6.0
 
+  - name: 2.2.2 - Set default runlevel (non graphical)
+    file:
+      src: /usr/lib/systemd/system/multi-user.target
+      dest: /etc/systemd/system/default.target
+      owner: root
+      group: root
+    when: not graphical_interface
+
+  - name: 2.2.2 - Set default runlevel (graphical)
+    file:
+      src: /usr/lib/systemd/system/graphical.target
+      dest: /etc/systemd/system/default.target
+      owner: root
+      group: root
+    when: graphical_interface
+
   - name: create empty list for unneeded packages
     set_fact:
       unneeded_packages: []
