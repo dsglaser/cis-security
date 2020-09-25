@@ -590,6 +590,36 @@
 
   # 1.5 Secure Boot settings
   # Use file module to set permissions on grub files
+
+  - name: 1.5.0 - Check if the EFI directory exists
+    stat:
+      path: "/boot/efi/EFI/{{ ansible_distribution | lower }}/grub2.cfg"
+    register: efidir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in EFI location
+    set_fact:
+      grub_cfg_path: "{{ efidir.stat.path }}"
+    when: efidir.stat.path is defined
+    tags:
+      1.5.1
+
+  - name: 1.5.0 - Check if the EFI directory exists
+    stat:
+      path: "/boot/grub2/grub.cfg"
+    register: grubdir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in EFI location
+    set_fact:
+      grub_cfg_path: "{{ grubdir.stat.path }}"
+    when: grubdir.stat.path
+    tags:
+      1.5.1
+
+  # Use file module to set permissions on grub files
   - name: 1.5.1 - Set permissions on grub.cfg
     file:
       path: "{{ item }}"
@@ -597,7 +627,8 @@
       group: root
       mode: 0600
     loop:
-      - /boot/grub/grub.cfg
+      - "{{ grub_cfg_path }}"
+      - /boot/grub/grubenv
     tags:
       - 1.5.1
 
@@ -1546,7 +1577,7 @@
       - name: 4.1.8 - Ensure session initiation information is collected
         template:
           dest: /etc/audit/rules.d/sessions.rules
-          src: audit_rules/session.rules
+          src: audit_rules/sessions.rules
           owner: root
           group: root
           mode: 0600
@@ -1569,7 +1600,7 @@
       - name: 4.1.10 - Ensure unsuccessful unauthorized file access attempts are collected
         template:
           dest: /etc/audit/rules.d/bad-file-access.rules
-          src: bad-file-access.rules
+          src: audit_rules/bad-file-access.rules
           owner: root
           group: root
           mode: 0600

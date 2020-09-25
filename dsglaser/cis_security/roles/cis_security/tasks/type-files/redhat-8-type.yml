@@ -605,6 +605,36 @@
       - 1.4.0
 
   # 1.5 Secure Boot settings
+
+  # Determine if we are using LILO or EFI
+  - name: 1.5.0 - Check if the EFI directory exists
+    stat:
+      path: "/boot/efi/EFI/{{ ansible_distribution | lower }}/grub.cfg"
+    register: efidir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in EFI location
+    set_fact:
+      grub_cfg_path: "{{ efidir.stat.path }}"
+    when: efidir.stat.path is defined
+    tags:
+      1.5.1
+
+  - name: 1.5.0 - Check if the LILO path exists
+    stat:
+      path: "/boot/grub2/grub.cfg"
+    register: grubdir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in LILO location
+    set_fact:
+      grub_cfg_path: "{{ grubdir.stat.path }}"
+    when: grubdir.stat.path is defined
+    tags:
+      1.5.1
+
   # Use file module to set permissions on grub files
   - name: 1.5.1 - Set permissions on grub.cfg
     file:
@@ -613,7 +643,7 @@
       group: root
       mode: 0600
     loop:
-      - /boot/grub2/grub.cfg
+      - "{{ grub_cfg_path }}"
       - /boot/grub2/grubenv
     tags:
       - 1.5.1
@@ -738,9 +768,9 @@
   # Replace the current selinux policy with whatever the variable is set for
   - name: 1.7.1.3 - Set SELinux policy to {{ selinux_policy }}
     replace:
-      dest=/etc/selinux/config
-      regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
-      replace="SELINUXTYPE={{ selinux_policy }}"
+      dest: /etc/selinux/config
+      regexp: "^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
+      replace: "SELINUXTYPE={{ selinux_policy }}"
     when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
     tags:
       - 1.7.1.3

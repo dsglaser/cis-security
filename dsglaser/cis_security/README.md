@@ -64,14 +64,14 @@ ok: [192.168.122.252]
 ```
 
 The controls are implemented as Ansible tags. By default all tags are run on a given system. To
-disable a tag from running, run the playbook with the tag excluded (--exclude-tags "x.y.z"):
+disable a tag from running, run the playbook with the tag excluded (--skip-tags "x.y.z"):
 
 ```
-ansible-playbook -i <inventory> <playbook.yml> --exclude-tags "x.y.z"
+ansible-playbook -i <inventory> <playbook.yml> --skip-tags "x.y.z"
 ```
 Multiple tags can be listed, separated by commas:
 ```
-ansible-playbook -i <inventory> <playbook.yml> --exclude-tags "x.y.z,a.b.c"
+ansible-playbook -i <inventory> <playbook.yml> --skip-tags "x.y.z,a.b.c"
 ```
 Note: Some automation tasks handle multiple controls. In the role you may see something like this:
 
@@ -93,7 +93,7 @@ Note: Some automation tasks handle multiple controls. In the role you may see so
 run, you must exclude both tags:
 
 ```
-ansible-playbook -i <inventory> <playbook.yml> --exclude-tags "6.1.2,6.1.4"
+ansible-playbook -i <inventory> <playbook.yml> --skip-tags "6.1.2,6.1.4"
 ```
 Some controls are surrouned by Ansible blocks that themselves have tags. Excluding the tag that applies
 to the block will exclude all of the tasks inside of the block. If the block's tag is **not** excluded,
