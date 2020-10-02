@@ -390,11 +390,11 @@
 # Control 1.1.18, 1.1.19, 1.1.20 are for removable media
 
   # Find all local filesystem directories and set the sticky bit on world writable ones
-  - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
-    changed_when: false
-    tags:
-      - 1.1.21
+#  - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
+#    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+#    changed_when: false
+#    tags:
+#      - 1.1.21
 
   # Turn off and disable the autofs service using the service module.
   # We check to see if the package that autofs belongs to (convienently called autofs)
@@ -605,6 +605,36 @@
       - 1.4.0
 
   # 1.5 Secure Boot settings
+
+  # Determine if we are using LILO or EFI
+  - name: 1.5.0 - Check if the EFI directory exists
+    stat:
+      path: "/boot/efi/EFI/{{ ansible_distribution | lower }}/grub.cfg"
+    register: efidir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in EFI location
+    set_fact:
+      grub_cfg_path: "{{ efidir.stat.path }}"
+    when: efidir.stat.path is defined
+    tags:
+      1.5.1
+
+  - name: 1.5.0 - Check if the LILO path exists
+    stat:
+      path: "/boot/grub2/grub.cfg"
+    register: grubdir
+    tags:
+      1.5.1
+
+  - name: 1.5.1 - set variable for grub.cfg in LILO location
+    set_fact:
+      grub_cfg_path: "{{ grubdir.stat.path }}"
+    when: grubdir.stat.path is defined
+    tags:
+      1.5.1
+
   # Use file module to set permissions on grub files
   - name: 1.5.1 - Set permissions on grub.cfg
     file:
@@ -613,7 +643,7 @@
       group: root
       mode: 0600
     loop:
-      - /boot/grub2/grub.cfg
+      - "{{ grub_cfg_path }}"
       - /boot/grub2/grubenv
     tags:
       - 1.5.1
@@ -629,22 +659,12 @@
       - name: 1.5.3 - Check if root has a password
         lineinfile:
           path: /etc/shadow
-          regexp: '^root:[*\!|*\*]:'
+          regexp: '^root:[*\!|*\*]*:'
           state: absent
         check_mode: yes
         changed_when: false
         register: root_pw_check
         failed_when: false
-
-      - name: 1.5.3 - Set single user to use use a secure shell
-        replace:
-          dest: /usr/lib/systemd/system/{{ item }}
-          regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
-          replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
-        when: root_pw_check.found != "0" and root_password is defined
-        with_items:
-          - rescue.service
-          - emergency.service
 
       # The user module here uses a known salt to idompotently set the password for multiple runs
       #  see https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#hash-filters
@@ -654,11 +674,21 @@
           password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
         when: root_pw_check.found != "0" and root_password is defined
 
+      - name: 1.5.3 - Set single user to use use a secure shell
+        replace:
+          dest: /usr/lib/systemd/system/{{ item }}
+          regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
+          replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
+        when: root_pw_check.found != "0"
+        with_items:
+          - rescue.service
+          - emergency.service
+
       - name: 1.5.3 - If no root password is set up, notify the user and do not set password or single user mode
         debug:
           msg: "Root password is not set and no password provided. Set root_password variable per instructions and restart playbook."
         changed_when: true
-        when: root_pw_check.found != "0" and root_password is not defined
+        when: root_pw_check.found and root_password is not defined
     tags:
       - 1.5.3
 
@@ -712,7 +742,7 @@
     tags:
       - 1.7.1.1
 
-  # re-gather system facts if we installed selinux packages.
+  # re-gather system facts in case we installed selinux packages.
   #  If selinux wasn't installed, it will not populate ansible_selinux fact correctly, regathering
   #  will pull it with the right information
   - name: Regather facts
@@ -738,9 +768,9 @@
   # Replace the current selinux policy with whatever the variable is set for
   - name: 1.7.1.3 - Set SELinux policy to {{ selinux_policy }}
     replace:
-      dest=/etc/selinux/config
-      regexp="^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
-      replace="SELINUXTYPE={{ selinux_policy }}"
+      dest: /etc/selinux/config
+      regexp: "^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
+      replace: "SELINUXTYPE={{ selinux_policy }}"
     when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
     tags:
       - 1.7.1.3
@@ -766,6 +796,7 @@
       regexp: "^SELINUX=((?!{{ selinux }}).)*$"
       replace: "SELINUX={{ selinux | lower }}"
     when: selinux is defined and ( selinux | lower == "enforcing" or selinux | lower == "permissive" or selinux | lower == "disabled" )
+    notify: reboot
     tags:
       - 1.7.1.4
 
@@ -777,6 +808,7 @@
       - name: 1.7.1.5 - Generate report on unconfined running services
         shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
         register: unconfined_services_out
+        when: ansible_selinux.status != "disabled"
         failed_when: unconfined_services_out.rc == "2"
         changed_when: false
 
@@ -944,7 +976,8 @@
           enabled: no
           masked: yes
           state: stopped
-        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
+          daemon-reload: yes
+        when: "'gdm' in ansible_facts.packages and not graphical_interface"
         tags:
           - 2.2.2
 
@@ -1066,7 +1099,7 @@
 
   # control 2.2.14 skipped. RHEL uses LDAP implemented in SSSD by default
 
-  - name: 2.2.15 - Remove dhcp-server; add to removal list
+  - name: 2.2.15 - Disable dhcpd server [controlled by host variable dhcp_server]; add to removal list
     set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when: dhcp_server is defined and not dhcp_server
@@ -1269,8 +1302,8 @@
           line="install {{ item }} /bin/true"
           state=present
           create=yes
-        loop:
-          - uncommon_network
+        with_items:
+          - "{{ uncommon_network }}"
     tags:
       - 3.3.0
 
@@ -1392,18 +1425,6 @@
         notify: rebuild grub
         when: not ipv6_disable_grub.found and ipv6_disable
 
-      # use sysctl module to disable ipv6 at the kernel level
-      - name: 3.6 - Disable IPv6 in sysctl
-        sysctl:
-          name: "{{ item }}"
-          value: "1"
-          reload: yes
-          state: present
-          sysctl_set: yes
-        loop:
-          - net.ipv6.conf.all.disable_ipv6
-          - net.ipv6.conf.default.disable_ipv6
-    when: not ipv6_disable
     tags:
       3.6.0
 
@@ -1450,7 +1471,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
-        notify: rebuild ubuntu-grub
+        notify: rebuild grub
         when: not audit_exist.found
         tags:
           - 4.1.1.3
@@ -1472,7 +1493,7 @@
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
-        notify: rebuild ubuntu-grub
+        notify: rebuild grub
         when: not audit_backlog_exist.found
         tags:
           - 4.1.1.4
@@ -1494,7 +1515,7 @@
           dest: /etc/default/grub
           regexp: 'audit_backlog_limit=[\S]*'
           replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
-        notify: rebuild ubuntu-grub
+        notify: rebuild grub
         when: audit_backlog_exist.found and not our_limit.found
         tags:
           - 4.1.1.4
@@ -1512,6 +1533,7 @@
           - { find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email' } # 4.1.2.2
           - { find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root' } # 4.1.2.2
           - { find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend' } # 4.1.2.2
+        notify: restart auditd
         tags:
           - 4.1.2.1
           - 4.1.2.2
