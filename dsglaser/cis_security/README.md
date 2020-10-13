@@ -96,7 +96,7 @@ run, you must exclude both tags:
 ```
 ansible-playbook -i <inventory> <playbook.yml> --skip-tags "6.1.2,6.1.4"
 ```
-Some controls are surrouned by Ansible blocks that themselves have tags. Excluding the tag that applies
+Some controls are surrounded by Ansible blocks that themselves have tags. Excluding the tag that applies
 to the block will exclude all of the tasks inside of the block. If the block's tag is **not** excluded,
 then individual tasks inside of the block can be excluded by excluding their tags.
 
