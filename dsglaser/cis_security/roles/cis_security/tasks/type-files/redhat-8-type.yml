@@ -717,7 +717,7 @@
     tags:
       - 1.6.1
 
-  - name: 1.6.2 - Ensure address space layout reandomization (ASLR) is enabled
+  - name: 1.6.2 - Ensure address space layout randomization (ASLR) is enabled
       # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
       #  to reload them immediately if 'reload' is set to 'yes'.
     sysctl:
