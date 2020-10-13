@@ -100,7 +100,7 @@ Some controls are surrounded by Ansible blocks that themselves have tags. Exclud
 to the block will exclude all of the tasks inside of the block. If the block's tag is **not** excluded,
 then individual tasks inside of the block can be excluded by excluding their tags.
 
-The list of tags and their associated crontol descriptions are listed in the [controls_list](./docs/controls_list.md) file for Linux and [control_list_win](./docs/controls_list_win.md_ file for Windows)
+The list of tags and their associated control descriptions are listed in the [controls_list](./docs/controls_list.md) file for Linux and [control_list_win](./docs/controls_list_win.md_ file for Windows)
 in the docs directory.
 
 In addition to tags, there are a number of variables that can be set which will enable or disable
