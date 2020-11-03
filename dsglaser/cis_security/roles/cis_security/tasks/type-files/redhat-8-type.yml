@@ -567,7 +567,7 @@
           remote_src: yes
           dest: /var/lib/aide/aide.db.gz
           mode: preserve
-        when: not aide_path.stat.exists or not aide_path.stat.isreg
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
         changed_when: false
         tags:
           - 1.4.1
@@ -1334,14 +1334,13 @@
           masked: yes
         when: "'nftables' in ansible_facts.packages"
 
-      - name: 3.4.2.4 - Ensure default zone is set for firewalld
-        command: /usr/bin/firewall-cmd --get-default-zone
-        changed_when: false
-        register: firewalld_zone
-
       - name: 3.4.2.4 - Set default zone
-        command: "/usr/bin/firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+        lineinfile:
+            path: "/etc/firewalld/firewalld.conf"
+            regexp: '^DefaultZone\s*((?!{{ firewalld_default_zone }}).)*$'
+            line: "DefaultZone={{ firewalld_default_zone }}"
         when: firewalld_zone is defined and firewalld_zone.stdout != firewalld_default_zone
+        notify: restart firewalld
 
       # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
       # 3.4.2.6 Ensure unnecessary services and ports are not accepted

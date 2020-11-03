@@ -46,6 +46,11 @@
     name: firewalld
     state: started
 
+- name: restart firewalld
+  service:
+    name: firewalld
+    state: restarted
+
 - name: start iptables
   service:
     name: iptables
