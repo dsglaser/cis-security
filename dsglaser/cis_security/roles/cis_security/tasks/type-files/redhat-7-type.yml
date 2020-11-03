@@ -1671,7 +1671,7 @@
         tags:
           4.1.10
 
-      - name: 4.1.10 - Ensure unsuccessful unauthorized file access attempts are collected
+      - name: 4.1.11 - Ensure unsuccessful unauthorized file access attempts are collected
         template:
           dest: /etc/audit/rules.d/bad-file-access.rules
           content:
