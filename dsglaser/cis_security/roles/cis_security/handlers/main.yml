@@ -58,7 +58,7 @@
 
 - name: restart tmpfs
   systemd:
-    name: tmpfs.mount
+    name: tmp.mount
     state: restarted
     enabled: yes
     masked: no
