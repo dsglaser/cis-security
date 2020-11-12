@@ -4,11 +4,16 @@
 # The auditd service has to be restarted with the actual SYS5 service
 # command rather than the service module (which uses systemd)
 # https://access.redhat.com/solutions/2664811
-- name: restart auditd
+- name: reload audit rules
+  shell: /usr/sbin/augenrules --load
+  listen: "restart auditd"
+
+- name: restart audit service
   service:
     name: auditd
     state: restarted
     use: service
+  listen: "restart auditd"
 
 # reboot a machine. Give it 10 minutes to come up in case it
 #  needs to do a selinux relabel

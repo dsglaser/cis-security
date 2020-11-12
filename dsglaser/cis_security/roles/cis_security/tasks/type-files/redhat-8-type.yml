@@ -75,10 +75,19 @@
       - 1.1.1.4
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
-  - name: Process unused_filesystem list
+  - name: Remove unused_filesystem list
     dnf:
       name: unused_filesystems
       state: absent
+
+  - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
+    lineinfile:
+      dest: /etc/modprobe.d/CIS.conf
+      line: "install {{ item }} /bin/true"
+      state: present
+      create: yes
+    with_items:
+      - "{{ unused_filesystems }}"
 
   # Create and configure the local-fs systemd service file
   - name: 1.1.[2-5] - Ensure /tmp is configured
@@ -599,6 +608,12 @@
         tags:
           - 1.4.2
 
+      - name: Enable aidecheck.service
+        systemd:
+          name: aidecheck.service
+          enabled: true
+        tags: 1.4.2
+
       # Copy in the already configured systemd timer file using the copy module.
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the timer
@@ -879,7 +894,7 @@
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.3 - Install issue.net banners
     copy:
-      src: issue
+      src: "{{ issue_file }}"
       dest: /etc/issue.net
       owner: root
       group: root
@@ -969,6 +984,18 @@
     notify: restart chronyd
     tags:
       - 2.2.1.2
+
+  - name: 2.2.1.3 - configure sysconfig time_server options
+    template:
+      src: "{{ time_service }}d"
+      dest: /etc/sysconfig/{{ time_service }}d
+      owner: root
+      group: root
+      mode: 0644
+    when: time_service == "chrony" or time_service == "ntp"
+    notify: restart {{ time_service }}d
+    tags:
+      - 2.2.1.3
 
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
@@ -1999,8 +2026,8 @@
       - name: 5.2.8 - Ensure IgnoreRhosts is set
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^IgnoreRhosts\s*no'
+          line: "IgnoreRhosts yes"
+          regexp: '^IgnoreRhosts\s*[^y]'
         notify:  restart sshd
         tags:
           - 5.2.8
@@ -2008,8 +2035,8 @@
       - name: 5.2.9 - Ensure HostbasedAuthentication is disabled
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^HostbasedAuthentication\s*yes'
+          line: "HostbasedAuthentication no"
+          regexp: '^HostbasedAuthentication\s*[^n]'
         notify:  restart sshd
         tags:
           - 5.2.9
