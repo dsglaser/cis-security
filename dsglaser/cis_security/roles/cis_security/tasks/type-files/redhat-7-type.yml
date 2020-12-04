@@ -414,6 +414,7 @@
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
@@ -433,6 +434,7 @@
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
@@ -452,6 +454,7 @@
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
@@ -876,6 +879,7 @@
             register: unconfined_services_out
             failed_when: unconfined_services_out.rc == "2"
             changed_when: false
+            check_mode: no
 
           # Print any findings to the user
           - name: 1.6.1.5 - Report on unconfined running services to user
@@ -2417,6 +2421,7 @@
         shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
+        check_mode: no
 
       - name: 6.2.1 - Report the named users to the report
         debug:
@@ -2448,6 +2453,7 @@
         shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
+        check_mode: no
 
       - name: Report on mulitple accounts with UID of 0
         debug:
@@ -2463,6 +2469,7 @@
         script: files/path_check.sh
         changed_when: false
         register: path_check
+        check_mode: no
 
       - name: 6.2.6 - Print report to user
         debug:
@@ -2486,6 +2493,7 @@
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.15 - Report to user any unreferenced groups
         debug:
@@ -2502,7 +2510,7 @@
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
-
+        check_mode: no
 
       - name: 6.2.16 - Print report of duplicated UIDs to user
         debug:
@@ -2519,6 +2527,7 @@
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
+        check_mode: no
 
       - name: 6.2.17 - Print report of duplcate GIDs to user
         debug:
@@ -2535,6 +2544,7 @@
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
+        check_mode: no
 
       - name: 6.2.18 - Print report of duplicate users to user
         debug:
@@ -2551,6 +2561,7 @@
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.19 - Print report of duplicate groups to user
         debug:
