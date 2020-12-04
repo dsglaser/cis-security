@@ -381,7 +381,7 @@
       - name: 1.1.17 - Report to user
         debug:
           msg: "FAILED CONTROL: /dev/shm does not have noexec set"
-        when: devexec_nosuid_out is defined and devshm_noexec_out.stdout
+        when: devshm_noexec_out is defined and devshm_noexec_out.stdout
         changed_when: true
     tags:
     # This whole block can be turned off by excluding the following tag(s)
