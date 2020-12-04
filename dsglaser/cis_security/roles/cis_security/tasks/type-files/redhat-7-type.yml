@@ -29,6 +29,7 @@
     command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
+    check_mode: no
     tags:
       - always
 
@@ -747,6 +748,7 @@
         shell: "/usr/bin/journalctl | /usr/bin/grep 'protection: active' "
         register: nx_protection
         changed_when: false
+        check_mode: no
 
       # If we can't verify that it is active, we notify the user. This has to be set
       #  in the BIOS or with a special kernel (32 bit kernels only)
@@ -1242,7 +1244,8 @@
     tags:
       - 2.2.21
 
-  - debug:
+  - name: 2.2.21 - list of packages to remove
+    debug:
       var: unneeded_packages
 
   # With the list complete, use it with the system's package manager
@@ -2187,6 +2190,7 @@
       command: /usr/sbin/authconfig --enableshadow --passalgo sha512 --update
       when: not sha512_exist.stdout is search("sha512")
       failed_when: false
+    when: not ansible_check_mode
     tags:
       5.3.4
 
@@ -2363,6 +2367,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.10 - Print any world writable files found
         debug:
@@ -2380,6 +2385,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.11 - Print any unowned files found
         debug:
@@ -2397,6 +2403,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.12 - Print any ungrouped files found
         debug:

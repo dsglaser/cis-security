@@ -372,6 +372,7 @@
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
@@ -391,6 +392,7 @@
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
@@ -410,6 +412,7 @@
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
@@ -689,6 +692,7 @@
         shell: "/bin/journalctl | /bin/grep 'protection: active' "
         register: nx_protection
         changed_when: false
+        check_mode: no
 
       # If we can't verify that it is active, we notify the user. This has to be set
       #  in the BIOS or with a special kernel (32 bit kernels only)
@@ -1809,6 +1813,7 @@
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
+        check_mode: no
 
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
         lineinfile:
@@ -2366,6 +2371,7 @@
         shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.10 - Print any world writable files found
         debug:
@@ -2400,6 +2406,7 @@
         shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.12 - Print any ungrouped files found
         debug:
@@ -2424,6 +2431,7 @@
         shell: "/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
+        check_mode: no
 
       - name: 6.2.1 - Report the named users to the report
         debug:
@@ -2457,6 +2465,7 @@
         shell: "/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
+        check_mode: no
 
       - name: 6.2.6 - Report on mulitple accounts with UID of 0
         debug:
@@ -2474,6 +2483,7 @@
         script: files/path_check.sh
         changed_when: false
         register: path_check
+        check_mode: no
 
       - name: 6.2.7 - Print report to user
         debug:
@@ -2495,6 +2505,7 @@
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.15 - Report to user any unreferenced groups
         debug:
@@ -2511,7 +2522,7 @@
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
-
+        check_mode: no
 
       - name: 6.2.16 - Print report of duplicated UIDs to user
         debug:
@@ -2528,6 +2539,7 @@
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
+        check_mode: no
 
       - name: 6.2.17 - Print report of duplcate GIDs to user
         debug:
@@ -2544,6 +2556,7 @@
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
+        check_mode: no
 
       - name: 6.2.18 - Print report of duplicate users to user
         debug:
@@ -2560,6 +2573,7 @@
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.19 - Print report of duplicate groups to user
         debug:

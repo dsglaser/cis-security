@@ -29,6 +29,7 @@
     command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
+    check_mode: no
     tags:
       - always
 
@@ -1173,6 +1174,10 @@
     tags:
       - 2.3.3
 
+  - name: 2.3.3 - list of packages to remove
+    debug:
+      var: unneeded_packages
+
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
@@ -1841,6 +1846,7 @@
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
+        check_mode: no
 
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
         lineinfile:
@@ -2366,6 +2372,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.10 - Print any world writable files found
         debug:
@@ -2383,6 +2390,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.11 - Print any unowned files found
         debug:
@@ -2400,6 +2408,7 @@
         shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
+        check_mode: no
 
       - name: 6.1.12 - Print any ungrouped files found
         debug:
@@ -2457,6 +2466,7 @@
         script: files/path_check.sh
         changed_when: false
         register: path_check
+        check_mode: no
 
       - name: 6.2.3 - Print report to user
         debug:
@@ -2464,7 +2474,7 @@
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
             - "that exist in root's path because of this. It should be run as root on the target machine manually."
             - " {{ path_check.stdout }}"
-        when: path_check.stdout not ansible_check_mode
+        when: path_check.stdout and not ansible_check_mode
     tags:
       - 6.2.3
 
