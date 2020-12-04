@@ -100,10 +100,19 @@
 
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
-  - name: Process unused_filesystem list
+  - name: Remove unused_filesystem list
     package:
       name: unused_filesystems
       state: absent
+
+  - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
+    lineinfile:
+      dest: /etc/modprobe.d/CIS.conf
+      line: "install {{ item }} /bin/true"
+      state: present
+      create: yes
+    with_items:
+      - "{{ unused_filesystems }}"
 
   # Determine if a filesystem is on a separate partition, if so, then
   #  check to see if various filesystem options exist for the filesystem
@@ -405,6 +414,7 @@
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
@@ -424,6 +434,7 @@
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
@@ -443,6 +454,7 @@
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
@@ -619,6 +631,13 @@
           mode: 0644
           setype: systemd_unit_file_t
         notify: restart aidecheck
+        tags:
+          - 1.3.2
+
+      - name: Enable aidecheck.service
+        systemd:
+          name: aidecheck.service
+          enabled: true
         tags:
           - 1.3.2
 
@@ -860,6 +879,7 @@
             register: unconfined_services_out
             failed_when: unconfined_services_out.rc == "2"
             changed_when: false
+            check_mode: no
 
           # Print any findings to the user
           - name: 1.6.1.5 - Report on unconfined running services to user
@@ -904,7 +924,7 @@
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.7.1.3 - Install issue.net banners
     copy:
-      src: issue
+      src: "{{ issue_file }}"
       dest: /etc/issue.net
       owner: root
       group: root
@@ -996,6 +1016,18 @@
     notify: restart {{ time_service }}d
     tags:
       - 2.2.1.2
+      - 2.2.1.3
+
+  - name: 2.2.1.3 - configure sysconfig time_server options
+    template:
+      src: "{{ time_service }}d"
+      dest: /etc/sysconfig/{{ time_service }}d
+      owner: root
+      group: root
+      mode: 0644
+    when: time_service == "chrony" or time_service == "ntp"
+    notify: restart {{ time_service }}d
+    tags:
       - 2.2.1.3
 
   # Chrony and ntp argue if they are both active at the same time. Disable
@@ -1112,7 +1144,7 @@
 
   - name: 2.2.7 - Remove nfs server; add to removal list
     set_fact:
-      unneeded_packages: "{{ unneeded_packages + [ 'nfs-utils' ] }}"
+      unneeded_packages: "{{ unneeded_packages + [ 'nfs-utils' ] + [ 'rpcbind'] }}"
     when: nfs_server is defined and not nfs_server
     tags:
       - 2.2.7
@@ -1210,6 +1242,9 @@
     tags:
       - 2.2.21
 
+  - debug:
+      var: unneeded_packages
+
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
@@ -1271,7 +1306,7 @@
           state: present
           sysctl_set: yes
         loop:
-          - net.ipv4.conf.all.forwarding # (3.1.1)
+          - net.ipv4.ip_forward # (3.1.1)
           - net.ipv4.conf.all.send_redirects # (3.1.2)
           - net.ipv4.conf.default.send_redirects # (3.1.2)
         notify: flush network routes
@@ -1494,6 +1529,11 @@
           masked: yes
         ignore_errors: true
         failed_when: false
+
+      - name: 3.6.1 - Remove iptables-services
+        package:
+          name: "iptables-services"
+          state: absent
 
       - name: 3.6.1 - Set default zone
         lineinfile:
@@ -1975,8 +2015,8 @@
       - name: 5.2.6 - Ensure IgnoreRhosts is set
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^IgnoreRhosts\s*no'
+          line: "IgnoreRhosts yes"
+          regexp: '^IgnoreRhosts\s*[^y]'
         notify:  restart sshd
         tags:
           - 5.2.6
@@ -1984,8 +2024,8 @@
       - name: 5.2.7 - Ensure HostbasedAuthentication is disabled
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^HostbasedAuthentication\s*yes'
+          line: "HostbasedAuthentication no"
+          regexp: '^HostbasedAuthentication\s*[^n]'
         notify:  restart sshd
         tags:
           - 5.2.7
@@ -2068,8 +2108,23 @@
         notify:  restart sshd
         tags:
           - 5.2.15
+
+      # 5.2.16 - Configure PAM - skipped
+      # 5.2.17 - Disable SSH AllowTCPForwarding
+      - name: 5.2.17 - Ensure SSH AllowTcpForwarding is disabled
+        lineinfile:
+          path: "/etc/ssh/sshd_config"
+          line: "AllowTcpForwarding no"
+          regexp: '^AllowTcpForwarding\s+(yes|no)'
+          insertafter: "^#AllowTcpForwarding"
+        notify:  restart sshd
+        tags:
+          - 5.2.17
+
     tags:
       5.2.0
+
+
 
   - name: 5.3.1 - Configure PAM files and password requirements
     block:
@@ -2366,6 +2421,7 @@
         shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
+        check_mode: no
 
       - name: 6.2.1 - Report the named users to the report
         debug:
@@ -2397,6 +2453,7 @@
         shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
+        check_mode: no
 
       - name: Report on mulitple accounts with UID of 0
         debug:
@@ -2412,6 +2469,7 @@
         script: files/path_check.sh
         changed_when: false
         register: path_check
+        check_mode: no
 
       - name: 6.2.6 - Print report to user
         debug:
@@ -2435,6 +2493,7 @@
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.15 - Report to user any unreferenced groups
         debug:
@@ -2451,7 +2510,7 @@
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
-
+        check_mode: no
 
       - name: 6.2.16 - Print report of duplicated UIDs to user
         debug:
@@ -2468,6 +2527,7 @@
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
+        check_mode: no
 
       - name: 6.2.17 - Print report of duplcate GIDs to user
         debug:
@@ -2484,6 +2544,7 @@
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
+        check_mode: no
 
       - name: 6.2.18 - Print report of duplicate users to user
         debug:
@@ -2500,6 +2561,7 @@
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.19 - Print report of duplicate groups to user
         debug:

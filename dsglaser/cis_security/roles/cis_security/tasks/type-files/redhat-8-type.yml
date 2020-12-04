@@ -75,10 +75,19 @@
       - 1.1.1.4
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
-  - name: Process unused_filesystem list
+  - name: Remove unused_filesystem list
     dnf:
       name: unused_filesystems
       state: absent
+
+  - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
+    lineinfile:
+      dest: /etc/modprobe.d/CIS.conf
+      line: "install {{ item }} /bin/true"
+      state: present
+      create: yes
+    with_items:
+      - "{{ unused_filesystems }}"
 
   # Create and configure the local-fs systemd service file
   - name: 1.1.[2-5] - Ensure /tmp is configured
@@ -338,6 +347,7 @@
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
@@ -357,6 +367,7 @@
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
@@ -376,6 +387,7 @@
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
+        check_mode: no
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
@@ -598,6 +610,12 @@
         notify: restart aidecheck
         tags:
           - 1.4.2
+
+      - name: Enable aidecheck.service
+        systemd:
+          name: aidecheck.service
+          enabled: true
+        tags: 1.4.2
 
       # Copy in the already configured systemd timer file using the copy module.
       # Be sure to set the selinux context.
@@ -823,6 +841,7 @@
         when: ansible_selinux.status != "disabled"
         failed_when: unconfined_services_out.rc == "2"
         changed_when: false
+        check_mode: no
 
       # Print any findings to the user
       - name: 1.7.1.5 - Report on unconfined running services to user
@@ -879,7 +898,7 @@
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.3 - Install issue.net banners
     copy:
-      src: issue
+      src: "{{ issue_file }}"
       dest: /etc/issue.net
       owner: root
       group: root
@@ -969,6 +988,17 @@
     notify: restart chronyd
     tags:
       - 2.2.1.2
+
+  - name: 2.2.1.3 - configure sysconfig time_server options
+    template:
+      src: "{{ time_service }}d"
+      dest: /etc/sysconfig/{{ time_service }}d
+      owner: root
+      group: root
+      mode: 0644
+    notify: restart {{ time_service }}d
+    tags:
+      - 2.2.1.3
 
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
@@ -1999,8 +2029,8 @@
       - name: 5.2.8 - Ensure IgnoreRhosts is set
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^IgnoreRhosts\s*no'
+          line: "IgnoreRhosts yes"
+          regexp: '^IgnoreRhosts\s*[^y]'
         notify:  restart sshd
         tags:
           - 5.2.8
@@ -2008,8 +2038,8 @@
       - name: 5.2.9 - Ensure HostbasedAuthentication is disabled
         lineinfile:
           path: /etc/ssh/sshd_config
-          state: absent
-          regexp: '^HostbasedAuthentication\s*yes'
+          line: "HostbasedAuthentication no"
+          regexp: '^HostbasedAuthentication\s*[^n]'
         notify:  restart sshd
         tags:
           - 5.2.9
@@ -2394,6 +2424,8 @@
         shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
+        check_mode: no
+
 
       - name: 6.2.1 - Report the named users to the report
         debug:
@@ -2432,7 +2464,7 @@
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
             - "that exist in root's path because of this. It should be run as root on the target machine manually."
             - " {{ path_check.stdout }}"
-        when: path_check.stdout
+        when: path_check.stdout not ansible_check_mode
     tags:
       - 6.2.3
 
@@ -2442,6 +2474,7 @@
         shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
+        check_mode: no
 
       - name: 6.2.6 - Report on mulitple accounts with UID of 0
         debug:
@@ -2464,6 +2497,7 @@
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.14 - Report to user any unreferenced groups
         debug:
@@ -2480,7 +2514,7 @@
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
-
+        check_mode: no
 
       - name: 6.2.15 - Print report of duplicated UIDs to user
         debug:
@@ -2497,6 +2531,7 @@
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
+        check_mode: no
 
       - name: 6.2.16 - Print report of duplcate GIDs to user
         debug:
@@ -2513,6 +2548,7 @@
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
+        check_mode: no
 
       - name: 6.2.17 - Print report of duplicate users to user
         debug:
@@ -2529,6 +2565,7 @@
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
+        check_mode: no
 
       - name: 6.2.18 - Print report of duplicate groups to user
         debug:
@@ -2545,6 +2582,7 @@
         register: shadow_out
         changed_when: false
         failed_when: shadow_out.rc == "2"
+        check_mode: no
 
       - name: 6.2.19 - Print report of shadow group to user
         debug:
