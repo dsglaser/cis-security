@@ -119,7 +119,18 @@
     block:
       # Create a file to hold the system specific local-fs service information
       #  be sure to set the selinux security context. Even if selinux is disabled,
-      #  it's a good idea to make sure it is set on files
+      #  it's a good idea to make sure it is set on files      
+      - name: 1.1.[2-5] - Configure config file for tmpfs
+        blockinfile:
+          path: /etc/systemd/system/tmp.mount
+          block: |
+            [Mount]
+            What=tmpfs
+            Where=/tmp
+            Type=tmpfs
+            Options=mode=1777,strictatime,noexec,nodev,nosuid
+          create: true
+
       - name: Ensure the local-fs directory is created
         file:
           path: /etc/systemd/system/local-fs.target.wants
@@ -129,19 +140,16 @@
           mode: 0755
           setype: etc_t
 
-      # Add content to the file we created using the blockinfile command.
-      # Notify systemd to reload its daemons and start the local-fs service
-      - name: 1.1.[2-5] - Configure config file for tmpfs
-        blockinfile:
-          path: /etc/systemd/system/local-fs.target.wants/tmp.mount
-          block: |
-            [Mount]
-            What=tmpfs
-            Where=/tmp
-            Type=tmpfs
-            Options=mode=1777,strictatime,noexec,nodev,nosuid
-          create: true
+      # symbolic link is required for .wants/ folder 
+      - name: Create a symbolic link      
+        ansible.builtin.file:
+          src: /etc/systemd/system/tmp.mount
+          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount          
+          owner: root
+          group: root        
+          state: link
         notify: restart tmpfs
+
     tags:
       - 1.1.2
       - 1.1.3
