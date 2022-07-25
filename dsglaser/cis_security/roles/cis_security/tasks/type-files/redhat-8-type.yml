@@ -82,7 +82,7 @@
       state: absent
 
   - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/modprobe.d/CIS.conf
       line: "install {{ item }} /bin/true"
       state: present
@@ -575,7 +575,7 @@
           - 1.4.1
 
       - name: Wait for AIDE initialization to complete
-        async_status: jid={{ aide.ansible_job_id }}
+        ansible.builtin.async_status:: jid={{ aide.ansible_job_id }}
         register: aide_status
         until: aide_status.finished
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
@@ -613,7 +613,7 @@
           - 1.4.2
 
       - name: Enable aidecheck.service
-        systemd:
+        ansible.builtin.systemd:
           name: aidecheck.service
           enabled: true
         tags: 1.4.2
@@ -700,7 +700,7 @@
       # The user module here uses a known salt to idompotently set the password for multiple runs
       #  see https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#hash-filters
       - name: 1.5.3 - Set root password
-        user:
+        ansible.builtin.user:
           name: root
           password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
         when: root_pw_check.found != "0" and root_password is defined
@@ -991,7 +991,7 @@
       - 2.2.1.2
 
   - name: 2.2.1.3 - configure sysconfig time_server options
-    template:
+    ansible.builtin.template:
       src: "{{ time_service }}d"
       dest: /etc/sysconfig/{{ time_service }}d
       owner: root
@@ -1175,7 +1175,7 @@
       - 2.3.3
 
   - name: 2.3.3 - list of packages to remove
-    debug:
+    ansible.builtin.debug:
       var: unneeded_packages
 
   # With the list complete, use it with the system's package manager
@@ -2463,7 +2463,7 @@
   - name: 6.2.3 - Ensure root PATH integrity
     block:
       - name: 6.2.3 - Run script on path variable
-        script: files/path_check.sh
+        ansible.builtin.script: files/path_check.sh
         changed_when: false
         register: path_check
         check_mode: no

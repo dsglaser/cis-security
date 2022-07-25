@@ -106,7 +106,7 @@
       state: absent
 
   - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/modprobe.d/CIS.conf
       line: "install {{ item }} /bin/true"
       state: present
@@ -584,7 +584,7 @@
           - 1.4.2
 
       - name: Enable aidecheck.service
-        systemd:
+        ansible.builtin.systemd:
           name: aidecheck.service
           enabled: true
         tags:
@@ -918,7 +918,7 @@
       - 2.2.1.3
 
   - name: 2.2.1.3 - configure sysconfig time_server options
-    template:
+    ansible.builtin.template:
       src: "{{ time_service }}d"
       dest: /etc/sysconfig/{{ time_service }}d
       owner: root
