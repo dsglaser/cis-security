@@ -20,7 +20,7 @@ Benchmark Versions:
 | Operating System | OS Benchmark version |
 | -----------------|--------------------- |
 | RHEL 7 | v2.2.0 |
-| RHEL 8 | v1.0.0 |
+| RHEL 8 | v1.0.1 |
 | CentOS 7 | v2.2.0 |
 | CentOS 8 | v1.0.0 |
 | Fedora 31 | \(Fedora 28\) v1.1.0 |
