@@ -5,7 +5,7 @@
 # command rather than the service module (which uses systemd)
 # https://access.redhat.com/solutions/2664811
 - name: restart auditd
-  service:
+  ansible.windows.service:
     name: auditd
     state: restarted
     use: service
@@ -17,47 +17,47 @@
     reboot_timeout: 600
 
 - name: restart ntpd
-  service:
+  ansible.windows.service:
     name: ntpd
     state: restarted
 
 - name: restart sshd
-  service:
+  ansible.windows.service:
     name: sshd
     state: restarted
 
 - name: restart chronyd
-  service:
+  ansible.windows.service:
     name: chronyd
     state: restarted
 
 - name: restart rsyslog
-  service:
+  ansible.windows.service:
     name: rsyslog
     state: restarted
 
 - name: restart postfix
-  service:
+  ansible.windows.service:
     name: postfix
     state: restarted
 
 - name: start firewalld
-  service:
+  ansible.windows.service:
     name: firewalld
     state: started
 
 - name: restart firewalld
-  service:
+  ansible.windows.service:
     name: firewalld
     state: restarted
 
 - name: start iptables
-  service:
+  ansible.windows.service:
     name: iptables
     state: started
 
 - name: restart tmpfs
-  systemd:
+  ansible.windows.systemd:
     name: tmp.mount
     state: restarted
     enabled: yes
@@ -67,24 +67,24 @@
 # Call the grub config file rebuilding program
 # There is no grub module, so we have to do it with shell
 - name: rebuild grub
-  command: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  ansible.windows.command: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Call the grub config file rebuilding program on ubuntu
 # There is no grub module, so we have to do it with shell
 - name: rebuild ubuntu-grub
-  command: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
+  ansible.windows.command: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
 
 - name: update crypto_policy
-  command: /usr/bin/update-crypto-policies
+  ansible.windows.command: /usr/bin/update-crypto-policies
 
 - name: restart aidecheck
-  systemd:
+  ansible.windows.systemd:
     name: aidecheck
     enabled: yes
     state: restarted
 
 - name: flush network routes
-  sysctl:
+  ansible.windows.sysctl:
     name: "{{ item }}"
     value: "1"
     reload: yes
@@ -95,11 +95,11 @@
     - net.ipv6.route.flush
 
 - name: restart timesyncd
-  systemd:
+  ansible.windows.systemd:
     name: systemd.timesyncd
     enabled: yes
     state: restarted
 
 - name: restart ufw
-  ufw:
+  community.general.ufw:
     state: enabled

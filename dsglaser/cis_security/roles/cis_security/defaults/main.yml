@@ -5,9 +5,9 @@
 ## Red Hat and Red Hat clones using selinux
 selinux: "enforcing"            # Options are enforcing, permissive, and disabled. Control is 'enforcing'
 selinux_policy: "targeted"      # Options are targeted, minimum, or mls. Control has no default
-crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGAC
+crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
 
-## Ubuntu, ubuntu clones, and SLES using apparbor
+## Ubuntu, ubuntu clones, and SLES using apparmor
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 # Network Time Services
