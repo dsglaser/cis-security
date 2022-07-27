@@ -636,7 +636,7 @@
         tags:
           - 1.3.2
 
-      - name: Enable aidecheck.service
+      - name: 1.3.2 - Enable aidecheck.service
         ansible.builtin.systemd:
           name: aidecheck.service
           enabled: true
@@ -732,7 +732,7 @@
 
       # The pam_limits module will configure the lines in the limits files.
       - name: 1.5.1 - Ensure core limits are set
-        pam_limits:
+        community.general.pam_limits:
           dest: /etc/security/limits.d/CIS.conf
           domain: "*"
           limit_type: hard
@@ -941,7 +941,7 @@
     block:
       # Add our required pieces to the dconf file for GDM
       - name: 1.7.2 - Set up the dconf profile for GDM
-        blockinansible.builtin.file:
+        ansible.builtin.file:
           path: /etc/dconf/profile/gdm
           owner: root
           group: root
@@ -953,7 +953,7 @@
 
       # Set the greeter message
       - name: 1.7.2 - Set GDM to use banner message
-        blockinansible.builtin.file:
+        ansible.builtin.file:
           path: /etc/dconf/db/gdm.d/01-banner-message
           owern: root
           group: root
@@ -2261,7 +2261,7 @@
       - 5.4.4
 
   - name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less
-    blockinansible.builtin.file:
+    ansible.builtin.blockinfile:
       path: "{{ item }}"
       block: "TMOUT={{ shell_timeout }}"
       marker: "# {mark} Ansible Managed CIS Timeout"
