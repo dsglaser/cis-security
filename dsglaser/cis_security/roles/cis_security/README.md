@@ -38,7 +38,7 @@ been made to update the controls to work with the newer operating systems. Older
 To implement the collection correctly, you will require the following
 
 Control machine:
-- Ansible 2.7+
+- Ansible 2.9+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
