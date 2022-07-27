@@ -23,12 +23,12 @@
       - name: Set if we are a standalone server
         ansible.builtin.set_fact:
           domain_role: "none"
-        when: ansible_facts.windows_domain_role == "Stand-alone server"
+        when: ansible_facts.windows_domain_role == "Stand-alone server" or ansible.facts.windows_domain_role == "Stand-alone workstation"
 
       - name: Set if we are a domain member server
         ansible.builtin.set_fact:
           domain_role: "member"
-        when: ansible_facts.windows_domain_role == "Member server"
+        when: ansible_facts.windows_domain_role == "Member server" or ansible.facts.windows_domain_role == "Member workstation"
 
       - name: Set if we are domain controller (primary or secondary)
         ansible.builtin.set_fact:
@@ -43,7 +43,7 @@
   - name: 1.1 Password Policy
     block:
       - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: PasswordHistorySize
           value: "{{ password_history }}"
@@ -55,7 +55,7 @@
       # The ternary operator here is used to change the value of password_expire_days if it's
       #  value is less than 1.
       - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: MaximumPasswordAge
           value: '{{ (password_expire_days|int < 1 ) | ternary(60, password_expire_days) }}'
@@ -63,7 +63,7 @@
           - 1.1.2
 
       - name: 1.1.3 - Ensure minimum password age is set to "{{ password_min_days }}"
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: MinimumPasswordAge
           value: "{{ password_min_days }}"
@@ -71,7 +71,7 @@
           - 1.1.3
 
       - name: 1.1.4 - Ensure minimum password length is set to "{{ password_min_length }}"
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: MinimumPasswordLength
           value: "{{ password_min_length }}"
@@ -79,7 +79,7 @@
           - 1.1.4
 
       - name: 1.1.5 - Ensure 'Password must meet complexity requirements' is set to enbled
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: PasswordComplexity
           value: 1
@@ -87,7 +87,7 @@
           - 1.1.5
 
       - name: 1.1.6 - Ensure passwords are not stored with reversible encryption
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: ClearTextPassword
           value: 0
@@ -104,7 +104,7 @@
       # The ternary operator here is used to change the value of account_lockout_threshold if it's
       #  value is less than 1.
       - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: LockoutBadCount
           value: '{{ (account_lockout_threshold|int < 1 ) | ternary(10, account_lockout_threshold) }}'
@@ -112,7 +112,7 @@
           - 1.2.2
 
       - name: 1.2.3 - Ensure Reset account lockout counter after is set to 15 or more minutes
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: ResetLockoutCount
           value: '{{ (account_reset_duration|int < 15 ) | ternary(15, account_reset_duration) }}'
@@ -120,7 +120,7 @@
           - 1.2.3
 
       - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
-        ansible.windows.win_security_policy:
+        community.windows.win_security_policy:
           section: System Access
           key: LockoutDuration
           value: "{{ account_lockout_duration }}"
@@ -275,11 +275,28 @@
         tags:
           - 2.2.17
 
-      - name: 2.2.18 - Ensure symbolic link creation is restricted (member or standalone server )
-        ansible.windows.win_user_right:
-          name: SeCreateSymbolicLinkPrivilege
-          users: "{{ ms_symbolic_link_right }}"
-          action: set
+      - name: 2.2.18 - Ensure symbolic link creation is restricted (member servers and workstation )
+        block:
+          - name: Ensure symbolic link creation is restricted on member servers
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ ms_symbolic_link_right }}"
+              action: set
+            when: domain_role == "member" and ansible_os_product_type == "server"
+
+          - name: Ensure symbolic link creation is restricted on standalone servers
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ ms_symbolic_link_right }}"
+              action: set
+            when: domain_role == "none" and ansible_os_product_type == "server"
+
+          - name: Ensure symbolic link creation is restricted on standalone workstations
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ wks_symbolic_link_right }}"
+              action: set
+            when: domain_role == "none" and ansible_os_product_type == "workstation"
         tags:
           - 2.2.18
 
@@ -520,7 +537,7 @@
       - 2.3.1.2
 
   - name: 2.3.1.3 - Ensure 'Accounts - Guest account status' is set to 'Disabled'
-    ansible.windows.win_security_policy:
+    community.windows.win_security_policy:
       section: System Access
       key: EnableGuestAccount
       value: '1'
@@ -529,7 +546,7 @@
       - 2.3.1.3
 
   - name: 2.3.1.3 - Ensure 'Accounts - Guest account status' is set to 'Disabled'
-    ansible.windows.win_security_policy:
+    community.windows.win_security_policy:
       section: System Access
       key: EnableGuestAccount
       value: '0'
@@ -547,7 +564,7 @@
       - 2.3.1.4
 
   - name: 2.3.1.5 - Rename Administrator account
-    ansible.windows.win_security_policy:
+    community.windows.win_security_policy:
       section: System Access
       key: NewAdministratorName
       value: '{{ rename_Administrator }}'
@@ -556,7 +573,7 @@
       - 2.3.1.5
 
   - name: 2.3.1.6 - Rename Guest account
-    ansible.windows.win_security_policy:
+    community.windows.win_security_policy:
       section: System Access
       key: NewGuestName
       value: '{{ rename_Administrator }}'
@@ -1188,35 +1205,35 @@
 
   # 17 Advanced Audit Policy Configuration
   - name: 17.1.1 - Ensure Audit credential validation is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Credential Validation"
       audit_type: success, failure
     tags:
       - 17.1.1
 
   - name: 17.1.2 - Ensure Kerberos Authentication Service is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Kerberos Authentication Service"
       audit_type: success, failure
     tags:
       - 17.1.2
 
   - name: 17.1.3 - Ensure Kerberos Service Ticket Operations is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Kerberos Service Ticket Operations"
       audit_type: success, failure
     tags:
       - 17.1.3
 
   - name: 17.2.1 - Ensure Application Group Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Application Group Management"
       audit_type: success, failure
     tags:
       - 17.2.1
 
   - name: 17.2.2 - Ensure Computer Account Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Computer Account Management"
       audit_type: success, failure
     when: domain_role == "controller"
@@ -1224,7 +1241,7 @@
       - 17.2.2
 
   - name: 17.2.3 - Ensure Distribution Group Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Distribution Group Management"
       audit_type: success, failure
     when: domain_role == "controller"
@@ -1232,7 +1249,7 @@
       - 17.2.3
 
   - name: 17.2.4 - Ensure Other Account Management Events is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Other Account Management Events"
       audit_type: success, failure
     when: domain_role == "controller"
@@ -1240,21 +1257,21 @@
       - 17.2.4
 
   - name: 17.2.5 - Ensure Security Group Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Security Group Management"
       audit_type: success, failure
     tags:
       - 17.2.5
 
   - name: 17.2.5 - Ensure Security Group Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "Security Group Management"
       audit_type: success, failure
     tags:
       - 17.2.5
 
   - name: 17.2.6 - Ensure User Account Management is set to 'success and failure'
-    ansible.windows.win_audit_policy_system:
+    community.windows.win_audit_policy_system:
       subcategory: "User Account Management"
       audit_type: success, failure
     tags:
