@@ -426,13 +426,15 @@
 
 # Control 1.1.18, 1.1.19, 1.1.20 are for removable media
 
-  # Finda all local filesystem directories and set the sticky bit on world writable ones
+  # Find all local filesystem directories and set the sticky bit on world writable ones
   #  The default shell might be dash instead of bash, so make sure we fire off bash, if not pipefail does not work
+  #  ignore errors because on ubuntu you can still get permission denied
   - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
     ansible.builtin.shell: set -o pipefail ; /bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
     args:
       executable: /bin/bash
     changed_when: false
+    ignore_errors: true
     tags:
       - 1.1.21
 
@@ -521,7 +523,7 @@
 
       - name: 1.4.1 - Set up database file location
         ansible.builtin.replace:
-          dest: /etc/aide.conf
+          dest: /etc/aide/aide.conf
           regexp: "^database=file:((?!{{ aide_db_name }}).)*$"
           replace: "database=file:{{ aide_db_name }}"
         tags:
@@ -529,7 +531,7 @@
 
       - name: 1.4.1 - Set up database_out file location
         ansible.builtin.replace:
-          dest: /etc/aide.conf
+          dest: /etc/aide/aide.conf
           regexp: "^database_out=file:((?!{{ aide_new_db_name }}).)*$"
           replace: "database_out=file:{{ aide_new_db_name }}"
         tags:
@@ -537,7 +539,7 @@
 
       - name: 1.4.1 - enable gzip compression for database
         ansible.builtin.lineinfile:
-          dest: /etc/aide.conf
+          dest: /etc/aide/aide.conf
           regexp: '^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$'
           line: "gzip_dbout={{ aide_gzip }}"
           state: present
@@ -549,8 +551,8 @@
       #  run the initializatoin again.
 
       - name: 1.4.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
-        ansible.builtin.command: /usr/bin/aide --init
-        when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
+        ansible.builtin.command: /usr/sbin/aideinit
+        when: ( not aide_path.stat.exists or not aide_path.stat.isreg )
         tags:
           - 1.4.1
 
@@ -626,7 +628,7 @@
 
   - name: 1.5.0 - Check if the EFI directory exists
     stat:
-      path: "/boot/grub2/grub.cfg"
+      path: "/boot/grub/grub.cfg"
     register: grubdir
     tags:
       1.5.1
@@ -908,7 +910,7 @@
   - name: 2.2.1.3 - Configure chrony
     ansible.builtin.template:
       src: "chrony.conf"
-      dest: /etc/chrony.conf
+      dest: /etc/chrony/chrony.conf
       owner: root
       group: root
       mode: 0644
@@ -919,8 +921,8 @@
 
   - name: 2.2.1.3 - configure sysconfig time_server options
     ansible.builtin.template:
-      src: "{{ time_service }}d"
-      dest: /etc/sysconfig/{{ time_service }}d
+      src: "{{ time_service }}d.ubuntu"
+      dest: /etc/default/{{ time_service }}
       owner: root
       group: root
       mode: 0644
@@ -937,7 +939,7 @@
       owner: root
       group: root
       mode: 0644
-    when: time_service == "none"
+    when: time_service == "timesync"
     notify: restart timesyncd
     tags:
       - 2.2.1.2
@@ -969,7 +971,7 @@
       # Set the current run level. The systemctl module does not handle the
       #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
       - name: 2.2.2 - Set current runlevel (non graphical)
-        ansible.builtin.command: /usr/bin/systemctl isolate multi-user.target
+        ansible.builtin.command: /bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
@@ -977,7 +979,7 @@
           - 2.2.2
 
       - name: 2.2.2 - Set current runlevel (graphical)
-        ansible.builtin.command: /usr/bin/systemctl isolate graphical.target
+        ansible.builtin.command: /bin/systemctl isolate graphical.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface

@@ -1,6 +1,6 @@
 Below are the tags used in the CIS roles on Linux Machines.
 
-|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 | Control Description | Notes |
+|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 / 20.04 | Control Description | Notes |
 | -----------------|--------------------- | -----------------|--------------------- | --------------------- |
 |  1.1.1.1  |  1.1.1.1  |  1.1.1.1      |   Remove cramfs |
 |           |  1.1.1.2  |  1.1.1.2      |   Remove freevxfs
