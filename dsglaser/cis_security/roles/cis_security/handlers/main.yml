@@ -4,6 +4,7 @@
 # The auditd service has to be restarted with the actual SYS5 service
 # command rather than the service module (which uses systemd)
 # https://access.redhat.com/solutions/2664811
+
 - name: restart auditd
   ansible.builtin.service:
     name: auditd
