@@ -9,7 +9,7 @@ namespace: dsglaser
 name: cis_security
 
 # The version of the collection. Must be compatible with semantic versioning
-version: 1.2.5
+version: 1.3.0
 
 # The path to the Markdown (.md) readme file. This path is relative to the root of the collection
 readme: README.md
@@ -23,16 +23,16 @@ authors:
 ### OPTIONAL but strongly recommended
 
 # A short summary description of the collection
-description: A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS.
+description: A collection to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, Ubuntu 18.04 LTS, and Microsoft Windows 10.
 
 # Either a single license or a list of licenses for content inside of a collection. Ansible Galaxy currently only
 # accepts L(SPDX,https://spdx.org/licenses/) licenses. This key is mutually exclusive with 'license_file'
 license:
-- GPL-2.0-or-later
+
 
 # The path to the license file for the collection. This path is relative to the root of the collection. This key is
 # mutually exclusive with 'license'
-license_file: ''
+license_file: 'docs/LICENSE'
 
 # A list of tags you want to associate with the collection for indexing/searching. A tag name has the same character
 # requirements as 'namespace' and 'name'
@@ -42,7 +42,7 @@ tags: [system, security]
 # collection label 'namespace.name'. The value is a version range
 # L(specifiers,https://python-semanticversion.readthedocs.io/en/latest/#requirement-specification). Multiple version
 # range specifiers can be set and are separated by ','
-dependencies: {}
+dependencies: {git@github.com:ansible-collections/community.general.git}
 
 # The URL of the originating SCM repository
 repository: https://github.com/dsglaser/cis-security

@@ -1,6 +1,6 @@
 # cis_security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu 18.04 / 20.04 LTS and certain Windows servers.
 
 ### Introduction
 
@@ -20,7 +20,7 @@ Benchmark Versions:
 | Operating System | OS Benchmark version |
 | -----------------|--------------------- |
 | RHEL 7 | v2.2.0 |
-| RHEL 8 | v1.0.0 |
+| RHEL 8 | v1.0.1 |
 | CentOS 7 | v2.2.0 |
 | CentOS 8 | v1.0.0 |
 | Fedora 31 | \(Fedora 28\) v1.1.0 |
@@ -29,7 +29,9 @@ Benchmark Versions:
 | Oracle Linux 8 | v1.0.0 |
 | SUSE Linux Enterprise 15 SP1 | \(SUSE Linux Enterprise 12\) v2.1.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
+| Ubuntu 20.04 LTS | \(Ubuntu 18.04 LTS\) v2.0.1 |
 | Windows Server 2019 | v1.8.1 |
+| Windows 10 | \(Windows Server 2019\) v1.8.1 |
 
 - Some distributions use older CIS benchmarks that were the most recent at the time of creation. Efforts have
 been made to update the controls to work with the newer operating systems. Older versions of the benchmarks are listed in parenthesis.
@@ -39,7 +41,7 @@ been made to update the controls to work with the newer operating systems. Older
 To implement the collection correctly, you will require the following
 
 Control machine:
-- Ansible 2.7+
+- Ansible 2.9+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
@@ -156,3 +158,4 @@ ways files can be manipuldated with modules.
 - 2/20/2020 - dsglaser@gmail.com - Fixed numerous tests and rearranged network controls
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
 - 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
+- 7/28/2022 - dsglaser@gmail.com - Adapted as a collection. Support for Ubuntu 20.04 and Windows 10

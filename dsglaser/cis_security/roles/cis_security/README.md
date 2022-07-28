@@ -1,6 +1,6 @@
 # cis_security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
+A collection to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
 
 ### Introduction
 
@@ -38,7 +38,7 @@ been made to update the controls to work with the newer operating systems. Older
 To implement the collection correctly, you will require the following
 
 Control machine:
-- Ansible 2.7+
+- Ansible 2.9+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
@@ -47,7 +47,12 @@ Target machine:
 - WinRM connection with user with admin priviledge for Windows. Alternatively you can use an SSH connection.
   - PowerShell v3 or higher
 
-Some of the Ansible modules that are used require Ansible 2.7 and newer.
+Collection Requirements:
+- ansible.builtin
+- community.general
+- ansible.windows
+
+Requries Ansible 3 or ansible-core 2.11 or better due to runtime.yml being set up for Automation Hub.
 
 For most of the collection to work, you will need to have a package repo where you can install packages for
 the target machine. Registering with Satellite, a package repository, SCM, or a local package collection is recommended before using this, unless you exclude any tags that install packages.
@@ -155,3 +160,4 @@ ways files can be manipuldated with modules.
 - 2/20/2020 - dsglaser@gmail.com - Fixed numerous tests and rearranged network controls
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
 - 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
+- 7/24/2022 - dsglaser@gmail.com - Coversion to full collection status (Namespace: dsglaser)

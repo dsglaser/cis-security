@@ -1,6 +1,6 @@
 Below are the tags used in the CIS roles on Linux Machines.
 
-|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 | Control Description | Notes |
+|  RHEL 8 / Fedora 31 / CentOS 8 / Oracle 8 |  RHEL 7 / Centos 7 / Oracle 7  / SLES 15 |  Ubuntu 18.04 / 20.04 | Control Description | Notes |
 | -----------------|--------------------- | -----------------|--------------------- | --------------------- |
 |  1.1.1.1  |  1.1.1.1  |  1.1.1.1      |   Remove cramfs |
 |           |  1.1.1.2  |  1.1.1.2      |   Remove freevxfs
@@ -12,30 +12,31 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  1.1.1.4  |  1.1.1.7  |  1.1.1.7      |   Remove udf
 |           |  1.1.2    |               |   Report if /tmp is not on a separate partition | a) If report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
 |  1.1.2    |           |  1.1.2        |   Ensure tmpfs is configured
-|  1.1.3    |  1.1.3    |  1.1.3        |   Ensure nodev option on /tmp partition
-|  1.1.4    |  1.1.4    |  1.1.4        |   Ensure nosuid option set on /tmp partition
-|  1.1.5    |  1.1.5    |  1.1.5        |   Ensure noexec option set on /tmp partition
-|  1.1.6    |  1.1.6    |  1.1.6        |   Report if /var is not on a separate partition
-|  1.1.7    |  1.1.7    |  1.1.7        |   Report if  /var/tmp is not on a separate partition  a) If report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
-|  1.1.8    |  1.1.8    |  1.1.8        |   Ensure nodev option on /var/tmp partition
-|  1.1.9    |  1.1.9    |  1.1.9        |   Ensure nosuid option set on /var/tmp partition
-|  1.1.10   |  1.1.10   |  1.1.10       |   Ensure noexec option set on /var/tmp partition
-|  1.1.11   |  1.1.11   |  1.1.11       |   Report if /var/log is not on a separate partition | On a failed control, simply prints a notification to the user |
-|  1.1.12   |  1.1.12   |  1.1.12       |   Report if /var/log/audit is not on a separate partition | On a failed control, simply prints a notification to the user |
-|  1.1.13   |  1.1.13   |  1.1.13       |   Report if /home is not on a separate partition | On a failed control, simply prints a notification to the user |
-|  1.1.14   |  1.1.14   |  1.1.14       |   Ensure nodev option on /home partition |skipped: environment dependent |
-|  1.1.15   |  1.1.15   |  1.1.15       |   Report if /dev/shm does not have nodev set
-|  1.1.16   |  1.1.16   |  1.1.16       |   Report if /dev/shm does not have nosuid set
-|  1.1.17   |  1.1.17   |  1.1.17       |   Report if /dev/shm does not have noexec set
-|  1.1.18   |  1.1.18   |  1.1.18       |   Ensure nodev option set on removable media | skipped: environment dependent|
-|  1.1.19   |  1.1.19   |  1.1.19       |   Ensure nosuid option set on removable media  |skipped: environment dependent|
-|  1.1.20   |  1.1.20   |  1.1.20       |   Ensure noexec option set on removable media |skipped: environment dependent|
-|  1.1.21   |  1.1.21   |  1.1.21       |   Ensure sticky bit on world writable directories
-|  1.1.22   |  1.1.22   |  1.1.22       |   Disable automounting
-|  1.1.23   |           |  1.1.23       |   Disable USB storage module
-|  1.2.1    |  1.2.1    |  1.2.1        |   Ensure system is configured for updates |skipped: environment dependent|
+|  1.1.3    |  1.1.4    |  1.1.3        |   Ensure nodev option on /tmp partition
+|  1.1.4    |  1.1.5    |  1.1.4        |   Ensure nosuid option set on /tmp partition
+|  1.1.5    |  1.1.3    |  1.1.5        |   Ensure noexec option set on /tmp partition
+|  1.1.6    |  1.1.10    |  1.1.6        |   Report if /var is not on a separate partition
+|  1.1.7    |  1.1.11    |  1.1.7        |   Report if  /var/tmp is not on a separate partition  a) If report comes back saying partitions are not separate, the no\[dev,suid,exec\] checks aren't run b) On a failed control, simply prints a notification to the user |
+|  1.1.8    |  1.1.13    |  1.1.8        |   Ensure nodev option on /var/tmp partition
+|  1.1.9    |  1.1.14    |  1.1.9        |   Ensure nosuid option set on /var/tmp partition
+|  1.1.10   |  1.1.12   |  1.1.10       |   Ensure noexec option set on /var/tmp partition
+|  1.1.11   |  1.1.15   |  1.1.11       |   Report if /var/log is not on a separate partition | On a failed control, simply prints a notification to the user |
+|  1.1.12   |  1.1.16   |  1.1.12       |   Report if /var/log/audit is not on a separate partition | On a failed control, simply prints a notification to the user |
+|  1.1.13   |  1.1.17   |  1.1.13       |   Report if /home is not on a separate partition | On a failed control, simply prints a notification to the user |
+|  1.1.14   |  1.1.18   |  1.1.14       |   Ensure nodev option on /home partition |skipped: environment dependent |
+|  1.1.15   |  1.1.8   |  1.1.15       |   Report if /dev/shm does not have nodev set
+u
+|  1.1.16   |  1.1.9   |  1.1.16       |   Report if /dev/shm does not have nosuid set
+|  1.1.17   |  1.1.7   |  1.1.17       |   Report if /dev/shm does not have noexec set
+|  1.1.18   |  1.1.20   |  1.1.18       |   Ensure nodev option set on removable media | skipped: environment dependent|
+|  1.1.19   |  1.1.21   |  1.1.19       |   Ensure nosuid option set on removable media  |skipped: environment dependent|
+|  1.1.20   |  1.1.19   |  1.1.20       |   Ensure noexec option set on removable media |skipped: environment dependent|
+|  1.1.21   |  1.1.22   |  1.1.21       |   Ensure sticky bit on world writable directories
+|  1.1.22   |  1.1.23   |  1.1.22       |   Disable automounting
+|  1.1.23   |  1.1.24   |  1.1.23       |   Disable USB storage module
+|  1.2.1    |  1.2.2    |  1.2.1        |   Ensure system is configured for updates |skipped: environment dependent|
 |  1.2.2    |  1.2.5    |               |   Disable the rhnsd Daemon | RHEL control only |
-|  1.2.3    |  1.2.3    |  1.2.2        |   Ensure gpg keys are configured | gpgcheck set to yes. 1.2.2 on SLES 15, but skipped |
+|  1.2.3    |  1.2.1,3  |  1.2.2        |   Ensure gpg keys are configured | gpgcheck set to yes. 1.2.2 on SLES 15, but skipped |
 |  1.2.4    |  1.2.2    |  1.2.2        |   Ensure gpgcheck is globally activated. Missing on SLES 15 benchmark
 |  1.2.5    |  1.2.4    |               |   Ensure machine is registerd with Red Hat |skipped: environment dependent|
 |  1.3.1    |           |  1.3.1        |   Ensure sudo is installed
@@ -44,20 +45,21 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  1.4.0    |  1.3.0    |  1.4.0        |   Install and configure filesystem integrity checking w/AIDE
 |  1.4.1    |  1.3.1    |  1.4.1        |   Ensure aide is installed
 |  1.4.2    |  1.3.2    |  1.4.2        |   Ensure File integrity is regularly checked
-|  1.5.1    |  1.4.1    |  1.5.1        |   Set permissions on grub bootloader files
-|  1.5.2    |  1.4.2    |  1.5.2        |   Ensure bootloader password is set |skipped: environment dependent|
+|  1.5.1    |  1.4.2    |  1.5.1        |   Set permissions on grub bootloader files
+|  1.5.2    |  1.4.1    |  1.5.2        |   Ensure bootloader password is set |skipped: environment dependent|
 |  1.5.3    |  1.4.3    |  1.5.3        |   Set single user password | if root password is not set, sets root password before setting up secure single user mode. Uses root_password variable. See [Using vaults with playbooks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_vault.html#playbooks-vault) for information on how to secure it|
 |  1.6.1    |  1.5.1    |  1.6.4        |   Ensure core dumps are restricted
 |           |  1.5.2    |  1.6.1        |   Ensure XD/NX support is enabled
 |  1.6.2    |  1.5.3    |  1.6.2        |   Ensure address space layout reandomization (ASLR) is enabled
+|           |  1.5.4    |               |   Ensure prelink is not installed
 |  1.6.0    |  1.6.0 \(SLES: skipped\) | | | Configure SELinux | SLES supports SELinux, but does not provide a policy, so enabling it will crash the system, so we are skipping it on SLES)
-|  1.7.1.1  |  1.6.2    |               |   Ensure SELinux is installed
-|  1.7.1.2  |  1.6.1.1  |               |   Ensure SELinux is not disabled in bootloader configuration
+|  1.7.1.1  |  1.6.1.1  |               |   Ensure SELinux is installed
+|  1.7.1.2  |  1.6.1.2  |               |   Ensure SELinux is not disabled in bootloader configuration
 |  1.7.1.3  |  1.6.1.3  |               |   Set SELinux policy
 |  1.7.1.4  |  1.6.1.2  |               |   Set SELinux state
 |  1.7.1.5  |  1.6.1.6  |               |   Ensure no unconfined processes exist
-|  1.7.1.6  |  1.6.1.4  |               |   Remove setroubleshoot
-|  1.7.1.7  |  1.6.1.5  |               |   Remove MCS Translation Service
+|  1.7.1.6  |  1.6.1.7  |               |   Remove setroubleshoot
+|  1.7.1.7  |  1.6.1.8  |               |   Remove MCS Translation Service
 |           |           |  1.7.0        |   Install and Configure AppArmor
 |           |           |  1.7.1.1      |   Ensure AppArmor is installed
 |           |           |  1.7.1.2      |   Ensure AppArmor is not disabled in bootloader configuration
@@ -65,15 +67,17 @@ Below are the tags used in the CIS roles on Linux Machines.
 |           |  \(SLES 1.6.2.2\) |  1.7.1.4      |   Ensure AppArmor profiles are enforcing | SLES only control in the RHEL 7 file, use 1.6.2.2 for the tag number
 |           |   \(SLES 1.6.3\)  |       |   Ensure SELinux or AppArmor are installed | SLES only control in the RHEL 7 file, use 1.6.3 for the tag number
 |  1.8.1.1  |  1.7.1.1  |  1.8.1.1      |   Install motd banners
-|  1.8.1.2  |  1.7.1.2  |  1.8.1.2      |   Install issue banners
-|  1.8.1.3  |  1.7.1.3  |  1.8.1.3      |   Install issue.net banners
-|  1.8.1.4  |  1.7.1.4  |  1.8.1.4      |   Ensure permissions on /etc/motd are configured
-|  1.8.1.5  |  1.7.1.5  |  1.8.1.5      |   Ensure permissions on /etc/issue are configured
-|  1.8.1.6  |  1.7.1.6  |  1.8.1.6      |   Ensure permissions on /etc/issue.net are configured
-|  1.8.2    |  1.7.2    |  1.8.2        |   Ensure GDM banner set up
+|  1.8.1.2  |  1.7.2    |  1.8.1.2      |   Install issue banners
+|  1.8.1.3  |  1.7.3    |  1.8.1.3      |   Install issue.net banners
+|  1.8.1.4  |  1.7.4    |  1.8.1.4      |   Ensure permissions on /etc/motd are configured
+|  1.8.1.5  |  1.7.5    |  1.8.1.5      |   Ensure permissions on /etc/issue are configured
+|  1.8.1.6  |  1.7.6    |  1.8.1.6      |   Ensure permissions on /etc/issue.net are configured
+|           |  1.8.1    |               |   Ensure GNOME Display Manager is removed
+|  1.8.2    |  1.8.2    |  1.8.2        |   Ensure GDM banner set up
+|           |  1.8.3    |               |   Ensure last logged in user display is disabled
 |  1.9.0    |           |  1.9.0        |   Ensure updated system | First control to be run chronologically in order to make sure things are in the same state for the rest of the play
-|  1.10.0   |           |               |   Ensure crypto policy is not legacy | we also set it to what the crypto_policy variable is set to|
-|  1.11.0   |           |               |   Ensure crypto policy is FUTURE or FIPS (skipped: not widely prevelent)
+|  1.10.0   |           |               |   Ensure crypto policy is not legacy | set to what the crypto_policy variable is set to|
+|  1.11.0   |           |               |   Ensure crypto policy is FUTURE or FIPS | covered if crypto_policy variable is set to FUTURE or FIPS|
 |  2.1.1    |  2.1.7 \(SLES 2.1.11\)   |  2.1.1        |   Remove xinetd service
 |           |  2.1.1    |               |   Ensure chagen services are not enabled
 |           |  2.1.2    |               |   Ensure daytime services are not enabled
@@ -140,13 +144,13 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  3.4.2.3  |           |               |   Disable netfilters service
 |  3.4.2.4  |           |               |   Ensure default zone is set for firewalld
 |  3.4.2.4  |           |               |   Set default zone in firewalld
-|  3.2.4.5  |           |               |   Ensure network interfaces are assigned to appropriate zone |skipped: machine dependent|
+|  3.4.2.5  |           |               |   Ensure network interfaces are assigned to appropriate zone |skipped: machine dependent|
 |           |           |  3.5.2.1      |   Ensure ufw service is enabled
 |           |           |  3.5.2.2      |   Ensure default deny firewall policy |skipped: machine dependent|
 |           |           |  3.5.2.3      |   Ensure loopback traffic is configured
 |           |           |  3.5.2.4      |   Ensure outbound connections are configured |skipped: machine dependent|
 |           |           |  3.5.2.5      |   Ensure firewall rules exist for all open ports |skipped: machine dependent|
-|  3.4.3    |           |  3.5.3        |   Configure nftables (skipped: seldom used)
+|  3.4.3.*  |           |  3.5.3        |   Configure nftables (skipped: seldom used)
 |  3.4.4    |  3.6.1    |               |   Ensure iptables are flushed
 |  3.4.4.1-2|  3.6.2-5  |  3.5.4        |   Configure iptables (skipped: machine dependent)
 |  3.5      |  3.7      |  3.6          |   Ensure wireless interfaces are disabled |skipped: machine dependent|
@@ -174,7 +178,7 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  4.1.16   |  4.1.16   |  4.1.15       |   Ensure sysadmin actions (sudolog) are collected
 |  4.1.17   |  4.1.18   |  4.1.17       |   Ensure audit configuration is immutable
 |  4.2.1.1  |  4.2.3    |  4.2.1.1      |   Ensure rsyslog is installed
-|  4.2.1.2  |           |  4.2.1.2      |   Enable Rsyslog
+|  4.2.1.2  |           |  4.2.1.2      |   Enable rsyslog
 |  4.2.1.3  |  4.2.1.3  |  4.2.1.4      |   Ensure rsyslog default file permissions are configured
 |  4.2.1.4  |  4.2.1.2  |  4.2.1.3      |   Ensure logging is configured |Only runs if the variable rsyslog_file is set, which it is not set by default|
 |  4.2.1.5  |  4.2.1.4  |  4.2.1.5      |   Ensure logging is configured to send logs to remote host |skipped: environment dependent|
@@ -216,8 +220,8 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  5.2.16   |           |  5.2.20       |   Ensure SSH is configured to use PAM
 |  5.2.17   |           |  5.2.21       |   Disable SSH Forwarding
 |  5.2.18   |           |  5.2.22       |   Limit max unauthenticated startups
-|  5.2.18   |           |  5.2.23       |   Limit max sessions
-|  5.2.19   |           |               |   Ensure system crypto policy isn't overriden in SSH
+|  5.2.19   |           |  5.2.23       |   Limit max sessions
+|  5.2.20   |           |               |   Ensure system crypto policy isn't overriden in SSH
 |  5.3      |           |               |   Configure authselect |skipped: machine dependent|
 |  5.4.1    |  5.3.1    |  5.3.1        |   Configure PAM files and password requirements
 |  5.4.2    |  5.3.2    |  5.3.2        |   Ensure lockout for failed password attempts |skipped: environment dependent|
@@ -227,11 +231,12 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  5.5.1.2  |  5.4.1.2  |  5.4.1.2      |   Ensure password change days is set to 7
 |  5.5.1.3  |  5.4.1.3  |  5.4.1.3      |   Ensure password warning days is set to 7
 |  5.5.1.4  |  5.4.1.4  |  5.4.1.4      |   Disable accounts that are inactive for 30 days after password expiration
-|  5.5.1.5  |  5.4.1.5  |  5.4.1.5      |   Ensure all users last password change date in the past (skipped: environment dependent)
+|  5.5.1.5  |  5.4.1.5  |  5.4.1.5      |   Ensure all users last password change date in the past |skipped: environment dependent|
 |  5.5.2    |  5.4.2    |  5.4.2        |   Ensure system accounts are secured |skipped: environment dependent|
 |  5.5.3    |  5.4.5    |  5.4.5        |   Ensure default shell timeout is 900 seconds or less
 |  5.5.4    |  5.4.3    |  5.4.3        |   Ensure default group for root is GID 0
 |  5.5.5    |  5.4.4    |  5.4.4        |   Ensure umask is set
+|  5.6      |           |               |   Ensure root login is restricted to system console |skipped: system dependent|
 |  5.7.0    |  5.6.0    |  5.6          |   Restrict su to wheel group | on Ubuntu control says to any one group, but for simplicity we are using wheel |
 |  6.1.1    |  6.1.1    |  6.1.1        |   Audit system file permissions |skipped: manual intervention needed|
 |  6.1.2,6.1.4| 6.1.2,6.1.4| 6.1.2,6.1.4  |   Ensure permissions on /etc/passwd /etc/group
@@ -257,3 +262,4 @@ Below are the tags used in the CIS roles on Linux Machines.
 |  6.2.17   |  6.2.18   |  6.2.18       |   Report on duplicate users in /etc/passwd
 |  6.2.18   |  6.2.19   |  6.2.19       |   Report on duplicate groups in /etc/group
 |  6.2.19   |           |  6.2.20       |   Report if shadow group exists in /etc/group
+|  6.2.20   |           |               |   Ensure all users' home directories exist

@@ -17,7 +17,7 @@
 
   # Collect the packages installed on the system so we can check agains them later
   - name: Collect package list
-    package_facts:
+    ansible.builtin.package_facts:
       manager: auto
     tags:
       - always
@@ -26,7 +26,7 @@
   #  between machines and environments, so we pull it from the file it
   #  is supposed to exist in.
   - name: Determine the Minimum UID for new, non-system, accounts
-    command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
+    ansible.builtin.command: "/usr/bin/awk '/^s*UID_MIN/{print $2}' /etc/login.defs"
     register: min_uid
     changed_when: min_uid.rc == "2"
     check_mode: no
@@ -36,7 +36,7 @@
   # Update the system with security packages using the system's package manager
   #  Only update the system if the 'update_system' variable is set to true
   - name: 1.9.0 - Ensure updated system
-    dnf:
+    ansible.builtin.dnf:
       name: "*"
       state: latest
       security: true
@@ -48,41 +48,41 @@
   #  For every item that is encountered (without the tag being skipped),
   #  add a string to the list.
   - name: 1.1 Disable unused filesystems
-    set_fact:
+    ansible.builtin.set_fact:
       unused_filesystems: []
 
   - name: 1.1.1.1 - Add cramfs to list of unused filesystems
-    set_fact:
+    ansible.builtin.set_fact:
       unused_filesystems: "{{ unused_filesystems + [ 'cramfs' ] }}"
     tags:
       - 1.1.1.1
 
   - name: 1.1.1.2 - Add vfat to list of unused filesystems
-    set_fact:
+    ansible.builtin.set_fact:
       unused_filesystems: "{{ unused_filesystems + [ 'vfat' ] }}"
     tags:
       - 1.1.1.2
 
   - name: 1.1.1.3 - Add squashfs to list of unused filesystems
-    set_fact:
+    ansible.builtin.set_fact:
       unused_filesystems: "{{ unused_filesystems + [ 'squashfs' ] }}"
     tags:
       - 1.1.1.3
 
   - name: 1.1.1.4 - Add udf to list of unused filesystems
-    set_fact:
+    ansible.builtin.set_fact:
       unused_filesystems: "{{ unused_filesystems + [ 'udf' ] }}"
     tags:
       - 1.1.1.4
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Remove unused_filesystem list
-    dnf:
+    ansible.builtin.dnf:
       name: unused_filesystems
       state: absent
 
   - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/modprobe.d/CIS.conf
       line: "install {{ item }} /bin/true"
       state: present
@@ -97,7 +97,7 @@
       #  be sure to set the selinux security context. Even if selinux is disabled,
       #  it's a good idea to make sure it is set on files
       - name: Ensure the local-fs directory is created
-        file:
+        ansible.builtin.file:
           path: /etc/systemd/system/local-fs.target.wants
           state: directory
           owner: root
@@ -108,7 +108,7 @@
       # Add content to the file we created using the blockinfile command.
       # Notify systemd to reload its daemons and start the local-fs service
       - name: 1.1.[2-5] - Configure config file for tmpfs
-        blockinfile:
+        ansible.builtin.blockinfile:
           path: /etc/systemd/system/local-fs.target.wants/tmp.mount
           block: |
             [Mount]
@@ -131,7 +131,7 @@
       # Create a empty integer variable and set it as a fact on the managed
       #  machine.
       - name: 1.1.6 - Set/reset mount counter
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: 0
 
       # Examine the ansible_mounts variable which includes all of the system mounts
@@ -139,7 +139,7 @@
       #  increment the integer variable by '1' and save the filesystems options to a
       #  new variable called mount_options.
       - name: 1.1.6 - Determine if /var is on a separate partition
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
         when: item.mount == "/var"
         with_items:
@@ -148,7 +148,7 @@
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.6 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var is not on a separate partition"
         when: mount_count == 0
         changed_when: true
@@ -163,7 +163,7 @@
       # Create a empty integer variable and set it as a fact on the managed
       #  machine.
       - name: 1.1.7 - Set/reset mount counter
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: 0
         tags:
           - 1.1.7
@@ -176,7 +176,7 @@
       #  increment the integer variable by '1' and save the filesystems options to a
       #  new variable called mount_options.
       - name: 1.1.7 - Determine if /var/tmp is on a separate partition
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
           mount_options: "{{ item.options }}"
         when: item.mount == "/var/tmp"
@@ -188,7 +188,7 @@
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.7 - Report to user if /var/tmp not on separate partition
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/tmp is not on a separate partition. Skipping mount option checks"
         when: mount_count == 0
         changed_when: true
@@ -199,7 +199,7 @@
       #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
       #  let the user know.
       - name: 1.1.8 - Report to user if /var/tmp does not have nodev set
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
         when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
         changed_when: true
@@ -210,7 +210,7 @@
       #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
       #  let the user know.
       - name: 1.1.9 - Report to user if /var/tmp does not have nosuid set
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have nosuid set"
         when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
         changed_when: true
@@ -221,7 +221,7 @@
       #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
       #  let the user know.
       - name: 1.1.10 - Report to user if /var/tmp does not have noexec set
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
         when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
         changed_when: true
@@ -238,7 +238,7 @@
       # Create a empty integer variable and set it as a fact on the managed
       #  machine.
       - name: 1.1.11 - Set/reset mount counter
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: 0
 
       # Examine the ansible_mounts variable which includes all of the system mounts
@@ -246,7 +246,7 @@
       #  increment the integer variable by '1' and save the filesystems options to a
       #  new variable called mount_options.
       - name: 1.1.11 - Determine if /var/log is on a separate partition
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
         when: item.mount == "/var/log"
         with_items:
@@ -255,7 +255,7 @@
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.11 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/log is not on a separate partition"
         when: mount_count == 0
         changed_when: true
@@ -270,7 +270,7 @@
       # Create a empty integer variable and set it as a fact on the managed
       #  machine.
       - name: 1.1.12 - Set/reset mount counter
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: 0
 
       # Examine the ansible_mounts variable which includes all of the system mounts
@@ -278,7 +278,7 @@
       #  increment the integer variable by '1' and save the filesystems options to a
       #  new variable called mount_options.
       - name: 1.1.12 - Determine if /var/log/audit is on a separate partition
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
         when: item.mount == "/var/log/audit"
         with_items:
@@ -287,7 +287,7 @@
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.12 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /var/log/audit is not on a separate partition"
         when: mount_count == 0
         changed_when: true
@@ -302,7 +302,7 @@
       # Create a empty integer variable and set it as a fact on the managed
       #  machine.
       - name: 1.1.13 - Set/reset mount counter
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: 0
 
       # Examine the ansible_mounts variable which includes all of the system mounts
@@ -310,7 +310,7 @@
       #  increment the integer variable by '1' and save the filesystems options to a
       #  new variable called mount_options.
       - name: 1.1.13 - Determine if /home is on a separate partition
-        set_fact:
+        ansible.builtin.set_fact:
           mount_count: "addition{{ mount_count + 1 }}"
           mount_options: "{{ item.options }}"
         when: item.mount == "/home"
@@ -320,7 +320,7 @@
       # If the number in mount_count variable is > 0, then we found the mount. If not,
       #  then report to the user that the given filesystem was not on a separate partition.
       - name: 1.1.13 - Report to user if /home is not on a separate partition
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /home is not on a separate partition. Skipping mount option checks"
         when: mount_count == 0
         changed_when: true
@@ -329,7 +329,7 @@
       #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
       #  let the user know.
       - name: Report to user if /home does not have nodev set
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /home does not have nodev set"
         when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
         changed_when: true
@@ -344,7 +344,7 @@
   - name: 1.1.15 - Report if /dev/shm does not have nodev set
     block:
       - name: Determine if /dev/shm has nodev set
-        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+        ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
@@ -352,7 +352,7 @@
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /dev/shm does not have nodev set"
         when: devshm_nodev_out is defined and devshm_nodev_out.stdout
         changed_when: true
@@ -364,7 +364,7 @@
   - name: 1.1.16 - Report if /dev/shm does not have nosuid set
     block:
       - name: Determine if /dev/shm has nosuid set
-        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+        ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
@@ -372,7 +372,7 @@
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
         when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
         changed_when: true
@@ -384,7 +384,7 @@
   - name: 1.1.17 - Report if /dev/shm does not have noexec set
     block:
       - name: 1.1.17 - Determine if /dev/shm has noexec set
-        shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+        ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
@@ -392,7 +392,7 @@
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
-        debug:
+        ansible.builtin.debug:
           msg: "FAILED CONTROL: /dev/shm does not have noexec set"
         when: devshm_noexec_out is defined and devshm_noexec_out.stdout
         changed_when: true
@@ -404,7 +404,7 @@
 
   # Find all local filesystem directories and set the sticky bit on world writable ones
 #  - name: 1.1.21 - Ensure sticky bit is set on world-writeable directories
-#    shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
+#    ansible.builtin.shell: set -o pipefail ; /usr/bin/df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | xargs -I '{}' chmod a+t '{}'
 #    changed_when: false
 #    tags:
 #      - 1.1.21
@@ -413,7 +413,7 @@
   # We check to see if the package that autofs belongs to (convienently called autofs)
   #  exists in the ansible_facts.packages list we gathered early in the play
   - name: 1.1.22 - disable automounting
-    service:
+    ansible.builtin.service:
       name: autofs
       enabled: no
       state: stopped
@@ -422,7 +422,7 @@
       - 1.1.22
 
   - name: 1.1.23 - Disable USB storage module
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/modprobe.d/CIS.conf
       line: "install usb-storage /bin/true"
       state: present
@@ -435,7 +435,7 @@
   # Use the service module to disable the rhnsd service. If you want the machine
   #  to respond to queued services from Satellite, do not disable this.
   - name: 1.2.2 Disable rhnsd
-    service:
+    ansible.builtin.service:
       name: rhnsd
       enabled: no
       state: stopped
@@ -450,14 +450,14 @@
     block:
       # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.4 - set master yum.conf gpgcheck to '1'
-        replace:
+        ansible.builtin.replace:
           dest: /etc/yum.conf
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: "gpgcheck = 1"
         when: gpgcheck and ansible_distribution == "RedHat"
 
       - name: 1.2.4 - set master dnf.conf gpgcheck to '1'
-        replace:
+        ansible.builtin.replace:
           dest: /etc/dnf/dnf.conf
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: "gpgcheck=1"
@@ -465,7 +465,7 @@
 
       # Find all files in /etc/yum.repos.d and add them to a list variable
       - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
-        find:
+        ansible.builtin.find:
           paths: "/etc/yum.repos.d"
           patterns: "*.repo"
         register: yumrepos
@@ -473,7 +473,7 @@
 
       # parse the list variable and replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
       - name: 1.2.4 - Set all repos gpgchecks to '1'
-        replace:
+        ansible.builtin.replace:
           dest: "{{ item.path }}"
           regexp: '^gpgcheck\s*=\s*[^1]*$'
           replace: gpgcheck = 1
@@ -487,7 +487,7 @@
 
   # use the system package module to ensure sudo is installed
   - name: 1.3.1 - Ensure sudo is installed
-    dnf:
+    ansible.builtin.dnf:
       name: sudo
       state: present
     tags:
@@ -495,7 +495,7 @@
 
   # Make sure the sudoers file includes the requirement to use pty
   - name: 1.3.2 - Ensure sudo commands use pty
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/sudoers
       regexp: '^Defaults\s*use_pty'
       line: "Defaults use_pty"
@@ -506,7 +506,7 @@
 
   # Make sure the sudoers file includes the requirement to log to a file
   - name: 1.3.3 - Ensure sudo log file exists
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/sudoers
       regexp: '^Defaults\s*logfile="{{ sudo_log }}"'
       line: 'Defaults logfile="{{ sudo_log }}"'
@@ -522,7 +522,7 @@
     block:
       # use the system package manager to install AIDE
       - name: 1.4.1 Ensure aide is installed
-        package:
+        ansible.builtin.package:
           name: aide
           state: present
         tags:
@@ -531,14 +531,14 @@
       # AIDE requires initialization the first time and it takes time on a large system.
       # DUse stat module on the file that should be there if it is set up.
       - name: 1.4.1 - Determine if AIDE has already been initialized
-        stat:
+        ansible.builtin.stat:
           path: /var/lib/aide/aide.db.gz
         register: aide_path
         tags:
           - 1.4.1
 
       - name: 1.4.1 - Set up database file location
-        replace:
+        ansible.builtin.replace:
           dest: /etc/aide.conf
           regexp: "^database=file:((?!{{ aide_db_name }}).)*$"
           replace: "database=file:{{ aide_db_name }}"
@@ -546,7 +546,7 @@
           - 1.4.1
 
       - name: 1.4.1 - Set up database_out file location
-        replace:
+        ansible.builtin.replace:
           dest: /etc/aide.conf
           regexp: "^database_out=file:((?!{{ aide_new_db_name }}).)*$"
           replace: "database_out=file:{{ aide_new_db_name }}"
@@ -554,7 +554,7 @@
           - 1.4.1
 
       - name: 1.4.1 - enable gzip compression for database
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: /etc/aide.conf
           regexp: '^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$'
           line: "gzip_dbout={{ aide_gzip }}"
@@ -566,7 +566,7 @@
       #  is true if the file is a regular file. If either of these are not true, then
       #  run the initializatoin again.
       - name: 1.4.1 - Initialize AIDE if it hasn't been already (/usr/sbin/aide)
-        command: /usr/sbin/aide --init
+        ansible.builtin.command: /usr/sbin/aide --init
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
         register: aide
         async: 1200 # 20 minutes until timeout
@@ -575,7 +575,7 @@
           - 1.4.1
 
       - name: Wait for AIDE initialization to complete
-        async_status: jid={{ aide.ansible_job_id }}
+        ansible.builtin.async_status:: jid={{ aide.ansible_job_id }}
         register: aide_status
         until: aide_status.finished
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
@@ -587,7 +587,7 @@
       #  the remote_src argument to copy the file on the remote machine to another location
       #  on the remote machine.
       - name: 1.4.1 - Move the newly created database into place
-        copy:
+        ansible.builtin.copy:
           src: /var/lib/aide/aide.db.new.gz
           remote_src: yes
           dest: /var/lib/aide/aide.db.gz
@@ -601,7 +601,7 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the service
       - name: 1.4.2 - Ensure File integrity is regularly checked (aidecheck service)
-        template:
+        ansible.builtin.template:
           src: aidecheck.service
           dest: /etc/systemd/system/aidecheck.service
           owner: root
@@ -613,7 +613,7 @@
           - 1.4.2
 
       - name: Enable aidecheck.service
-        systemd:
+        ansible.builtin.systemd:
           name: aidecheck.service
           enabled: true
         tags: 1.4.2
@@ -622,7 +622,7 @@
       # Be sure to set the selinux context.
       # Notify systemd to reload its daemons and start the timer
       - name: 1.4.2 - Ensure File integrity is regulary checked (aidecheck timer)
-        template:
+        ansible.builtin.template:
           src: aidecheck.timer
           dest: /etc/systemd/system/aidecheck.timer
           owner: root
@@ -639,28 +639,28 @@
 
   # Determine if we are using LILO or EFI
   - name: 1.5.0 - Check if the EFI directory exists
-    stat:
+    ansible.builtin.stat:
       path: "/boot/efi/EFI/{{ ansible_distribution | lower }}/grub.cfg"
     register: efidir
     tags:
       1.5.1
 
   - name: 1.5.1 - set variable for grub.cfg in EFI location
-    set_fact:
+    ansible.builtin.set_fact:
       grub_cfg_path: "{{ efidir.stat.path }}"
     when: efidir.stat.path is defined
     tags:
       1.5.1
 
   - name: 1.5.0 - Check if the LILO path exists
-    stat:
+    ansible.builtin.stat:
       path: "/boot/grub2/grub.cfg"
     register: grubdir
     tags:
       1.5.1
 
   - name: 1.5.1 - set variable for grub.cfg in LILO location
-    set_fact:
+    ansible.builtin.set_fact:
       grub_cfg_path: "{{ grubdir.stat.path }}"
     when: grubdir.stat.path is defined
     tags:
@@ -668,7 +668,7 @@
 
   # Use file module to set permissions on grub files
   - name: 1.5.1 - Set permissions on grub.cfg
-    file:
+    ansible.builtin.file:
       path: "{{ item }}"
       owner: root
       group: root
@@ -688,7 +688,7 @@
   - name: 1.5.3 - Set single user password
     block:
       - name: 1.5.3 - Check if root has a password
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/shadow
           regexp: '^root:[*\!|*\*]*:'
           state: absent
@@ -700,13 +700,13 @@
       # The user module here uses a known salt to idompotently set the password for multiple runs
       #  see https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#hash-filters
       - name: 1.5.3 - Set root password
-        user:
+        ansible.builtin.user:
           name: root
           password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
         when: root_pw_check.found != "0" and root_password is defined
 
       - name: 1.5.3 - Set single user to use use a secure shell
-        replace:
+        ansible.builtin.replace:
           dest: /usr/lib/systemd/system/{{ item }}
           regexp: '^ExecStart=-((?!/usr/lib/systemd/systemd-sulogin-shell).)*$'
           replace: "ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue"
@@ -716,7 +716,7 @@
           - emergency.service
 
       - name: 1.5.3 - If no root password is set up, notify the user and do not set password or single user mode
-        debug:
+        ansible.builtin.debug:
           msg: "Root password is not set and no password provided. Set root_password variable per instructions and restart playbook."
         changed_when: true
         when: root_pw_check.found and root_password is not defined
@@ -731,7 +731,7 @@
       # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
       #  to reload them immediately if 'reload' is set to 'yes'.
       - name: 1.6.1 - Ensure core dumps are restricted
-        sysctl:
+        ansible.builtin.sysctl:
           name: fs.suid_dumpable
           value: "0"
           state: present
@@ -739,7 +739,7 @@
 
       # The pam_limits module will configure the lines in the limits files.
       - name: 1.6.1 - Ensure core limits are set
-        pam_limits:
+        community.general.pam_limits:
           dest: /etc/security/limits.d/CIS.conf
           domain: "*"
           limit_type: hard
@@ -751,7 +751,7 @@
   - name: 1.6.2 - Ensure address space layout reandomization (ASLR) is enabled
       # The sysctl module will set variables in /etc/sysctl.conf and tell sysctl
       #  to reload them immediately if 'reload' is set to 'yes'.
-    sysctl:
+    ansible.builtin.sysctl:
       name: kernel.randomize_va_space
       value: "2"
       reload: yes
@@ -764,7 +764,7 @@
 
   # Use system package manager to remove
   - name: 1.7.1.1 - Ensure SELinux is installed
-    dnf:
+    ansible.builtin.dnf:
       name:
         - libselinux
         - python3-libselinux
@@ -777,14 +777,14 @@
   #  If selinux wasn't installed, it will not populate ansible_selinux fact correctly, regathering
   #  will pull it with the right information
   - name: Regather facts
-    setup:
+    ansible.builtin.setup:
     tags:
       - 1.7.1.1
 
   # Use the replace module to remove any disablment of selinux in grub if
   #  it isn't expressly disabled from a variable
   - name: 1.7.1.2 - Ensure SELinux is not disabled in bootloader configuration
-    replace:
+    ansible.builtin.replace:
       dest: /etc/default/grub
       regexp: "{{ item }}"
       replace: ""
@@ -798,7 +798,7 @@
 
   # Replace the current selinux policy with whatever the variable is set for
   - name: 1.7.1.3 - Set SELinux policy to {{ selinux_policy }}
-    replace:
+    ansible.builtin.replace:
       dest: /etc/selinux/config
       regexp: "^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
       replace: "SELINUXTYPE={{ selinux_policy }}"
@@ -809,7 +809,7 @@
   # If we are going to be enabling selinux in passive or enforcing mode,
   #  set the autorelabel and notify the machine to reboot
   - name: 1.7.1.3 - If disabled and we are enabling it, autorelabel
-    file:
+    ansible.builtin.file:
       path: /.autorelabel
       owner: root
       group: root
@@ -822,7 +822,7 @@
 
   # Replace the current selinux mode with what the variable is set to
   - name: 1.7.1.4 - Set SELinux to {{ selinux | lower }}
-    replace:
+    ansible.builtin.replace:
       dest: /etc/selinux/config
       regexp: "^SELINUX=((?!{{ selinux }}).)*$"
       replace: "SELINUX={{ selinux | lower }}"
@@ -837,7 +837,7 @@
     block:
       # In RHEL8, all unconfined services run under their own context
       - name: 1.7.1.5 - Generate report on unconfined running services
-        shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
+        ansible.builtin.shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
         register: unconfined_services_out
         when: ansible_selinux.status != "disabled"
         failed_when: unconfined_services_out.rc == "2"
@@ -846,7 +846,7 @@
 
       # Print any findings to the user
       - name: 1.7.1.5 - Report on unconfined running services to user
-        debug:
+        ansible.builtin.debug:
           msg:
             - "Unconfined processes found:"
             - "{{ unconfined_services_out.stdout_lines }}"
@@ -857,14 +857,14 @@
 
   # Use system package manager to remove package
   - name: 1.7.1.6 - Remove setroubleshoot
-    dnf:
+    ansible.builtin.dnf:
       name: setroubleshoot
       state: absent
     tags:
       - 1.7.1.6
 
   - name: 1.7.1.7 - Remove MCS Translation Service
-    yum:
+    ansible.builtin.dnf:
       name: mcstrans
       state: absent
     tags:
@@ -874,7 +874,7 @@
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.1 - Install motd banners
-    copy:
+    ansible.builtin.copy:
       src: "{{ motd_file }}"
       dest: /etc/motd
       owner: root
@@ -886,7 +886,7 @@
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.2 - Install issue banners
-    copy:
+    ansible.builtin.copy:
       src: "{{ issue_file }}"
       dest: /etc/issue
       owner: root
@@ -898,7 +898,7 @@
 
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.8.1.3 - Install issue.net banners
-    copy:
+    ansible.builtin.copy:
       src: "{{ issue_file }}"
       dest: /etc/issue.net
       owner: root
@@ -910,9 +910,9 @@
 
   # add a banner to the login screen if the graphical_interface variable is set to true
   - name: 1.8.2 Ensure GDM banner set up
-    blockinfile:
+    ansible.builtin.blockinfile:
       # Add our required pieces to the greeter defaults file
-      path: /etc/gdm3/greeter.dconf-defaults
+      path: /etc/gdm/greeter.dconf-defaults
       owner: root
       group: root
       mode: 0644
@@ -928,7 +928,7 @@
   - name: 1.10.0 - Configure crypto-policy
     block:
       - name: 1.10.0 - Display error if crypto variable violates policy
-        debug:
+        ansible.builtin.debug:
           msg:
             - "crypto_policy is set to: {{ crypto_policy }}. Which is not a valid selection."
             - "Valid choices are DEFAULT, FUTURE, and FIPS."
@@ -937,21 +937,21 @@
         when: crypto_policy is defined and ( crypto_policy != "DEFAULT" and crypto_policy != "FUTURE" and crypto_policy != "FIPS" )
 
       - name: 1.10.0 - Set crypto-policy to {{ crypto_policy | upper | default('DEFAULT', true) }}
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/crypto-policies/config
           regexp: "^(LEGACY|FUTURE|FIPS|DEFAULT)"
           line: "{{ crypto_policy | upper | default('DEFAULT', true) }}"
         notify: update crypto_policy
 
       - name: 1.10.0 - Check to see if FIPS mode is already set up if crypto_policy == "FIPS"
-        command: /usr/sbin/fips-mode-setup --is-enabled
+        ansible.builtin.command: /usr/sbin/fips-mode-setup --is-enabled
         register: fips_mode
         when: crypto_policy is defined and crypto_policy == "FIPS"
         failed_when: false
         changed_when: false
 
       - name: 1.10.0 - Enabling FIPS mode if crypt_policy set to FIPS
-        command: /usr/bin/fips-mode-setup --enable
+        ansible.builtin.command: /usr/bin/fips-mode-setup --enable
         when: ( crypto_policy is defined and crypto_policy == "FIPS") and fips_mode.rc == "2"
     tags:
       - 1.10.0
@@ -959,7 +959,7 @@
  ### Part 2, Services ###
   # Remove old, unused, insecure services
   - name: 2.1.1 - Remove xinetd service
-    dnf:
+    ansible.builtin.dnf:
       name: xinetd
       state: absent
     when: tftp_server is defined and not tftp_server
@@ -970,7 +970,7 @@
   # RHEL 8 does not distribute ntp any longer, so we are not using the time_server
   #  variable for RHEL8 controls
   - name: 2.2.1.1 - Verify chrony is  installed
-    dnf:
+    ansible.builtin.dnf:
       name: "chrony"
       state: present
     tags:
@@ -980,7 +980,7 @@
   #  The default file does not have any template variables, but it's there so
   #  they can be added in the future.
   - name: 2.2.1.2 - Configure chrony
-    template:
+    ansible.builtin.template:
       src: "chrony.conf"
       dest: /etc/chrony.conf
       owner: root
@@ -991,7 +991,7 @@
       - 2.2.1.2
 
   - name: 2.2.1.3 - configure sysconfig time_server options
-    template:
+    ansible.builtin.template:
       src: "{{ time_service }}d"
       dest: /etc/sysconfig/{{ time_service }}d
       owner: root
@@ -1006,7 +1006,7 @@
       # Find the current default run level. The systemctl module does not handle the
       #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
       - name: 2.2.2 - get default runlevel
-        stat:
+        ansible.builtin.stat:
           path: /etc/systemd/system/default.target
         register: default_runlevel_out
         tags:
@@ -1014,7 +1014,7 @@
 
       # Use systemd module to stop the GDM service
       - name: 2.2.2 - Disable the gdm display manager
-        systemd:
+        ansible.builtin.systemd:
           name: gdm
           enabled: no
           masked: yes
@@ -1027,7 +1027,7 @@
       # Set the current run level. The systemctl module does not handle the
       #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
       - name: 2.2.2 - Set current runlevel (non graphical)
-        command: /usr/bin/systemctl isolate multi-user.target
+        ansible.builtin.command: /usr/bin/systemctl isolate multi-user.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
@@ -1035,7 +1035,7 @@
           - 2.2.2
 
       - name: 2.2.2 - Set current runlevel (graphical)
-        command: /usr/bin/systemctl isolate graphical.target
+        ansible.builtin.command: /usr/bin/systemctl isolate graphical.target
         register: isolate_out
         changed_when: isolate_out.changed
         when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
@@ -1044,7 +1044,7 @@
 
       # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
       - name: 2.2.2 - Set default runlevel (non graphical)
-        file:
+        ansible.builtin.file:
           src: /lib/systemd/system/multi-user.target
           dest: /etc/systemd/system/default.target
           owner: root
@@ -1052,7 +1052,7 @@
         when: not graphical_interface
 
       - name: 2.2.2 - Set default runlevel (graphical)
-        file:
+        ansible.builtin.file:
           src: /lib/systemd/system/graphical.target
           dest: /etc/systemd/system/default.target
           owner: root
@@ -1065,77 +1065,77 @@
   #  For every item that is encountered (without the tag being skipped),
   #  add a string to the list.
   - name: create empty list for unneeded packages
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: []
 
   - name: 2.2.3 - Remove rsync; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'rsync' ] }}"
     tags:
       - 2.2.3
 
   - name: 2.2.4 - Remove avahi; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'avahi' ] }}"
     tags:
       - 2.2.4
 
   - name: 2.2.5 - Remove snmp; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'net-snmp' ] + [ 'net-snmp-libs'] }}"
     tags:
       - 2.2.5
 
   - name: 2.2.6 - Remove squid; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'squid' ] }}"
     tags:
       - 2.2.6
 
   - name: 2.2.7 - Remove samba; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'samba' ] }}"
     when: smb_server is defined and not smb_server
     tags:
       - 2.2.7
 
   - name: 2.2.8 - Remove dovecot; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'dovecot' ] }}"
     when: email_server is defined and not email_server
     tags:
       - 2.2.8
 
   - name: 2.2.9 - Remove httpd; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
     when: http_server is defined and not http_server
     tags:
       - 2.2.9
 
   - name: 2.2.10 - Remove vsftpd; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'vsftpd' ] }}"
     when: ftp_server is defined and not ftp_server
     tags:
       - 2.2.10
 
   - name: 2.2.11 - Remove bind; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'bind' ] + [ 'unbound' ] }}"
     when: dns_server is defined and not dns_server
     tags:
       - 2.2.11
 
   - name: 2.2.12 - Remove nfs server; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'nfs-utils' ] }}"
     when: nfs_server is defined and not nfs_server
     tags:
       - 2.2.12
 
   - name: 2.2.13 - Remove rpcbind; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'rpcbind' ] }}"
     tags:
       - 2.2.13
@@ -1143,52 +1143,52 @@
   # control 2.2.14 skipped. RHEL uses LDAP implemented in SSSD by default
 
   - name: 2.2.15 - Disable dhcpd server [controlled by host variable dhcp_server]; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
     when: dhcp_server is defined and not dhcp_server
     tags:
       - 2.2.15
 
   - name: 2.2.17 - Remove ypserv; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'ypserv' ] }}"
     tags:
       - 2.2.17
 
   - name: 2.3.1 - Remove ypbind; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'ypbind' ] }}"
     when: not ypbind
     tags:
       - 2.3.1
 
   - name: 2.3.2 - Remove telnet; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'telnet' ] }}"
     tags:
       - 2.3.2
 
   - name: 2.3.3 - Remove openldap-clients; add to removal list
-    set_fact:
+    ansible.builtin.set_fact:
       unneeded_packages: "{{ unneeded_packages + [ 'openldap-clients' ] }}"
     tags:
       - 2.3.3
 
   - name: 2.3.3 - list of packages to remove
-    debug:
+    ansible.builtin.debug:
       var: unneeded_packages
 
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
   - name: Process removal list
-    dnf:
+    ansible.builtin.dnf:
       name: "{{ unneeded_packages }}"
       state: absent
 
   # Cups should be remove per control 2.2.16, but it may not be able to due to
   #  dependencies, so disable the service instead
   - name: 2.2.16 - Disable cups as we my not be able to uninstall it
-    service:
+    ansible.builtin.service:
       name: "{{ item }}"
       enabled: no
       state: stopped
@@ -1205,13 +1205,13 @@
   - name: 2.2.18 - Configure email for local-only mode if mail software is installed and not intending to be an external email relay (mail_server=false)
     block:
       - name: 2.2.18 - Find if we have a mail agent config file
-        stat:
+        ansible.builtin.stat:
           path: /etc/postfix/main.cf
         register: postfix_out
         changed_when: false
 
       - name: 2.2.18 - If the file exists and not a mail server, then set loopback only
-        replace:
+        ansible.builtin.replace:
           dest: /etc/postfix/main.cf
           regexp: "^inet_interfaces = ((?!localhost).)*$"
           replace: "inet_interfaces = loopback-only"
@@ -1228,7 +1228,7 @@
   - name: 3.1 - Set networking parameters for host only communications
     block:
       - name: 3.1 - Set ipv4 networking parameters (OFF)
-        sysctl:
+        ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
           reload: yes
@@ -1241,7 +1241,7 @@
         notify: flush network routes
 
       - name: 3.1 - Set ipv6 networking parameters (OFF)
-        sysctl:
+        ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
           reload: yes
@@ -1257,7 +1257,7 @@
   - name: 3.2 - Set networking parameters for host as router communications
     block:
       - name: 3.2 - Set ipv4 network parameters (OFF)
-        sysctl:
+        ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
           reload: yes
@@ -1273,7 +1273,7 @@
         notify: flush network routes
 
       - name: 3.2.[4-8] - Set ipv4 networking parameters (ON)
-        sysctl:
+        ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "1"
           reload: yes
@@ -1290,7 +1290,7 @@
         notify: flush network routes
 
       - name: 3.2 - Set ipv6 networking parameters (OFF)
-        sysctl:
+        ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
           reload: yes
@@ -1314,29 +1314,29 @@
       #  For every item that is encountered (without the tag being skipped),
       #  add a string to the list.
       - name: 3.3.0 - Create empty list of uncommon network protocols to disable
-        set_fact:
+        ansible.builtin.set_fact:
           uncommon_network: []
 
       - name: 3.3.1 - Add dccp to list of uncommon network protocols to disable
-        set_fact:
+        ansible.builtin.set_fact:
           uncommon_network: "{{ uncommon_network + [ 'dccp' ] }}"
         tags:
           - 3.3.1
 
       - name: 3.3.2 - Add sctp to list of uncommon network protocols to disable
-        set_fact:
+        ansible.builtin.set_fact:
           uncommon_network: "{{ uncommon_network + [ 'sctp' ] }}"
         tags:
           - 3.3.2
 
       - name: 3.3.3 - Add rds to list of uncommon network protocols to disable
-        set_fact:
+        ansible.builtin.set_fact:
           uncommon_network: "{{ uncommon_network + [ 'rds' ] }}"
         tags:
           - 3.3.3
 
       - name: 3.3.4 - Add tipc to list of uncommon network protocols to disable
-        set_fact:
+        ansible.builtin.set_fact:
           uncommon_network: "{{ uncommon_network + [ 'tipc' ] }}"
         tags:
           - 3.3.4
@@ -1344,7 +1344,7 @@
   # With the list complete, use it with the system's package manager
   #  to remove packages from the system that are not needed.
       - name: 3.5.0 - Process uncommon network list
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest=/etc/modprobe.d/CIS.conf
           line="install {{ item }} /bin/true"
           state=present
@@ -1359,13 +1359,13 @@
   - name: 3.4.1 - Install firewall package
     block:
       - name: 3.4.1.1 - Install firewalld
-        dnf:
+        ansible.builtin.dnf:
           name: "firewalld"
           state: present
         notify: start firewalld # 3.4.2.1
 
       - name: 3.4.2.2 - Disable iptables service
-        service:
+        ansible.builtin.service:
           name: iptables
           state: stopped
           enabled: no
@@ -1374,7 +1374,7 @@
         failed_when: false
 
       - name: 3.4.2.3 - Disable netfilters service
-        systemd:
+        ansible.builtin.systemd:
           name: nftables
           state: stopped
           enabled: no
@@ -1382,7 +1382,7 @@
         when: "'nftables' in ansible_facts.packages"
 
       - name: 3.4.2.4 - Set default zone
-        lineinfile:
+        ansible.builtin.lineinfile:
             path: "/etc/firewalld/firewalld.conf"
             regexp: '^DefaultZone\s*((?!{{ firewalld_default_zone }}).)*$'
             line: "DefaultZone={{ firewalld_default_zone }}"
@@ -1392,7 +1392,7 @@
       # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
       # 3.4.2.6 Ensure unnecessary services and ports are not accepted
 
-      - debug:
+      - ansible.builtin.debug:
           msg:
             - "3.4.2.7 - Ensure default firewalld policy must be handled locally"
         tags:
@@ -1408,7 +1408,7 @@
   - name: 3.4.4.1 - Install iptables
     block:
       - name: 3.4.4.1 - Install iptables
-        yum:
+        ansible.builtin.dnf:
           name:
             - "iptables"
             - "iptables-services"
@@ -1418,7 +1418,7 @@
           - 3.4.4.1
 
       - name: 3.4.4.1 - Disable firewalld
-        service:
+        ansible.builtin.service:
           name: firewalld
           state: stopped
           enabled: no
@@ -1426,7 +1426,7 @@
         tags:
           - 3.4.4.1
 
-      - debug:
+      - ansible.builtin.debug:
           msg:
             - "Ensure default firewall policy (3.4.4.1.[1-4]) must be handled locally"
         tags:
@@ -1438,7 +1438,7 @@
 
 
   - name: 3.4.4.2 - Configure IPv6 iptables
-    debug:
+    ansible.builtin.debug:
       msg: "3.4.4.2, Configure IPv6 ip6tables skipping due to low use"
     when: ipv6_disable and enable_firewall == "firewalld"
     tags:
@@ -1453,7 +1453,7 @@
       # If it doesn't exist, then we can just insert it
     block:
       - name: 3.6 - Find if IPv6 is currently in the grub file, shows changed when it is in the file
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*ipv6.disable=1'
           state: absent
@@ -1464,7 +1464,7 @@
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 3.6 - Disable IPv6 in grub
-        replace:
+        ansible.builtin.replace:
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
@@ -1479,7 +1479,7 @@
   - name: 4.1 Install and configure system auditing
     block:
       - name: 4.1.1 - Install Audit
-        dnf:
+        ansible.builtin.dnf:
           name:
             - audit
             - audit-libs
@@ -1488,7 +1488,7 @@
           - 4.1.1.1
 
       - name: 4.1.1.2 - Enable auditd service
-        service:
+        ansible.builtin.service:
           name: auditd
           enabled: yes
           state: started
@@ -1499,7 +1499,7 @@
       # We check here because we don't know what position the audit=1 is in
       # order to simply do the replace, so we are instead looking for the match in the file first.
       # If it doesn't exist, then we can just insert it
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*audit=1'
           state: absent
@@ -1513,7 +1513,7 @@
       # use the replace module to add it to grub bootloader and then notify
       #  grub to rebuild
       - name: 4.1.1.3 - enable audit service in grub
-        replace:
+        ansible.builtin.replace:
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
@@ -1523,7 +1523,7 @@
           - 4.1.1.3
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, check if limit exists
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*audit_backlog_limit'
           state: absent
@@ -1535,7 +1535,7 @@
           - 4.1.1.4
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, add audit_backlog_limit to grub
-        replace:
+        ansible.builtin.replace:
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
@@ -1545,7 +1545,7 @@
           - 4.1.1.4
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (check)
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
           state: absent
@@ -1557,7 +1557,7 @@
           - 4.1.1.4
 
       - name: 4.1.1.4 - Ensure audit_backlog_limit is sufficient, update limit if it already exists (fix)
-        replace:
+        ansible.builtin.replace:
           dest: /etc/default/grub
           regexp: 'audit_backlog_limit=[\S]*'
           replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
@@ -1569,7 +1569,7 @@
       # The replace module here is looking through file and make replacements of partial lines
 
       - name: 4.1.2.[1-2] - Configure audit log storage size
-        replace:
+        ansible.builtin.replace:
           path: /etc/audit/auditd.conf
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
@@ -1589,7 +1589,7 @@
       #  the copy module to place each file independently and then motifying
       #  a restart of auditd if anything changes.
       - name: 4.1.4 - Ensure system logins are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/login.rules
           src: audit_rules/login.rules
           owner: root
@@ -1600,7 +1600,7 @@
           4.1.4
 
       - name: 4.1.5 - Ensure session initiation information is collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/sessions.rules
           src: audit_rules/sessions.rules
           owner: root
@@ -1611,7 +1611,7 @@
           4.1.5
 
       - name: 4.1.6 Ensure to collect events that modify date/time
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/datetime.rules
           src: audit_rules/datetime.rules
           owner: root
@@ -1622,7 +1622,7 @@
           - 4.1.6
 
       - name: 4.1.7 - Ensure modifications to Mandatory Access Controls are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/MAC-policy.rules
           src: audit_rules/MAC-policy.rules
           owner: root
@@ -1633,7 +1633,7 @@
           4.1.7
 
       - name: 4.1.8 - Ensure modifications to network environment are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/network.rules
           src: audit_rules/network.rules
           owner: root
@@ -1645,7 +1645,7 @@
 
       # This is the first control that we use the min_uid variable that we determined earlier
       - name: 4.1.9 - Ensure modifications to discretionary access controls are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/dac.rules
           src: audit_rules/dac.rules
           owner: root
@@ -1656,7 +1656,7 @@
           4.1.9
 
       - name: 4.1.10 - Ensure unsuccessful unauthorized file access attempts are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/bad-file-access.rules
           src: audit_rules/bad-file-access.rules
           owner: root
@@ -1667,7 +1667,7 @@
           4.1.10
 
       - name: 4.1.11 - Ensure events that modify user/group information are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/user-group-info.rules
           src: audit_rules/user-group-info.rules
           owner: root
@@ -1678,7 +1678,7 @@
           4.1.11
 
       - name: 4.1.12 - Ensure successful file system mounts are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/file-system-mounts.rules
           src: audit_rules/file-system-mounts.rules
           owner: root
@@ -1692,7 +1692,7 @@
       # skipping
 
       - name: 4.1.14 - Ensure file deletion events by users are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/delete.rules
           src: audit_rules/delete.rules
           owner: root
@@ -1703,7 +1703,7 @@
           4.1.14
 
       - name: 4.1.15 - Ensure kernel module loading and unloading is collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/modules.rules
           src: audit_rules/modules.rules
           owner: root
@@ -1714,7 +1714,7 @@
           4.1.15
 
       - name: 4.1.16 - Ensure sysadmin actions (sudolog) are collected
-        template:
+        ansible.builtin.template:
           dest: /etc/audit/rules.d/sudolog.rules
           src: audit_rules/sudolog.rules
           owner: root
@@ -1726,7 +1726,7 @@
           - 4.1.3
 
       - name: 4.1.17 - Ensure audit configuration is immutable
-        copy:
+        ansible.builtin.copy:
           dest: /etc/audit/rules.d/99-finalize.rules
           content: |
             -e 2
@@ -1740,21 +1740,21 @@
 
   # Section 4, Logging
   - name: 4.2.1.1 - Ensure rsyslog is installed
-    yum:
+    ansible.builtin.dnf:
       name: rsyslog
       state: present
     tags:
       - 4.2.1.1
 
   - name: 4.2.1.2 - Enable Rsyslog
-    service:
+    ansible.builtin.service:
       name: rsyslog
       enabled: yes
     tags:
       - 4.2.1.2
 
   - name: 4.2.1.3 - Ensure rsyslog default file permissions are configured
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/rsyslog.conf
       regexp: '^\$FileCreateMode\s+0640'
       line: "$FileCreateMode 0640"
@@ -1764,7 +1764,7 @@
       - 4.2.1.3
 
   - name: 4.2.1.4 - Ensure logging is configured
-    copy:
+    ansible.builtin.copy:
       src: "{{ rsyslog_file }}"
       dest: "/etc/rsyslog.d/{{ rsyslog_file }}"
       owner: root
@@ -1780,13 +1780,13 @@
   - name: 4.2.1.6 - Ensure remote rsyslog messages are only acepted on designated log hosts
     block:
       - name: 4.2.1.6 - Find all rsyslog conf files in /etc/rsyslog.d
-        find:
+        ansible.builtin.find:
           paths: "/etc/rsyslog.d"
           patterns: "*.conf"
         register: rsyslog_module_found
 
       - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (rsyslog.d conf files)
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: "{{ item.path }}"
           regexp: '^\$ModLoad\s+imtcp'
           state: absent
@@ -1794,14 +1794,14 @@
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Disable imtcp loading module on non log hosts (main rsyslog conf file)
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: "/etc/rsyslog.conf"
           regexp: '^\$ModLoad\s+imtcp'
           state: absent
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Disable TCP port listening on non log hosts (rsylog.d conf files)
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: "{{ item.path }}"
           regexp: '^\$InputTCPServerRun'
           state: absent
@@ -1809,14 +1809,14 @@
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Disable TCP port listening on non log hosts (main rsyslog conf file)
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: "/etc/rsyslog.conf"
           regexp: '^\$InputTCPServerRun'
           state: absent
         when: log_host is defined and not log_host
 
       - name: 4.2.1.6 - Enable loading of imtcp module on log hosts
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$ModLoad\s+imtcp'
           line: "$ModLoad imtcp"
@@ -1827,7 +1827,7 @@
         when: log_host is defined and log_host
 
       - name: 4.2.1.6 - Enable TCP Port listening on port {{ log_port }}
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$InputTCPServerRun {{ log_port }}'
           line: "$InputTCPServerRun {{ log_port }}"
@@ -1842,14 +1842,14 @@
   - name: 4.2.2 - Configure journald
     block:
       - name: Find any rsyslog files where all logs are being forwarded to a loghost
-        shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+        ansible.builtin.shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
         check_mode: no
 
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
-        lineinfile:
+        ansible.builtin.lineinfile:
           dest: /etc/systemd/journald.conf
           regexp: "^ForwardToSyslog=((?!yes).)*$"
           line: "ForwardToSyslog=yes"
@@ -1859,7 +1859,7 @@
       - 4.2.2.1
 
   - name: 4.2.2.2 - Ensure journald compresses large files
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/systemd/journald.conf
       regexp: "^Compress=((?!yes).)*$"
       line: "Compress=yes"
@@ -1868,7 +1868,7 @@
       - 4.2.2.2
 
   - name: 4.2.2.3 - Ensure journald writes to peristent disk
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/systemd/journald.conf
       regexp: "^Storage=((?!persistent).)*$"
       line: "Storage=persistent"
@@ -1880,7 +1880,7 @@
   # skipping
 
   - name: 4.3 - Ensure logrotate is installed and configured
-    yum:
+    ansible.builtin.dnf:
       name: logrotate
       state: present
     tags:
@@ -1894,7 +1894,7 @@
   # This control is early in order to create the files. This will
   # make sure they are available when cron starts
   - name: Create the cron/at allow files (5.1.8)
-    copy:
+    ansible.builtin.copy:
       dest: "{{ item }}"
       content: ""
       force: no
@@ -1908,7 +1908,7 @@
       - 5.1.8
 
   - name: 5.1.1 - Ensure cron is enabled
-    service:
+    ansible.builtin.service:
       name: crond
       enabled: yes
       state: started
@@ -1917,7 +1917,7 @@
       - 5.1.1
 
   - name: 5.1.2 - Ensure permissions on /etc/crontab
-    file:
+    ansible.builtin.file:
       path: /etc/crontab
       owner: root
       group: root
@@ -1926,7 +1926,7 @@
       - 5.1.2
 
   - name: 5.1.[3-7] - Ensure permissions on crontab directories
-    file:
+    ansible.builtin.file:
       path: "{{ item }}"
       owner: root
       group: root
@@ -1950,7 +1950,7 @@
   - name: 5.2 - SSH File configurations
     block:
       - name: 5.2.1 - Set permissions on SSH file
-        file:
+        ansible.builtin.file:
           dest: /etc/ssh/sshd_config
           owner: root
           group: root
@@ -1964,7 +1964,7 @@
       - name: 5.2.3 - Set Permissions on ssh private host keys
         block:
           - name: 5.2.3 - Find all ssh private host keys
-            find:
+            ansible.builtin.find:
               paths: /etc/ssh
               file_type: file
               patterns: ssh_host_*_key
@@ -1972,7 +1972,7 @@
             changed_when: false
 
           - name: 5.2.3 - Set permissions on all ssh private host keys (Red Hat set the group to ssh_keys and mode to 640)
-            file:
+            ansible.builtin.file:
               dest: "{{ item.path }}"
               owner: root
               group: ssh_keys
@@ -1984,7 +1984,7 @@
       - name: 5.2.4 - Set Permissions on ssh public host keys
         block:
           - name: 5.2.4 - Find all ssh public host keys
-            find:
+            ansible.builtin.find:
               paths: /etc/ssh
               file_type: file
               patterns: ssh_host_*_key.pub
@@ -1992,7 +1992,7 @@
             changed_when: false
 
           - name: 5.2.4 - Set permissions on all ssh public host keys
-            file:
+            ansible.builtin.file:
               dest: "{{ item.path }}"
               owner: root
               group: root
@@ -2002,7 +2002,7 @@
           - 5.2.4
 
       - name: 5.2.5 - Set LogLevel to {{ ssh_log_level }} or more verbose, but not debug
-        replace:
+        ansible.builtin.replace:
           path: /etc/ssh/sshd_config
           replace: "LogLevel {{ ssh_log_level | upper }}"
           regexp: '^LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
@@ -2014,7 +2014,7 @@
       # Using replace with a replace argument of "" removes the selected
       #  text.
       - name: 5.2.6 - Disable X11 forwarding
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^X11Forwarding\s*yes'
@@ -2023,7 +2023,7 @@
           - 5.2.6
 
       - name: 5.2.7 - Ensure SSH MaxAuthTires is set to {{ ssh_max_auth_tries }} or less
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "MaxAuthTries {{ ssh_max_auth_tries }}"
           regexp: '^MaxAuthTries\s*[^1-{{ ssh_max_auth_tries | int + 1 }}]'
@@ -2033,7 +2033,7 @@
           - 5.2.7
 
       - name: 5.2.8 - Ensure IgnoreRhosts is set
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "IgnoreRhosts yes"
           regexp: '^IgnoreRhosts\s*[^y]'
@@ -2042,7 +2042,7 @@
           - 5.2.8
 
       - name: 5.2.9 - Ensure HostbasedAuthentication is disabled
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "HostbasedAuthentication no"
           regexp: '^HostbasedAuthentication\s*[^n]'
@@ -2051,7 +2051,7 @@
           - 5.2.9
 
       - name: 5.2.10 Ensure PermitRootLogin is disbled
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "PermitRootLogin no"
           regexp: '^PermitRootLogin\s*[^n]'
@@ -2060,7 +2060,7 @@
           - 5.2.10
 
       - name: 5.2.11 - Ensure SSH PermitEmptyPasswords is disabled
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitEmptyPasswords\s*[^n]'
@@ -2069,7 +2069,7 @@
           - 5.2.11
 
       - name: 5.2.12 - Ensure PermitUserEnvironment is disabled
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitUserEnvironment\s*[^n]'
@@ -2078,7 +2078,7 @@
           - 5.2.12
 
       - name: 5.2.13 - Ensure SSH Idle Timeout is configured ClientAliveInterval
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "ClientAliveInterval {{ ssh_alive_interval }}"
           regexp: "^ClientAliveInterval {{ ssh_alive_interval }}"
@@ -2088,7 +2088,7 @@
           - 5.2.13
 
       - name: 5.2.13 - Ensure SSH Idle Timeout is configured ClientAliveCountMax
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "ClientAliveCountMax {{ ssh_alive_count_max }}"
           regexp: "^ClientAliveCountMax {{ ssh_alive_count_max }}"
@@ -2098,7 +2098,7 @@
           - 5.2.13
 
       - name: 5.2.14 - Ensure SSH LoginGraceTime is set to {{ ssh_grace_time }} or less
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/ssh/sshd_config
           line: "LoginGraceTime {{ ssh_grace_time }}"
           regexp: "^LoginGraceTime {{ ssh_grace_time }}"
@@ -2108,7 +2108,7 @@
           - 5.2.14
 
       - name: 5.2.15 - Ensure SSH Banner is configured
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           line: "Banner /etc/{{ ssh_login_banner }}"
           regexp: "^Banner /etc/{{ ssh_login_banner }}"
@@ -2117,7 +2117,7 @@
           - 5.2.15
 
       - name: 5.2.16 - Ensure SSH is configured to use PAM
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           line: "UsePAM yes"
           regexp: '^UsePAM\s+[yes|no]'
@@ -2126,7 +2126,7 @@
           - 5.2.16
 
       - name: 5.2.17 - Disable TCP Forwarding
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           line: "AllowTcpForwarding no"
           regexp: '^AllowTcpForwarding\s+(yes|no)'
@@ -2136,7 +2136,7 @@
           - 5.2.17
 
       - name: 5.2.18 - Limit max unauthenticated startups
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           line: "maxstartups 10:30:60"
           regexp: '^maxstartups\s+10:30:60'
@@ -2144,23 +2144,23 @@
         tags:
           - 5.2.18
 
-      - name: 5.2.18 - Limit max sessions
-        lineinfile:
+      - name: 5.2.19 - Limit max sessions
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           line: "maxsessions {{ ssh_max_sessions }}"
           regexp: '^maxsessions\s+[{{ ssh_max_sessions }}]'
         notify:  restart sshd
         tags:
-          - 5.2.18
+          - 5.2.19
 
-      - name: 5.2.19 - Ensure system crypto policy isn't overriden in SSH
-        lineinfile:
+      - name: 5.2.20 - Ensure system crypto policy isn't overriden in SSH
+        ansible.builtin.lineinfile:
           path: "/etc/ssh/sshd_config"
           state: absent
           regexp: '^\s*(CRYPTO_POLICY\s*=.*)$'
         notify:  restart sshd
         tags:
-          - 5.2.19
+          - 5.2.20
     tags:
       - 5.2.0
 
@@ -2170,7 +2170,7 @@
   - name: 5.4.1 - Configure PAM files and password requirements
     block:
       - name: 5.4.1 - require at least one digit in passwords
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/security/pwquality.conf
           line: dcredit = -1
           regexp: "^dcredit = -1"
@@ -2178,7 +2178,7 @@
         when: password_req_digit
 
       - name: 5.4.1 - require at least one uppercase letter in passwords
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/security/pwquality.conf
           line: ucredit = -1
           regexp: "^ucredit = -1"
@@ -2186,7 +2186,7 @@
         when: password_req_upper
 
       - name: 5.4.1 - require at least one lowercase letter in passwords
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/security/pwquality.conf
           line: lcredit = -1
           regexp: "^lcredit = -1"
@@ -2194,7 +2194,7 @@
         when: password_req_lower
 
       - name: 5.4.1 - Require at least one special character in passwords
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/security/pwquality.conf
           line: ocredit = -1
           regexp: "^ocredit = -1"
@@ -2202,7 +2202,7 @@
         when: password_req_digit
 
       - name: 5.4.1 - Require at least {{ password_min_length }} characters in passwords
-        lineinfile:
+        ansible.builtin.lineinfile:
           path: /etc/security/pwquality.conf
           line: minlen = {{ password_min_length }}
           regexp: "^minlen = {{ password_min_length }}"
@@ -2221,7 +2221,7 @@
   # skipping
 
   - name: 5.5.1.1 - Ensure password expiration is {{ password_expire_days }} days or less
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/login.defs
       regexp: '^PASS_MAX_DAYS\s*((?!{{ password_expire_days }}).)*$'
       line: "PASS_MAX_DAYS  {{ password_expire_days }}"
@@ -2230,7 +2230,7 @@
       - 5.5.1.1
 
   - name: 5.5.1.2 - Ensure password change days is set to {{ password_min_days }}
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/login.defs
       regexp: '^PASS_MIN_DAYS\s*((?!{{ password_min_days }}).)*$'
       line: "PASS_MIN_DAYS  {{ password_min_days }}"
@@ -2239,7 +2239,7 @@
       - 5.5.1.2
 
   - name: 5.5.1.3 - Ensure password warning days is set to {{ password_warning_days }}
-    lineinfile:
+    ansible.builtin.lineinfile:
       dest: /etc/login.defs
       regexp: '^PASS_WARN_AGE\s*((?!{{ password_warning_days }}).)*$'
       line: "PASS_WARN_AGE  {{ password_warning_days }}"
@@ -2250,7 +2250,7 @@
   # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
   # The defaults perms are 0644 on the file, but after useradd is run against it, it changes to 0600, so we'll change it as well
   - name: 5.5.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
-    replace:
+    ansible.builtin.replace:
       path: /etc/default/useradd
       regexp: "^INACTIVE=((?!{{ password_inactive_lock_days }}).)*$"
       replace: "INACTIVE={{ password_inactive_lock_days }}"
@@ -2267,7 +2267,7 @@
   # skipping
 
   - name: 5.5.3 - Ensure default shell timeout is {{ shell_timeout }} seconds or less
-    blockinfile:
+    ansible.builtin.blockinfile:
       path: "{{ item }}"
       block: "TMOUT={{ shell_timeout }}"
       marker: "# {mark} Ansible Managed CIS Timeout"
@@ -2279,13 +2279,13 @@
 
   # Control is actually setting to GID of 0 and the user module takes a group name, not a GID, so have to use usermod
   - name: 5.5.4 - Ensure default group for root is GID 0
-    command: /usr/sbin/usermod -g 0 root
+    ansible.builtin.command: /usr/sbin/usermod -g 0 root
     changed_when: false
     tags:
       - 5.5.4
 
   - name: 5.5.5 - Ensure umask is set
-    replace:
+    ansible.builtin.replace:
       path: "{{ item }}"
       replace: "     umask {{ default_umask }}"
       regexp: '^\s*umask\s*022'
@@ -2303,13 +2303,13 @@
   - name: 5.7 - Restrict su to wheel group
     block:
       - name: 5.7 - Configure PAM to only allow su from wheel group
-        replace:
+        ansible.builtin.replace:
           path: /etc/pam.d/su
           regexp: '^#auth\s+required\s+pam_wheel.so\s+use_uid'
           replace: "auth         required        pam_wheel.so use_uid"
 
       - name: 5.7 - Add root to the wheel group
-        user:
+        ansible.builtin.user:
           name: root
           groups: wheel
           append: yes
@@ -2322,7 +2322,7 @@
   # skipping
 
   - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
-    file:
+    ansible.builtin.file:
       path: /etc/{{ item }}
       owner: root
       group: root
@@ -2335,7 +2335,7 @@
       - 6.1.4
 
   - name: 6.1.[3,5] - Ensure permissions on /etc/shadow /etc/gshadow
-    file:
+    ansible.builtin.file:
       path: /etc/{{ item }}
       owner: root
       group: root
@@ -2348,7 +2348,7 @@
       - 6.1.5
 
   - name: 6.1.[6-9] - Ensure permissions on /etc/passwd- /etc/[g]shadow- /etc/group-
-    file:
+    ansible.builtin.file:
       path: /etc/{{ item }}
       owner: root
       group: root
@@ -2369,13 +2369,13 @@
   - name: 6.1.10 - Ensure no world writable files exist
     block:
       - name: 6.1.10 - Find any world writiable files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
+        ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
         check_mode: no
 
       - name: 6.1.10 - Print any world writable files found
-        debug:
+        ansible.builtin.debug:
           msg: "World writiable files found: {{ ww_files.stdout }}"
         changed_when: true
         when: ww_files.stdout
@@ -2387,13 +2387,13 @@
   - name: 6.1.11 - Ensure no unowned files exist
     block:
       - name: 6.1.11 - Find any unowned files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
+        ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
         register: uo_files
         changed_when: false
         check_mode: no
 
       - name: 6.1.11 - Print any unowned files found
-        debug:
+        ansible.builtin.debug:
           msg: "unowned files found: {{ uo_files.stdout }}"
         changed_when: true
         when: uo_files.stdout
@@ -2405,13 +2405,13 @@
   - name: 6.1.12 - Ensure no ungrouped files exist
     block:
       - name: 6.1.12 - Find any ungrouped files
-        shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
+        ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
         check_mode: no
 
       - name: 6.1.12 - Print any ungrouped files found
-        debug:
+        ansible.builtin.debug:
           msg: "ungrouped files found: {{ uo_files.stdout }}"
         changed_when: true
         when: ug_files.stdout
@@ -2430,14 +2430,14 @@
   - name: 6.2.1 - Ensure password fields are not empty
     block:
       - name: 6.2.1 - Check to see if there are any accounts with empty passwords
-        shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
+        ansible.builtin.shell: "/usr/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
         check_mode: no
 
 
       - name: 6.2.1 - Report the named users to the report
-        debug:
+        ansible.builtin.debug:
           msg: "The user {{ item }} has an empty password"
         when: empty_passwords.stdout
         changed_when: true
@@ -2446,7 +2446,7 @@
       - 6.2.1
 
   - name: 6.2.[2,4-5] - Ensure no legacy "+" entries exist in password files
-    lineinfile:
+    ansible.builtin.lineinfile:
       regexp: '^\+:.*'
       state: absent
       path: "{{ item }}"
@@ -2463,13 +2463,13 @@
   - name: 6.2.3 - Ensure root PATH integrity
     block:
       - name: 6.2.3 - Run script on path variable
-        script: files/path_check.sh
+        ansible.builtin.script: files/path_check.sh
         changed_when: false
         register: path_check
         check_mode: no
 
       - name: 6.2.3 - Print report to user
-        debug:
+        ansible.builtin.debug:
           msg:
             - "Note, Ansible runs this as SUDO with the ansible user's PATH variable. The script may not print issues"
             - "that exist in root's path because of this. It should be run as root on the target machine manually."
@@ -2481,13 +2481,13 @@
   - name: 6.2.6 - Report on multiple accounts with UID of 0
     block:
       - name: 6.2.6 - find accounts with UID of 0
-        shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
+        ansible.builtin.shell: "/usr/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
         check_mode: no
 
       - name: 6.2.6 - Report on mulitple accounts with UID of 0
-        debug:
+        ansible.builtin.debug:
           msg:
             - "Accounts with UID zero in addition to root"
             - " {{ rootuid.stdout_lines }}"
@@ -2503,14 +2503,14 @@
   - name: 6.2.14 - Report on groups in /etc/passwd  with a GID not in /etc/group
     block:
       - name: 6.2.14 - Use script to pull the list of groups
-        script:
+        ansible.builtin.script:
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
         check_mode: no
 
       - name: 6.2.14 - Report to user any unreferenced groups
-        debug:
+        ansible.builtin.debug:
           msg: "{{ undefined_groups.stdout_lines }}"
         changed_when: true
         when: undefined_groups.stdout
@@ -2520,14 +2520,14 @@
   - name: 6.2.15 - Report on duplicate UIDs in /etc/passwd
     block:
       - name: 6.2.15 - Use script to pull the list of duplicate UIDs
-        script:
+        ansible.builtin.script:
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
         check_mode: no
 
       - name: 6.2.15 - Print report of duplicated UIDs to user
-        debug:
+        ansible.builtin.debug:
           msg: "{{ duplicate_uids.stdout_lines }}"
         changed_when: true
         when: duplicate_uids.stdout
@@ -2537,14 +2537,14 @@
   - name: 6.2.16 - Report on duplicate GIDs in /etc/group
     block:
       - name: 6.2.16 - Use script to pull the list of duplicate GIDs
-        script:
+        ansible.builtin.script:
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
         check_mode: no
 
       - name: 6.2.16 - Print report of duplcate GIDs to user
-        debug:
+        ansible.builtin.debug:
           msg: "{{ duplicate_guids.stdout_lines }}"
         changed_when: true
         when: duplicate_guids.stdout
@@ -2554,14 +2554,14 @@
   - name: 6.2.17 - Report on duplicate users in /etc/passwd
     block:
       - name: 6.2.17 - Use script to pull the list of users
-        script:
+        ansible.builtin.script:
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
         check_mode: no
 
       - name: 6.2.17 - Print report of duplicate users to user
-        debug:
+        ansible.builtin.debug:
           msg: "{{ duplicate_users.stdout_lines }}"
         changed_when: true
         when: duplicate_users.stdout
@@ -2571,14 +2571,14 @@
   - name: 6.2.18 - Report on duplicate groups in /etc/group
     block:
       - name: 6.2.18 - Use script to pull the list of groups
-        script:
+        ansible.builtin.script:
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
         check_mode: no
 
       - name: 6.2.18 - Print report of duplicate groups to user
-        debug:
+        ansible.builtin.debug:
           msg: "{{ duplicate_groups.stdout_lines }}"
         changed_when: true
         when: duplicate_groups.stdout
@@ -2588,14 +2588,32 @@
   - name: 6.2.19 - Report on shadow group in /etc/group
     block:
       - name: 6.2.19 - Determine if the shadow group exists in /etc/group
-        command: /usr/bin/grep "^shadow:" /etc/group
+        ansible.builtin.command: /usr/bin/grep "^shadow:" /etc/group
         register: shadow_out
         changed_when: false
         failed_when: shadow_out.rc == "2"
         check_mode: no
 
       - name: 6.2.19 - Print report of shadow group to user
-        debug:
+        ansible.builtin.debug:
           msg: "Shadow group exists in /etc/group. Remove"
         changed_when: true
         when: shadow_out.stdout
+
+  - name: 6.2.20 - Report on users that do not have a home directory
+    block:
+      - name: 6.2.20 - Use script to find the users
+        ansible.builtin.script:
+          cmd: files/non_existant_homedirs.sh
+        register: nohomedir
+        changed_when: false
+
+      - name: 6.2.20 - Print report of users that do not have a home directory
+        ansible.builtin.debug:
+          msg: "{{ nohomedir.stdout_lines }}"
+        changed_when: true
+        when: nohomedir.stdout
+    tags:
+      - 6.2.20
+
+
