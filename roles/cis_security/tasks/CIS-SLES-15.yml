@@ -1,0 +1,7 @@
+---
+# Technically SUSE 15 is more like RHEL 8 than RHEL 7, but since we
+#  are using an older benchmark, the controls numbers are closer to the RHEL 7 ones, so
+#  it's easier to include that file and make the few changes for SUSE.
+
+- include: type-files/redhat-7-type.yml
+- include: type-files/SLES-addons.yml

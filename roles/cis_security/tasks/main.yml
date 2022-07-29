@@ -1,0 +1,4 @@
+---
+# tasks file for cis-security
+
+- include: CIS-{{ ansible_distribution }}-{{ ansible_distribution_major_version | replace("Evaluation", "") }}.yml

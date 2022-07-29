@@ -1,0 +1,154 @@
+---
+# Task file for CIS Controls
+# This file is commented to help view what Ansible Automation is doing
+#  and under what circumstances.
+
+- name: 1.3 - Filesystem integrity checking w/AIDE
+  block:
+  - name: 1.3.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
+    ansible.builtin.command: /usr/bin/aide --init
+    when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution == "SLES"
+    tags:
+      - 1.3.1
+  tags:
+    - 1.3.0
+
+- name: 1.6.0 - Mandatory Access Control
+  block:
+    - name: 1.6.2 - Configure AppArmor (SLES only)
+      block:
+        - name: 1.6.2.1 Ensure Apparmor is not disabled in bootloader configuration
+          ansible.builtin.replace:
+            dest: /etc/default/grub
+            regexp: "{{ item }}"
+            replace: ""
+          with_items:
+            - apparmor=0
+          notify: rebuild grub
+          tags:
+            - 1.6.2.1
+
+        - name: 1.6.2.2 - Ensure all AppArmor profiles are enforcing
+          ansible.builtin.command: enforce /etc/apparmor.d/*
+          when: apparmor_level == "enforce"
+          failed_when: false
+          changed_when: false
+          tags:
+            - 1.6.2.2
+
+        - name: 1.6.3 - Ensure SELinux or AppArmor are installed (pull package list again)
+          ansible.builtin.package_facts:
+            manager: auto
+
+        - name: 1.6.3 - Ensure SELinux or AppArmor are installed (report to user)
+          ansible.builtin.debug:
+            msg: "Either SELinux or AppArmor is not installed. Please enable them with tags and restart"
+          when: "'libselinux1' in ansible_facts.packages and 'libapparmor1' in ansible_facts.packages"
+      when: ansible_distribution == "SLES"
+      tags:
+        - 1.6.2
+  tags:
+    - 1.6.0
+
+- name: 2.2.2 - Set default runlevel (non graphical)
+  ansible.builtin.file:
+    src: /usr/lib/systemd/system/multi-user.target
+    dest: /etc/systemd/system/default.target
+    owner: root
+    group: root
+  when: not graphical_interface
+
+- name: 2.2.2 - Set default runlevel (graphical)
+  ansible.builtin.file:
+    src: /usr/lib/systemd/system/graphical.target
+    dest: /etc/systemd/system/default.target
+    owner: root
+    group: root
+  when: graphical_interface
+
+- name: create empty list for unneeded packages
+  ansible.builtin.set_fact:
+    unneeded_packages: []
+  tags:
+    - always
+
+- name: 2.2.6 - add openldap server to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'openldap2' ] }}"
+  tags:
+    - 2.2.6
+
+- name: 2.2.10 - Remove httpd; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'apache2' ] }}"
+  when: http_server is defined and not http_server
+  tags:
+    - 2.2.10
+
+# With the list complete, use it with the system's package manager
+#  to remove packages from the system that are not needed.
+- name: Process removal list
+  ansible.builtin.yum:
+    name: "{{ unneeded_packages }}"
+    state: absent
+  tags:
+    - always
+
+- name: 5.1.1 - Ensure cron is enabled (SLES)
+  ansible.builtin.service:
+    name: cron
+    enabled: true
+    state: started
+  when: ansible_distribution == "SLES"
+  tags:
+    - 5.1.1
+
+- name: 5.3.4 - SLES specific password settings
+  block:
+    - name: 5.3.4 - Determine if we are currently using sha512 password
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/common-password
+        regexp: 'pam_unix.so*sha512'
+        state: absent
+      check_mode: true
+      changed_when: false
+      register: sha512_exist
+      failed_when: fals
+
+    - name: 5.3.4 - Determine if we are currently using sha512 password
+      ansible.builtin.replace:
+        dest: /etc/pam.d/common-password
+        regexp: 'pam_unix.so'
+        replace: 'pam_unix.so    sha512'
+      when: not sha512_exist.found
+  when: ansible_distribution == "SLES"
+  tags:
+    - 5.3.4
+
+- name: 5.4.4 - Ensure umask is set (SLES)
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    replace: "     umask {{ default_umask }}"
+    regexp: '^\s*umask\s*022'
+  when: ansible_distribution == "SLES"
+  loop:
+    - /etc/bash.bashrc.local
+    - /etc/profile.local
+  tags:
+    - 5.4.4
+
+- name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less (SLES)
+  ansible.builtin.blockinfile:
+    path: "{{ item }}"
+    block: "TMOUT={{ shell_timeout }}"
+    marker: "# {mark} Ansible Managed CIS Timeout"
+    create: true
+  owner: root
+  group: root
+  mode: 0644
+  loop:
+    - /etc/bash.bashrc.local
+    - /etc/profile.local
+  when: ansible_distribution == "SLES"
+  tags:
+    - 5.4.5

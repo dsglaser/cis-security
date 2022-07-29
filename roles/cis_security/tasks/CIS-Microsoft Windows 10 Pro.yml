@@ -1,0 +1,4 @@
+---
+# indclude the type file for MS Windows type machines
+
+- include: type-files/MS-Server-type.yml

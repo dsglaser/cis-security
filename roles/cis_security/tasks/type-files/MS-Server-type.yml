@@ -1,0 +1,3240 @@
+---
+# Task file for CIS Controls
+# This file is commented to help view what Ansible Automation is doing
+#  and under what circumstances.
+
+# Some blocks below have tasks with tags and some without. Blocks of tasks that
+#  contain multiple controls have tasks with tags. Blocks that consist of a
+#  single control and are just put together for convience sake, do not have
+#  sub-block tasks with tags.
+
+# Comments about how the modules are used will become more infrequent as
+#  the file goes along to avoid repeating oneself.
+
+  # Let the user know what version of the controls file is running
+  # Use a variable so it prints out the correct version.
+  - name: CIS Control Header
+    ansible.builtin.debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }} type systems"
+    tags:
+      - always
+
+  - name: Set up the domain_role variable
+    block:
+      - name: Set if we are a standalone server
+        ansible.builtin.set_fact:
+          domain_role: "none"
+        when: ansible_facts.windows_domain_role == "Stand-alone server" or ansible.facts.windows_domain_role == "Stand-alone workstation"
+
+      - name: Set if we are a domain member server
+        ansible.builtin.set_fact:
+          domain_role: "member"
+        when: ansible_facts.windows_domain_role == "Member server" or ansible.facts.windows_domain_role == "Member workstation"
+
+      - name: Set if we are domain controller (primary or secondary)
+        ansible.builtin.set_fact:
+          domain_role: "controller"
+        when: ansible_facts.windows_domain_role == "Primary domain controller" or ansible_facts.windows_domain_role == "Backup domain controller"
+    tags:
+      - always
+  # The win_wsecurity_policy module modifies the security policy of the machine with the value
+  #  supplied. You can get a list of the current settings on your system by running
+  #  SecEdit.exe /export /cfg output.ini
+
+  - name: 1.1 Password Policy
+    block:
+      - name: 1.1.1 - Enforce password history is set to {{ password_history }} or more passwords
+        community.windows.win_security_policy:
+          section: System Access
+          key: PasswordHistorySize
+          value: "{{ password_history }}"
+        tags:
+          - 1.1.1
+
+      # 1.1.2 states that the max age should not be 0, if it is this will change the value to 60 automatically
+      #  without telling the operator!
+      # The ternary operator here is used to change the value of password_expire_days if it's
+      #  value is less than 1.
+      - name: 1.1.2 - Ensure maximum password age is set to "{{ password_expire_days }}" or fewer days, but not 0
+        community.windows.win_security_policy:
+          section: System Access
+          key: MaximumPasswordAge
+          value: '{{ (password_expire_days|int < 1 ) | ternary(60, password_expire_days) }}'
+        tags:
+          - 1.1.2
+
+      - name: 1.1.3 - Ensure minimum password age is set to "{{ password_min_days }}"
+        community.windows.win_security_policy:
+          section: System Access
+          key: MinimumPasswordAge
+          value: "{{ password_min_days }}"
+        tags:
+          - 1.1.3
+
+      - name: 1.1.4 - Ensure minimum password length is set to "{{ password_min_length }}"
+        community.windows.win_security_policy:
+          section: System Access
+          key: MinimumPasswordLength
+          value: "{{ password_min_length }}"
+        tags:
+          - 1.1.4
+
+      - name: 1.1.5 - Ensure 'Password must meet complexity requirements' is set to enbled
+        community.windows.win_security_policy:
+          section: System Access
+          key: PasswordComplexity
+          value: 1
+        tags:
+          - 1.1.5
+
+      - name: 1.1.6 - Ensure passwords are not stored with reversible encryption
+        community.windows.win_security_policy:
+          section: System Access
+          key: ClearTextPassword
+          value: 0
+        tags:
+          - 1.1.5
+    tags:
+      - 1.1.0
+
+  - name: 1.2 - Account Lockout Policy
+    block:
+      # The order for this controls has to be particular, if not they won't apply correctly.
+      # 1.2.2 states that the threshold should not be 0, if it is this will change the value to 10 automatically
+      #  without telling the operator!
+      # The ternary operator here is used to change the value of account_lockout_threshold if it's
+      #  value is less than 1.
+      - name: 1.2.2 - Ensure Account lockout threshold is set to {{ account_lockout_threshold }} or fewer attempts, but not 0
+        community.windows.win_security_policy:
+          section: System Access
+          key: LockoutBadCount
+          value: '{{ (account_lockout_threshold|int < 1 ) | ternary(10, account_lockout_threshold) }}'
+        tags:
+          - 1.2.2
+
+      - name: 1.2.3 - Ensure Reset account lockout counter after is set to 15 or more minutes
+        community.windows.win_security_policy:
+          section: System Access
+          key: ResetLockoutCount
+          value: '{{ (account_reset_duration|int < 15 ) | ternary(15, account_reset_duration) }}'
+        tags:
+          - 1.2.3
+
+      - name: 1.2.1 - Ensure Account lockout duration is set to {{ account_lockout_duration }}
+        community.windows.win_security_policy:
+          section: System Access
+          key: LockoutDuration
+          value: "{{ account_lockout_duration }}"
+        tags:
+          - 1.2.1
+    tags:
+      - 1.2.0
+
+  # 2 Local Policies
+  # 2.1 Audit Policy
+  # 2.2 - User Rights Policy
+  - name: 2.2.0 - User rights policy
+    block:
+      - name: 2.2.1 - Ensure Access Credential Manager as a trusted caller is set to No One
+        ansible.windows.win_user_right:
+          name: SeTrustedCredManAccessPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.1
+
+      - name: 2.2.2 - Ensure Access this computer from network is restricted
+        ansible.windows.win_user_right:
+          name: SeNetworkLogonRight
+          users: "{{ dc_network_logon_right }}"
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.2
+
+      - name: 2.2.3 - Ensure Access this computer from network is restricted
+        ansible.windows.win_user_right:
+          name: SeNetworkLogonRight
+          users: "{{ ms_network_logon_right }}"
+          action: set
+        when: domain_role != "controller"
+        tags:
+          - 2.2.3
+
+      - name: 2.2.4 - Ensure Act as part of operating system is set to no one.
+        ansible.windows.win_user_right:
+          name: SeTcbPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.4
+
+      - name: 2.2.5 - Add workstations to domain  set to administrators only
+        ansible.windows.win_user_right:
+          name: SeMachineAccountPrivilege
+          users:
+            - "Administrators"
+          action: set
+        tags:
+          - 2.2.5
+
+      - name: 2.2.6 - Ensure Adjust memory quotas for a process is restricted
+        ansible.windows.win_user_right:
+          name: SeIncreaseQuotaPrivilege
+          users: "{{ adjust_memory_quotas }}"
+          action: set
+        tags:
+          - 2.2.6
+
+      - name: 2.2.7 - Ensure Access this computer from console is restricted
+        ansible.windows.win_user_right:
+          name: SeInteractiveLogonRight
+          users: "{{ local_logon_right }}"
+          action: set
+        tags:
+          - 2.2.7
+
+      - name: 2.2.8 - Ensure allow long on through RDS is restricted (domain controllers)
+        ansible.windows.win_user_right:
+          name: SeRemoteInteractiveLogonRight
+          users: "{{ dc_rds_logon_right }}"
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.8
+
+      - name: 2.2.9 - Ensure allow long on through RDS is restricted (member or standalone servers)
+        ansible.windows.win_user_right:
+          name: SeRemoteInteractiveLogonRight
+          users: "{{ ms_rds_logon_right }}"
+          action: set
+        when: domain_role != "controller"
+        tags:
+          - 2.2.9
+
+      - name: 2.2.10 - Ensure backup operators are restricted
+        ansible.windows.win_user_right:
+          name: SeBackupPrivilege
+          users: "{{ backup_operators }}"
+          action: set
+        tags:
+          - 2.2.10
+
+      - name: 2.2.[11,12] - Ensure the ability to change the time is restricted
+        ansible.windows.win_user_right:
+          name: SeSystemtimePrivilege
+          users: "{{ time_operators }}"
+          action: set
+        loop:
+          - SeSystemtimePrivilege
+          - SeTimeZonePrivilege
+        tags:
+          - 2.2.11
+          - 2.2.12
+
+      - name: 2.2.13 - Ensure Create a page file is set to Administrator
+        ansible.windows.win_user_right:
+          name: SeCreatePagefilePrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.13
+
+      - name: 2.2.14 - Ensure no one can create a token object
+        ansible.windows.win_user_right:
+          name: SeCreateTokenPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.14
+
+      - name: 2.2.15 - Ensure Create Token object is restricted
+        ansible.windows.win_user_right:
+          name: SeCreateGlobalPrivilege
+          users:
+            - "Administrators"
+            - "LOCAL SERVICE"
+            - "NETWORK SERVICE"
+            - "SERVICE"
+          action: set
+        tags:
+          - 2.2.15
+
+      - name: 2.2.16 - Ensure no one can create permanent shared objects
+        ansible.windows.win_user_right:
+          name: SeCreatePermanentPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.16
+
+      - name: 2.2.17 - Ensure symbolic link creation is restricted (domain controller)
+        ansible.windows.win_user_right:
+          name: SeCreateSymbolicLinkPrivilege
+          users: "{{ dc_symbolic_link_right }}"
+          action: set
+        tags:
+          - 2.2.17
+
+      - name: 2.2.18 - Ensure symbolic link creation is restricted (member servers and workstation )
+        block:
+          - name: Ensure symbolic link creation is restricted on member servers
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ ms_symbolic_link_right }}"
+              action: set
+            when: domain_role == "member" and ansible_os_product_type == "server"
+
+          - name: Ensure symbolic link creation is restricted on standalone servers
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ ms_symbolic_link_right }}"
+              action: set
+            when: domain_role == "none" and ansible_os_product_type == "server"
+
+          - name: Ensure symbolic link creation is restricted on standalone workstations
+            ansible.windows.win_user_right:
+              name: SeCreateSymbolicLinkPrivilege
+              users: "{{ wks_symbolic_link_right }}"
+              action: set
+            when: domain_role == "none" and ansible_os_product_type == "workstation"
+        tags:
+          - 2.2.18
+
+      - name: 2.2.19 - Ensure 'Debug programs' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeDebugPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.19
+
+      - name: 2.2.20 - Deny accesss to this computer from network (domain computer)
+        ansible.windows.win_user_right:
+          name: SeDenyNetworkLogonRight
+          users: "Guests"
+          action: add
+        when: domain_role == "controller"
+        tags:
+          - 2.2.20
+
+      - name: 2.2.20 - Deny accesss to this computer from network (domain computer)
+        ansible.windows.win_user_right:
+          name: SeDenyNetworkLogonRight
+          users:
+            - "Local account and member of Administrators group"
+            - "Guests"
+          action: add
+        when: domain_role == "member"
+        tags:
+          - 2.2.20
+
+      # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include
+      # 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
+
+      - name: 2.2.[22-25] - Ensure deny local, remote, and batch logons includes 'Guests'
+        ansible.windows.win_user_right:
+          name: "{{ item }}"
+          users: "Guests"
+          action: add
+        loop:
+          - SeDenyBatchLogonRight
+          - SeDenyServiceLogonRight
+          - SeDenyInteractiveLogonRight
+          - SeDenyRemoteInteractiveLogonRight
+        tags:
+          - 2.2.22
+          - 2.2.23
+          - 2.2.24
+          - 2.2.25
+
+      # control 2.2.26, if configured will deny any local user from logging in remotely. need to test before implmentation: Skipping
+
+      # Control 2.2.27 is only for DCs
+
+      - name: 2.2.28 - Ensure 'Enable computer and user accounts to be trusted for delegation' is set to 'No One'
+        ansible.windows.win_user_right:
+          name: SeEnableDelegationPrivilege
+          users: []
+          action: set
+        when: domain_role == "member"
+        tags:
+          - 2.2.28
+
+      - name: 2.2.29 - Ensure 'Debug programs' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeRemoteShutdownPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.29
+
+      # Control 2.2.30 has a lot of exceptions for server roles. Skipping
+
+      # 2.2.32 - A member server with Web Server (IIS) Role with Web Services role needs to have "IIS_IUSRS"
+      #  added to this list, but DC's do not. Disable on member services if you have the above roles
+      - name: 2.2.31 - Ensure 'Impersonate a client after authentication' is restricted
+        ansible.windows.win_user_right:
+          name: SeImpersonatePrivilege
+          users:
+            - "Administrators"
+            - "LOCAL SERVICE"
+            - "NETWORK SERVICE"
+            - "SERVICE"
+          action: set
+        tags:
+          - 2.2.31
+
+      - name: 2.2.33 - Ensure 'Increase scheduling priority' is restricted
+        ansible.windows.win_user_right:
+          name: SeIncreaseBasePriorityPrivilege
+          users:
+            - Administrators
+            - 'Window Manager\Window Manager Group'
+          action: set
+        tags:
+          - 2.2.33
+
+      - name: 2.2.34 - Ensure 'Load and unload device drivers' is restricted
+        ansible.windows.win_user_right:
+          name: SeLoadDriverPrivilege
+          users: "Administrators"
+          action: set
+        tags:
+          - 2.2.34
+
+      - name: 2.2.35 - Ensure 'Lock pages in memory' is set to 'No One'
+        ansible.windows.win_user_right:
+          name: SeLockMemoryPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.35
+
+      - name: 2.2.36 - Ensure 'Log in as a batch job is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeBatchLogonRight
+          users:
+            - Administrators
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.36
+
+      # If you are running an Exchange environment, exclude this task (both tags!) on DCs and include "Exchange Servers" in
+      #  an Exchange server playbook/role
+      - name: 2.2.[37,38] - Ensure 'Manage auditing and security log' is set to Adminstrators
+        ansible.windows.win_user_right:
+          name: SeSecurityPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.37
+          - 2.2.38
+
+      - name: 2.2.39 - Ensure 'Modify an object label' is set to 'No One'
+        ansible.windows.win_user_right:
+          name: SeRelabelPrivilege
+          users: []
+          action: set
+        tags:
+          - 2.2.39
+
+      - name: 2.2.40 - Ensure 'Modify firmware environment values' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeSystemEnvironmentPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.41
+
+      - name: 2.2.41 - Ensure 'Perform volume maintenance tasks' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeManageVolumePrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.41
+
+      - name: 2.2.42 - Ensure 'Profile single process' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeProfileSingleProcessPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.42
+
+      - name: 2.2.43 - Ensure 'Profile system performance' is restricted
+        ansible.windows.win_user_right:
+          name: SeSystemProfilePrivilege
+          users:
+            - Administrators
+            - 'NT Service\WdiServiceHost'
+          action: set
+        tags:
+          - 2.2.43
+
+      - name: 2.2.44 - Ensure 'Replace a process level token' is restricted
+        ansible.windows.win_user_right:
+          name: SeAssignPrimaryTokenPrivilege
+          users:
+            - 'LOCAL SERVICE'
+            - 'NETWORK SERVICE'
+          action: set
+        tags:
+          - 2.2.44
+
+      - name: 2.2.45 - Ensure 'Restore files and directories' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeRestorePrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.45
+
+      - name: 2.2.46 - Ensure 'Shut down the System' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeShutdownPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.46
+
+      - name: 2.2.47 - Ensure 'Synchronize directory service data' is set to 'No One'
+        ansible.windows.win_user_right:
+          name: SeSyncAgentPrivilege
+          users: []
+          action: set
+        when: domain_role == "controller"
+        tags:
+          - 2.2.47
+
+      - name: 2.2.48 - Ensure 'Take ownership of files or other objects' is set to 'Administrators'
+        ansible.windows.win_user_right:
+          name: SeTakeOwnershipPrivilege
+          users:
+            - Administrators
+          action: set
+        tags:
+          - 2.2.48
+    tags:
+      - 2.2.0
+
+  # 2.3 - Security Options
+  # 2.3.1 - Disable Administrator Account
+
+  - name: 2.3.1.2 - Ensure 'Accounts - Block Microsoft accounts' is set to 'Users can't add or log on with Microsoft accounts'
+    ansible.windows.win_regedit:
+      path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+      name: NoConnectedUser
+      data: 3
+      type: dword
+    tags:
+      - 2.3.1.2
+
+  - name: 2.3.1.3 - Ensure 'Accounts - Guest account status' is set to 'Disabled'
+    community.windows.win_security_policy:
+      section: System Access
+      key: EnableGuestAccount
+      value: '1'
+    when: enable_guest
+    tags:
+      - 2.3.1.3
+
+  - name: 2.3.1.3 - Ensure 'Accounts - Guest account status' is set to 'Disabled'
+    community.windows.win_security_policy:
+      section: System Access
+      key: EnableGuestAccount
+      value: '0'
+    when: enable_guest | lower == "false"
+    tags:
+      - 2.3.1.3
+
+  - name: 2.3.1.4 - Ensure 'Accounts - Limit local account use of blank passwords to console logon only' is set to 'Enabled'
+    ansible.windows.win_regedit:
+      path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+      name: LimitBlankPasswordUse
+      data: 1
+      type: dword
+    tags:
+      - 2.3.1.4
+
+  - name: 2.3.1.5 - Rename Administrator account
+    community.windows.win_security_policy:
+      section: System Access
+      key: NewAdministratorName
+      value: '{{ rename_Administrator }}'
+    when: (enable_Administrator | lower) == "true"
+    tags:
+      - 2.3.1.5
+
+  - name: 2.3.1.6 - Rename Guest account
+    community.windows.win_security_policy:
+      section: System Access
+      key: NewGuestName
+      value: '{{ rename_Administrator }}'
+    when: (enable_guest | lower) == "true"
+    tags:
+      - 2.3.1.6
+
+  # 2.3.2 - Audit
+
+  - name: 2.3.2.1 - Force audit policy subcategories to override category settings
+    ansible.windows.win_regedit:
+      path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+      name: SCENoApplyLegacyAuditPolicy
+      data: 1
+      type: dword
+    tags:
+      - 2.3.2.1
+
+  - name: 2.3.2.2 - Ensure system does not shut down if unable to log security audits
+    ansible.windows.win_regedit:
+      path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+      name: CrashOnAuditFail
+      data: 0
+      type: dword
+    tags:
+      - 2.3.2.2
+
+  # 2.3.3 - Intentionally blank
+
+  - name: 2.3.4.1 - Ensure only Administrators can format and eject removeable hardware
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+      name: AllocateDASD
+      data: 0
+      type: dword
+    tags:
+      - 2.3.4.1
+
+  - name: 2.3.4.2 - Prevent Users from installing print drivers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Print\Providers\LanMan Print Services\Servers'
+      name: AddPrinterDrivers
+      data: 1
+      type: dword
+    tags:
+      - 2.3.4.2
+
+  # 2.3.5 - Domain controller settings
+  - name: 2.3.5 - Domain controller specific settings
+    block:
+      - name: 2.3.5.1 - Allow server operators to schedule tasks
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+          name: SubmitControl
+          data: 0
+          type: dword
+        tags:
+          - 2.3.5.1
+
+      # This control can have severe effects with really old clients (win 2000 SP3 and earlier) verify
+      #  the effect of this control before implementing
+      - name: 2.3.5.2 - Require LDAP signing
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters'
+          name: LDAPServerIntegrity
+          data: "Require signing"
+          type: string
+        tags:
+          - 2.3.5.2
+
+      - name: 2.3.5.3 - Refuse machine account password changes set to disabled
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: RefusePasswordChange
+          data: 0
+          type: dword
+        tags:
+          - 2.3.5.3
+    when: domain_role == "controller"
+    tags:
+      - 2.3.5
+
+  # 2.3.6 - Domain member settings (controllers and member servers)
+  - name: 2.3.6 - Domain members specific settings (controllers and member servers)
+    block:
+      - name: 2.3.6.1 - Digitally encrypt or sign secure channel data (always)
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: RequireSignOrSeal
+          data: 1
+          type: dword
+        tags:
+          - 2.3.6.1
+
+      - name: 2.3.6.2 - Digitally secure channel data (when possible)
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: SealSecureChannel
+          data: 1
+          type: dword
+        tags:
+          - 2.3.6.2
+
+      - name: 2.3.6.3 - Digitally sign secure channel data (when possible)
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: SignSecureChannel
+          data: 1
+          type: dword
+        tags:
+          - 2.3.6.3
+
+      - name: 2.3.6.4 - Disable machine account password changes
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: DisablePasswordChange
+          data: 0
+          type: dword
+        tags:
+          - 2.3.6.4
+
+      # Make sure you understand the impacts of this setting, or exclude it.
+      - name: 2.3.6.5 - Maximum machine account password age
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: MaximumPasswordAge
+          data: '{{ (max_machine_account_days|int < 1 ) | ternary(30, max_machine_account_days) }}'
+          type: dword
+        tags:
+          - 2.3.6.5
+
+      - name: 2.3.6.6 - Require strong session key
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: RequireStrongKey
+          data: 1
+          type: dword
+        tags:
+          - 2.3.6.6
+    when: domain_role == "controller" or domain_role == "member"
+    tags:
+      - 2.3.6
+
+  # 2.3.7 - Interactive Logon
+  - name: 2.3.7 - Interactive Logon
+    block:
+      - name: 2.3.7.1 - Disable CAD Requirement
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+          name: DisableCAD
+          data: 0
+          type: dword
+        tags:
+          - 2.3.7.1
+
+      - name: 2.3.7.2 - Don't disply last signed in user
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+          name: DontDisplayLastUserName
+          data: 1
+          type: dword
+        tags:
+          - 2.3.7.2
+
+      - name: 2.3.7.3 - Machine inactivtiy limit set to {{ inactivity_timeout }} but not 0
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+          name: InactivityTimeoutSecs
+          data: '{{ (inactivity_timeout|int < 1 ) | ternary(900, inactivity_timeout) }}'
+          type: dword
+        tags:
+          - 2.3.7.3
+
+      # 2.3.7.[4,5] - Message text for users attempting to log in: skipped
+
+      - name: 2.3.7.6 - Number of cached logins set to {{ cached_logins }} or fewer
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: CachedLogonsCount
+          data: "{{ cached_logins }}"
+          type: dword
+        when: domain_role == "member"
+        tags:
+          - 2.3.7.6
+
+      - name: 2.3.7.7 - Number of days for password change warning {{ cached_logins }}
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: PasswordExpiryWarning
+          data: "{{ password_warning_days }}"
+          type: dword
+        tags:
+          - 2.3.7.7
+
+      # if you have machines which need local cached credentials (such as a disconnected server), do not enable this
+      #  because without a DC connection, you will not be able to unlock your machine
+      - name: 2.3.7.8 - Require domain controller authentication to unlock workstation
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: ForceUnlockLogon
+          data: 1
+          type: dword
+        tags:
+          - 2.3.7.8
+
+      - name: 2.3.7.9 - Smart-card removal behavior
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+          name: ScRemoveOptions
+          data: "{{ smart_card_removal }}"
+          type: dword
+        when: smart_card_removal == "1" or smart_card_removal == "2" or smart_card_removal == "3"
+        tags:
+          - 2.3.7.9
+    tags:
+      - 2.3.7
+
+  # 2.3.8 - Microsoft network client
+
+  # This control can cause a performance hit due to the need to sign every packet.
+  - name: 2.3.8.1 - Require SMB packet signing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
+      name: RequireSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.8.1
+
+  - name: 2.3.8.2 - Sign communications (if server agrees)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
+      name: EnableSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.8.2
+
+  - name: 2.3.8.3 - send uncencrypted password to third-party SMB servers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManWorkstation\Parameters'
+      name: EnablePlainTextPassword
+      data: 0
+      type: dword
+    tags:
+      - 2.3.8.3
+
+  # 2.3.9 - Microsoft network server
+  - name: 2.3.9.1 - SMB inactivty suspension
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: AutoDisconnect
+      data: "{{ smb_inactivity_minutes }}"
+      type: dword
+    tags:
+      - 2.3.9.1
+
+  # This control can cause a performance hit due to the need to sign every packet.
+  - name: 2.3.9.2 - Digitally sign communications (always)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: RequireSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.2
+
+  - name: 2.3.9.3 - Digitally sign communications (if client agrees)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: EnableSecuritySignature
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.3
+
+  - name: 2.3.9.4 - Disconnect clients when logon hours expire
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: enableforcedlogoff
+      data: 1
+      type: dword
+    tags:
+      - 2.3.9.4
+
+  - name: 2.3.9.5 - SPN target name validation level
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: SMBServerNameHardeningLevel
+      data: "{{ spn_level }}"
+      type: dword
+    when: spn_level == "1" or spn_level == "2"
+    tags:
+      - 2.3.9.5
+
+  # 2.3.10 Network Access
+  # control 2.3.10.1 - Disallow anonymous SID/Name translation disabled until constant is discovered
+
+  - name: 2.3.10.2 - Do not allow enumeration of SAM accounts
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: RestrictAnonymousSAM
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.2
+
+  - name: 2.3.10.3 - Do not allow enumeration of SAM accounts and shares
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: RestrictAnonymous
+      data: 1
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 2.3.10.3
+
+  - name: 2.3.10.4 - Do not allow storage of passwords and creds for network auth
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: DisableDomainCreds
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.4
+
+  - name: 2.3.10.5 - Let 'Everyone' permissions apply to anonymous users is disabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: EveryoneIncludesAnonymous
+      data: 0
+      type: dword
+    tags:
+      - 2.3.10.5
+
+  - name: 2.3.10.6 - Named pipes can be accessed anonymously (DC only)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: ['LSARPC', 'NETLOGON', 'SAMR']
+      type: multistring
+    when: domain_role == "controller"
+    tags:
+      - 2.3.10.6
+
+  - name: 2.3.10.7 - Named pipes can be accessed anonymously (member servers)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NullSessionPipes
+      data: []
+      type: multistring
+    when: domain_role == "member"
+    tags:
+      - 2.3.10.7
+
+  - name: 2.3.10.8 - Remotely accessible registry paths
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths'
+      name: Machine
+      data: ['System\CurrentControlSet\Control\ProductOptions', 'System\CurrentControlSet\Control\Server Applicatoins', 'Software\Microsoft\Windows NT\CurrentVersion']
+      type: multistring
+    tags:
+      - 2.3.10.8
+
+  # TODO - check server roles and add extra paths as needed
+  - name: 2.3.10.9 - Remotely accessible registry paths and subpaths
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedPaths'
+      name: Machine
+      data: ['System\CurrentControlSet\Control\Print\Printers', 'System\CurrentControlSet\Services\Eventlog', 'Software\Microsoft\OLAP Server', 'Software\Microsoft\Windows NT\CurrentVersion\Print', 'Software\Microsoft\Windows NT\CurrentVersion\Windows', 'System\CurrentControlSet\Control\ContentIndex', 'System\CurrentControlSet\Control\Terminal Server', 'System\CurrentControlSet\Control\Terminal Server\UserConfig', 'System\CurrentControlSet\Control\Terminal Server\DefaultUserConfiguration', 'Software\Microsoft\Windows NT\CurrentVersion\Perflib', 'System\CurrentControlSet\Services\SysmonLog']
+      type: multistring
+    tags:
+      - 2.3.10.9
+
+  - name: 2.3.10.10 - Restrict anonymous access to named pipes
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: RestrictNullSessAccess
+      data: 1
+      type: dword
+    tags:
+      - 2.3.10.10
+
+#  - name: 2.3.10.11 - Restrict anonymous access to named pipes
+#    ansible.windows.win_regedit:
+#      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+#      name: restrictremotesam
+#      data: 'O:BAG:BAD:(A;;RC;;;BA)'
+#      type: dword
+#    when: domain_role == "member"
+#    tags:
+#      - 2.3.10.11
+
+  - name: 2.3.10.12 - Clear all shares that can be accessd anonymously
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
+      name: NullSessionShares
+      state: absent
+      delete_key: False
+    tags:
+      - 2.3.10.12
+
+  - name: 2.3.10.13 - Local users authenticate as themselves
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: ForceGuest
+      data: 0
+      type: dword
+    tags:
+      - 2.3.10.13
+
+  # 2.3.11 - Network Security
+  - name: 2.3.11.1 - Use machine ID for NTLM
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: UseMachineId
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.1
+
+  - name: 2.3.11.2 - Disallow LocalSystem NULL session fallback
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0'
+      name: AllowNullSessionFallback
+      data: 0
+      type: dword
+    tags:
+      - 2.3.11.2
+
+  - name: 2.3.11.3 - Disallow PKU2U auth requests
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\pku2u'
+      name: AllowOnlineID
+      data: 0
+      type: dword
+    tags:
+      - 2.3.11.3
+
+  # Find the control to read up on this. The encryption types get converted to a dword in the
+  #  registry, so the allowed types from the control are added here. Other choices will require
+  #  you to add them and pull the converted dword to change
+  - name: 2.3.11.4 - Supported Kerberos encryption types
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters'
+      name: SupportedEncryptionTypes
+      data: 2147483640
+      type: dword
+    tags:
+      - 2.3.11.4
+
+  - name: 2.3.11.5 - Do not store LAN Manager hash on password change
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NoLMHash
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.5
+
+  - name: 2.3.11.6 - Force Logoff when logon hours expire
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: NoLMHash
+      data: 1
+      type: dword
+    tags:
+      - 2.3.11.6
+
+  - name: 2.3.11.7 - LAN Manager authentication - Send NTLMv2 reponse, refuse LM & NTLM
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: LmCompatibilityLevel
+      data: 5
+      type: dword
+    tags:
+      - 2.3.11.7
+
+  - name: 2.3.11.8 - LDAP Client signing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LDAP'
+      name: LDAPClientIntegrity
+      data: "{{ ldap_client_signing }}"
+      type: dword
+    when: ldap_client_signing|int > "0" and ldap_client_signing|int < "3"
+    tags:
+      - 2.3.11.8
+
+  # TODO -  2.3.11.9 - Set minimum security for NTLM SSP based clients
+  # TODO -  2.3.11.10 - Set minimum security for NTLM SSP based servers
+
+
+  # 2.3.12 - Recovery console
+
+  # 2.3.13 - Shutdown
+  - name: 2.3.13.1 - Disable system from shuting down without having to log on
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+      name: ShutdownWithoutLogon
+      data: 0
+      type: dword
+    tags:
+      - 2.3.13.1
+
+  # 2.3.14 - System cryptography
+
+  # 2.3.15 - System objects
+  - name: 2.3.15.1 - Require case insensitivity for now windows subsystems
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel'
+      name: ObCaseInsensitive
+      data: 1
+      type: dword
+    tags:
+      - 2.3.15.1
+
+  - name: 2.3.15.2 - Streghten default permissions of system objects
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel'
+      name: ProtectionMode
+      data: 1
+      type: dword
+    tags:
+      - 2.3.15.2
+
+  # 2.3.16 - System Settings
+
+  # 2.3.17 - User Account Control
+  - name: 2.3.17.1 - Ensure UAC, admin approval mode for built-in admin account is enabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: FilterAdministratorToken
+      data: 1
+      type: dword
+    when: domain_role == "member" or domain_role == "controller"
+    tags:
+      - 2.3.17.1
+
+  - name: 2.3.17.2 - Ensure UAC, behavior of the elevation prompt for admins
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: ConsentPromptBehaviorAdmin
+      data: "{{ uac_prompt_for_consent_admin }}"
+      type: dword
+    tags:
+      - 2.3.17.2
+
+  - name: 2.3.17.3 - Ensure UAC, behavior of the elevation prompt for standard users
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: ConsentPromptBehaviorUser
+      data: "{{ uac_prompt_for_consent_user }}"
+      type: dword
+    tags:
+      - 2.3.17.3
+
+  - name: 2.3.17.4 - Ensure UAC, direct app installations prompt for elevation
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableInstallerDetection
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.4
+
+  - name: 2.3.17.5 - Ensure UAC, Only elevate UIAccess aps that are installed in secure location
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableSecureUIAPaths
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.5
+
+  - name: 2.3.17.6 - Ensure UAC, Run all admins in Admin Approval Mode
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableLUA
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.6
+
+  - name: 2.3.17.7 - Ensure UAC, Switch to secure desktop when prompting for elevation
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: PromptOnSecureDesktop
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.7
+
+  - name: 2.3.17.8 - Ensure UAC, Virtualize file and registry write failures to per-user locations
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: EnableVirtualization
+      data: 1
+      type: dword
+    tags:
+      - 2.3.17.8
+
+  # 3 Event Log
+
+  # 4 Restricted Groups
+
+  # 5 System Services
+
+  # 6 Registry
+
+  # 7 File System
+
+  # 8 Wired Network
+
+  # 9 Windows Firewall - TODO
+
+  # 10 Network List Manager Policies
+
+  # 11 Wireless network policies
+
+  # 12 Public Key Policies
+
+  # 13 Software Restriction Policies
+
+  # 14 NAP client configuratin
+
+  # 15 Application Control Policies
+
+  # 16 IP Security Policies
+
+  # 17 Advanced Audit Policy Configuration
+  - name: 17.1.1 - Ensure Audit credential validation is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Credential Validation"
+      audit_type: success, failure
+    tags:
+      - 17.1.1
+
+  - name: 17.1.2 - Ensure Kerberos Authentication Service is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Kerberos Authentication Service"
+      audit_type: success, failure
+    tags:
+      - 17.1.2
+
+  - name: 17.1.3 - Ensure Kerberos Service Ticket Operations is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Kerberos Service Ticket Operations"
+      audit_type: success, failure
+    tags:
+      - 17.1.3
+
+  - name: 17.2.1 - Ensure Application Group Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Application Group Management"
+      audit_type: success, failure
+    tags:
+      - 17.2.1
+
+  - name: 17.2.2 - Ensure Computer Account Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Computer Account Management"
+      audit_type: success, failure
+    when: domain_role == "controller"
+    tags:
+      - 17.2.2
+
+  - name: 17.2.3 - Ensure Distribution Group Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Distribution Group Management"
+      audit_type: success, failure
+    when: domain_role == "controller"
+    tags:
+      - 17.2.3
+
+  - name: 17.2.4 - Ensure Other Account Management Events is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Other Account Management Events"
+      audit_type: success, failure
+    when: domain_role == "controller"
+    tags:
+      - 17.2.4
+
+  - name: 17.2.5 - Ensure Security Group Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Security Group Management"
+      audit_type: success, failure
+    tags:
+      - 17.2.5
+
+  - name: 17.2.5 - Ensure Security Group Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "Security Group Management"
+      audit_type: success, failure
+    tags:
+      - 17.2.5
+
+  - name: 17.2.6 - Ensure User Account Management is set to 'success and failure'
+    community.windows.win_audit_policy_system:
+      subcategory: "User Account Management"
+      audit_type: success, failure
+    tags:
+      - 17.2.6
+
+# NEED TO FINISH!
+
+  # 18.1.1 - Control Panel personalization settings
+  - name: 18.1.1.1 - Ensure "Prevent enabling lock screen camera" is enabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'
+      name: NoLockScreenCamera
+      data: 1
+      type: dword
+    tags:
+      - 18.1.1.1
+
+  - name: 18.1.1.2 - Ensure 'Prevent enabling lock screen slide show' is enabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'
+      name: NoLockScreenSlideshow
+      data: 1
+      type: dword
+    tags:
+      - 18.1.1.2
+
+  # 18.1.2 Regional and Language Options
+  # 18.1.2.1 - Handwriting Personalization
+
+  - name: 18.1.2.1 - Ensure 'Allow users to enable online speech recognition services' is disabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\InputPersonalization'
+      name: AllowInputPersonalization
+      data: 0
+      type: dword
+    tags:
+      - 18.1.2.1
+
+  - name: 18.1.2.2 - Ensure 'Allow Online Tips' is disabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: AllowOnlineTips
+      data: 0
+      type: dword
+    tags:
+      - 18.1.2.2
+
+  # 18.2 LAPS - Not implemented because it is organization dependent
+
+  # 18.3 MS Security Guide controls
+  - name: 18.3.1 - Ensure 'Apply UAC restrictions to local accounts on network logons' is enabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: LocalAccountTokenFilterPolicy
+      data: 1
+      type: dword
+    tags:
+      - 18.3.1
+
+  - name: 18.3.2 - Disable SMBv1 client driver
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\mrxsmb10'
+      name: Start
+      data: 4
+      type: dword
+    tags:
+      - 18.3.2
+
+  - name: 18.3.3 - Disable SMBv1 server - Doesn't exist in 2019 but the setting won't hurt
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\LanmanServer\Parameters'
+      name: SMB1
+      data: 0
+      type: dword
+    tags:
+      - 18.3.3
+
+  - name: 18.3.4 - Ensure 'Enabled Structured Exception Handling Overwrite Protection' is enabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+      name: DisableExceptionChainValidation
+      data: 0
+      type: dword
+    tags:
+      - 18.3.4
+
+  - name: 18.3.5 - Ensure 'Extended Protection for LDAP Authentication (DCs only)' is enabled; always
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters'
+      name: LdapEnforceChannelBinding
+      data: 2
+      type: dword
+    when: domain_role == "controller"
+    tags:
+      - 18.3.5
+
+  - name: 18.3.6 - Set NetBT Node type to P-Node
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters'
+      name: NodeType
+      data: 2
+      type: dword
+    tags:
+      - 18.3.5
+
+  - name: 18.3.7 - Ensure 'WDigest Authentication' is disabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest'
+      name: UseLogonCredential
+      data: 0
+      type: dword
+    tags:
+      - 18.3.7
+
+  # 18.4 Microsoft Solutions for Security (MSS) settings
+
+  - name: 18.4.1 - Ensure 'Enable automatic Logon' is disabled
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+      name: AutoAdminLogon
+      data: 0
+      type: dword
+    tags:
+      - 18.4.1
+
+  - name: 18.4.2 - Disabled IPv6 IP source routing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters'
+      name: DisableIPSourceRouting
+      data: 2
+      type: dword
+    when: not ipv6_disable
+    tags:
+      - 18.4.2
+
+  - name: 18.4.3 - Disabled IPv4 IP source routing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+      name: DisableIPSourceRouting
+      data: 2
+      type: dword
+    tags:
+      - 18.4.3
+
+  - name: 18.4.4 - Disallow ICMP redirects from ovrriding OSPF routes
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+      name: EnableICMPRedirect
+      data: 0
+      type: dword
+    tags:
+      - 18.4.4
+
+  - name: 18.4.5 - TCP Keep alive Time
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\tcpip\Parameters'
+      name: KeepAliveTime
+      data: 300000
+      type: dword
+    tags:
+      - 18.4.6
+
+  - name: 18.4.6 - Allow computer to ignore NetBIOS name release requests except from WINS servers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters'
+      name: NoNameReleaseonDemand
+      data: 1
+      type: dword
+    tags:
+      - 18.4.6
+
+  - name: 18.4.7 - Disable 'Allow IRDP to detet and configure Default Gateway addresses'
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+      name: PerformRouterDiscovery
+      data: 0
+      type: dword
+    tags:
+      - 18.4.7
+
+  - name: 18.4.8 - Enable Save DLL Search mode
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
+      name: SaveDllSearchMode
+      data: 1
+      type: dword
+    tags:
+      - 18.4.8
+
+  - name: 18.4.9 - Screen saver grace time
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+      name: ScreenSaverGracePeriod
+      value: '{{ screensaver_grace_period | default("0", true) }}'
+      type: dword
+    tags:
+      - 18.4.9
+
+  - name: 18.4.9 - Screen saver grace time
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+      name: ScreenSaverGracePeriod
+      value: '{{ screensaver_grace_period | default("0", true) }}'
+      type: dword
+    tags:
+      - 18.4.9
+
+  - name: 18.4.10 - Max IPv6 TCP retransmissions
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters'
+      name: TcpMaxDataRetransmissions
+      value: 3
+      type: dword
+    when: not ipv6_disable
+    tags:
+      - 18.4.10
+
+  - name: 18.4.12 - Percentage where event log will generate a warning
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Eventlog\Security'
+      name: WarningLevel
+      value: 90
+      type: dword
+    tags:
+      - 18.4.11
+
+  # 18.5 - Network Settings
+  # 18.5.1 - BITS service -
+  # 18.5.2 - BranchCache -
+  # 18.5.3 - DirectAccess Client Experience -
+
+  - name: 18.5.4.1 - DNS Client - Turn off multicast name resolution
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient'
+      name: EnableMulticast
+      value: 0
+      type: dword
+    tags:
+      - 18.5.4.1
+
+  # 18.5.5 - Fonts
+  - name: 18.5.5.1 - Disable Font providers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: EnableFontProviders
+      value: 0
+      type: dword
+    tags:
+      - 18.5.5.1
+
+  # 18.5.6 - Hotspot Authentication
+  # 18.5.7 - Lanman Server
+
+  # 18.5.8 - Lanman Workstation
+  - name: 18.5.8.1 - Disable insecure guest logons
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation'
+      name: AllowInsecureGuestAuth
+      value: 0
+      type: dword
+    tags:
+      - 18.5.8.1
+
+  # 18.5.9 - Link-layer topology discovery
+  - name: 18.5.9.1 - Disble Mapper I/0
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD'
+      name: "{{ item }}"
+      value: 0
+      type: dword
+    loop:
+      - AllowLLTDIOOnDomain
+      - AllowLLTDIOOnPublicNet
+      - EnableLLTDIO
+      - ProhibitLLTDIOOnPrivateNet
+    tags:
+      - 18.5.9.1
+
+  - name: 18.5.9.2 - Disble Responder Driver
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD'
+      name: "{{ item }}"
+      value: 0
+      type: dword
+    loop:
+      - AllowRspndrOnDomain
+      - AllowRespndrOnPublicNet
+      - EnableRspndr
+      - ProhibitRspndrOnPrivateNet
+    tags:
+      - 18.5.9.2
+
+  # 18.5.10 - MS Peer-to-Peer Networking Services
+  # 18.5.10.1 - Peer Name Resolution Protocol -
+  - name: 18.5.10.1 - Turn off MS Peer-to-Peer Networking Services
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Peernet'
+      name: "Disabled"
+      value: 1
+      type: dword
+    tags:
+      - 18.5.10.1
+
+  # 18.5.11 - Network Connections
+  # 18.5.11.1 - Windows Defender Firewall
+  - name: 18.5.11.2 - Prohibit installation of Nework bridge on DNS domain network
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections'
+      name: NC_AllowNetBridge_NLA
+      value: 0
+      type: dword
+    tags:
+      - 18.5.11.2
+
+  - name: 18.5.11.3 - Prohibit use of internet Connection Sharing on DNS domain network
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections'
+      name: NC_ShowSharedAccessUI
+      value: 0
+      type: dword
+    tags:
+      - 18.5.11.3
+
+  - name: 18.5.11.4- Require domain users to elevate when setting a network's location
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections'
+      name: NC_StdDomainUserSetLocation
+      value: 1
+      type: dword
+    tags:
+      - 18.5.11.4
+
+  # 18.5.12 - Network connectivity Status Indicator -
+  # 18.5.13 - Network Isolation -
+  # 18.5.14 - Network Provider-
+  # 18.5.14.1 - Ensure Hardended UNC Paths needs a number of settings, revisit
+  # 18.5.15 - Offline Files -
+  # 18.5.16 - QoS Packet Scheduler -
+  # 18.5.17 - SNMP -
+  # 18.5.18 - SSl Configuration Settings -
+  # 18.5.19 - TCPIP Settings -
+  # 18.5.19.1 - IPv6 Transition Technologies -
+  - name: 18.5.19.2 - Disable IPV6
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters'
+      name: DisabledComponents
+      value: 255
+      type: dword
+    when: ipv6_disable
+    tags:
+      - 18.5.19.2
+
+  # 18.5.20 - Windows Connect Now
+  - name: 18.5.20.1 - Disable configuration of wireless settings using windows Connect Now
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars'
+      name: "{{ item }}"
+      value: 0
+      type: dword
+    loop:
+      - EnableRegistrars
+      - DisableUPnPresgistrar
+      - DisableInBand802DOT11Registrar
+      - DisableFlashConfigRegistrar
+      - DisableWPDRegistrar
+    tags:
+      - 18.5.20.1
+
+  - name: 18.5.20.3 - Disable Windows Connect Now Wizards
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\UI'
+      name: DisableWcnUi
+      value: 1
+      type: dword
+    tags:
+      - 18.5.20.2
+
+  - name: 18.5.21.1 - Number of simultaneous connections to the internet or windows domain is 3
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy'
+      name: fMinimizeConnections
+      value: 3
+      type: dword
+    tags:
+      - 18.5.21.1
+
+  - name: 18.5.21.2 - Prohibit connection to non-domain networks when connected to domain network
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy'
+      name: fBlockNonDomain
+      value: 1
+      type: dword
+    when: domain_role == "member"
+
+  # 18.6 - Printers -
+  # 18.7 - Start Menu and Task bar
+  # 18.7.1 - Notifications
+  - name: 18.7.1.1 - Turn off notifications network usage
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications'
+      name: NoCloudApplicationNotification
+      value: 1
+      type: dword
+    tags:
+      - 18.7.1.1
+
+  # 18.8 System -
+  # 18.8.1 - Access-Denied Assistance -
+  # 18.8.2 - App-V -
+  # 18.8.3 - Audit Process Creation
+  - name: 18.8.3.1 - Disable including command line in process creation events
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\\Policies\System\Audit'
+      name: ProcessCreationIncludeCmdLine_Enabled
+      value: 0
+      type: dword
+    tags:
+      - 18.8.3.1
+
+  # 18.8.4 - Credentials Delegation
+  - name: 18.8.4.1 - Force updated oracle Remediation Clients
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters'
+      name: AllowEncryptionOracle
+      value: 0
+      type: dword
+    tags:
+      - 18.8.4.1
+
+  - name: 18.8.4.2 - Remote host allows delegation of non-exportable credentials
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation'
+      name: AllowProtectedCreds
+      value: 1
+      type: dword
+    tags:
+      - 18.8.4.2
+
+  # 18.8.5 Device Guard - This required a driver and software verification, skipping
+#  - name: 18.8.5.1 - Turn on virtualization based security
+#    ansible.windows.win_regedit:
+#      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard'
+#      name: EnableVirtualizationBasedSecurity
+#      value: 1
+#    tags:
+#      - 18.8.5.1
+  # 18.8.5.2 Device Guard - This required a driver and software verification, skipping
+  # 18.8.5.3 Device Guard - This required a driver and software verification, skipping
+  # 18.8.5.4 Device Guard - This required a driver and software verification, skipping
+  # 18.8.5.5 Device Guard - This required a driver and software verification, skipping
+
+  - name: 18.8.5.6 - Disable Credential guard on DCs
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard'
+      name: LsaCfgFlags
+      value: 0
+      type: dword
+    when: domain_role == "controller"
+    tags:
+      - 18.8.5.6
+
+  # 18.8.5.7 Device Guard - This required a driver and software verification, skipping
+  # 18.8.6 - Device Health Attestation Service -
+  # 18.8.7 - Device Installation
+  # 18.8.7.1 - Device Installation Restrictions -
+  # 18.8.8 - Device Redirection
+  # 18.8.9 - Disk NV Cache
+  # 18.8.10 - Disk Quotas
+  # 18.8.11 - Display
+  # 18.8.12 - Distributed COM
+  # 18.8.13 - Driver Installation
+  # 18.8.14 - Early Launch Antimalware
+  - name: 18.8.14.1 - Enable Boot-Start driver initialization Policy
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SYSTEM\CurrentControlSet\Policies\EarlyLaunch'
+      name: DriverLoadPolicy
+      value: 3
+      type: dword
+    tags:
+      - 18.8.14.1
+
+  # 18.8.15 Enhanced Storage Access
+  # 18.8.16 File Classification Infrastructure
+  # 18.8.17 File Share Shadow Copy Agent
+  # 18.8.18 File Share Shaodw Copy Provider
+  # 18.8.19 Filesystem
+  # 18.8.20 Folder Redirection
+  # 18.8.21 Group Policy
+  # 18.8.21 Logging and Tracing
+  - name: 18.8.21.[2-3] - Configure registry Policy processing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Group Policy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}'
+      name: "{{ item }}"
+      value: 0
+      type: dword
+    loop:
+      - "NoBackgroundPolicy"
+      - "NoGPOListChanges"
+    tags:
+      - 18.8.21.2
+      - 18.8.21.3
+
+  - name: 18.8.21.4 - Disable 'Continue experiences on this device'
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: EnableCdp
+      value: 0
+      type: dword
+    tags:
+      - 18.8.21.4
+
+  - name: 18.8.21.5 - Diable background refresh of Group Policy
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: DisableBkGndGroupPolicy
+      value: 0
+      type: dword
+    tags:
+      - 18.8.21.5
+
+  # 18.8.22 Internet Communication Management
+  # 18.8.22.1 Internet Communication Settings
+  - name: 18.8.22.1.1 - Turn off downloading of print drivers over HTTP
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers'
+      name: DisableWebPnPDownload
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.1
+
+  - name: 18.8.22.1.2 - Turn off handwriting personalization data sharing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\TabletPC'
+      name: PreventHandwritingDataSharing
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.2
+
+  - name: 18.8.22.1.3 - Enable hand writing recognition error reporting
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\HandwritingErrorReports'
+      name: PreventHandwritingErrorReports
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.3
+
+  - name: 18.8.22.1.4 - Turn off ICW if URL connection is referring to microsoft.com
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Internet Connection Wizard'
+      name: ExitOnMSICW
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.4
+
+  - name: 18.8.22.1.5 - Turn off Internet download for Web publishing and online ordering wizards
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoWebServices
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.5
+
+  - name: 18.8.22.1.6 - Turn off printing over HTTP
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Printers'
+      name: DisableHTTPPrinting
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.6
+
+  - name: 18.8.22.1.7 - Turn off REgistration if URL connection is referring to microsoft.com
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Registration Wizard Control'
+      name: NoRegistration
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.7
+
+  - name: 18.8.22.1.8 - Turn off search companion content file updates
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\SearchCompanion'
+      name: DisableContentFileUpdates
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.8
+
+  - name: 18.8.22.1.9 - Turn off the order prints picture task
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoOnlinePrintsWizard
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.9
+
+  - name: 18.8.22.1.10 - Turn off the Publish to Web task for files and folders
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoPublishingWizard
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.10
+
+  - name: 18.8.22.1.11 - Turn off the WMC Experience Improvement Program
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Messenger\Client'
+      name: CEIP
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.11
+
+  - name: 18.8.22.1.12 - Turn off WCEIP
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows'
+      name: CEIPEnable
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.12
+
+  - name: 18.8.22.1.13 - Turn off Windows Error Reporting (part 1)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting'
+      name: Disabled
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.13
+
+  - name: 18.8.22.1.13 - Turn off Windows Error Reporting (part 2)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\PCHealth\ErrorReporting'
+      name: DoReport
+      value: 1
+      type: dword
+    tags:
+      - 18.8.22.1.13
+
+  # 18.8.23 iSCSI
+  # 18.8.24 KDC
+  # 18.8.25 Kerberos
+  - name: 18.8.25.1 - Support device auth using certificate
+    ansible.windows.win_regedit:
+      path: "{{ item.path }}"
+      name: " {{ item.name }}"
+      value: " {{ item.value }}"
+      type: dword
+    loop:
+      - {path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitBehavior', value: '0'}
+      - {path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitEnabled', value: '1'}
+    tags:
+      - 18.8.25.1
+
+  # 18.8.26 Kernel DMA Protection
+  - name: 18.8.26.1 - Enable Enumberation policy for external devices
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Kernel DMA Protection'
+      name: DeviceEnumerationPolicy
+      value: 0
+      type: dword
+    tags:
+      - 18.8.26.1
+
+  # 18.8.27 Locale Services
+  - name: 18.8.27.1 - Disallow copying of user input methods to the system account
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Control Panel\International'
+      name: BlockUserInputMethodsForSignIn
+      value: 1
+      type: dword
+    tags:
+      - 18.8.27.1
+
+  # 18.8.28 Logon
+  - name: 18.8.28.1 - Block user from shoing account details at sign-in
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: BlockUserFromShowingAccountDetailsOnSignin
+      value: 1
+      type: dword
+    tags:
+      - 18.8.28.1
+
+  - name: 18.8.28.2 - Do not display network selection UI
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: DontDisplayNetworkSelectionUI
+      value: 1
+      type: dword
+    tags:
+      - 18.8.28.2
+
+  - name: 18.8.28.3 - Do not enumerate connected users on domain joined computers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: DontEnumerateConnectedUsers
+      value: 1
+      type: dword
+    tags:
+      - 18.8.28.3
+
+  - name: 18.8.28.4 - Do not enumerate local users on domain-joined computers
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: EnumerateLocalUsers
+      value: 0
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 18.8.28.4
+
+  - name: 18.8.28.5 - Turn off app notifications on the lock screen
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: DisableLockScreenAppNotifications
+      value: 1
+      type: dword
+    tags:
+      - 18.8.28.5
+
+  - name: 18.8.28.6 - Turn off picture password sign-in
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: BlockDomainPicturePassword
+      value: 1
+      type: dword
+    tags:
+      - 18.8.28.6
+
+  - name: 18.8.28.7 - Disable convenience PIN sign-in
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: AllowDomainPINLogon
+      value: 0
+      type: dword
+    tags:
+      - 18.8.28.7
+
+  # 18.8.29 Mitigation Options
+  # 18.8.30 Net Logon
+  # 18.8.31 OS Policies
+  - name: 18.8.31.1 - Disallow clipboard sync across devices
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: AllowCrossDeviceClipboard
+      value: 0
+      type: dword
+    tags:
+      - 18.8.31.1
+
+  - name: 18.8.31.2 - Disallow uplod of user activities
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: UploadUserActivities
+      value: 0
+      type: dword
+    tags:
+      - 18.8.31.1
+
+  # 18.8.32 Performance Control Panel
+  # 18.8.33 PIN Complexity
+  # 18.8.34 Power Management
+  # 18.8.34.1 Button Settings
+  # 18.8.34.2 Energy Saver Settings
+  # 18.8.34.3 Hard Disk Settings
+  # 18.8.34.4 Notification Settings
+  # 18.8.34.5 Power Throttling Settings
+  # 18.8.34.6 Sleep Settings
+  - name: 18.8.34.6.1 - Disallow network connectivity during connected standby (battery)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\f15576e8-98b7-4186-b944-eafa664402d9'
+      name: DCSettingIndex
+      value: 0
+      type: dword
+    tags:
+      - 18.8.34.6.1
+
+  - name: 18.8.34.6.2 - Disable network connectivity during connected standby (plugged in)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\f15576e8-98b7-4186-b944-eafa664402d9'
+      name: ACSettingIndex
+      value: 0
+      type: dword
+    tags:
+      - 18.8.34.6.2
+
+  - name: 18.8.34.6.3 - Require password when computer wakes (battery)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51'
+      name: DCSettingIndex
+      value: 1
+      type: dword
+    tags:
+      - 18.8.34.6.3
+
+  - name: 18.8.34.6.4 - Require password when computer wakes (plugged in)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51'
+      name: ACSettingIndex
+      value: 1
+      type: dword
+    tags:
+      - 18.8.34.6.4
+
+  # 18.8.35 Recovery
+  # 18.8.36 Remote Assistance
+  - name: 18.8.36.1 - Disable offer remote assistance
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fAllowUnsolicited
+      value: 0
+      type: dword
+    tags:
+      - 18.8.36.1
+
+  - name: 18.8.36.2 - Disable solicited remote assistance
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fAllowToGetHelp
+      value: 0
+      type: dword
+    tags:
+      - 18.8.36.2
+
+  # 18.8.37 Remote Procedure Call
+  - name: 18.8.37.1 - Enable RPC Endpoint Mapper Client
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc'
+      name: EnableAuthEpResolution
+      value: 1
+      type: dword
+    tags:
+      - 18.8.37.1
+
+  - name: 18.8.37.2 - Restrict Unauthenticated RPC clients
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Rpc'
+      name: RestrictRemoteClients
+      value: 1
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 18.8.37.2
+
+  # 18.8.38 Removable Storage Access
+  # 18.8.39 Scripts
+  # 18.8.40 Server Manager
+  # 18.8.41 Service Control Manager Settings
+  # 18.8.42 Shutdown
+  # 18.8.43 Shutdown Options
+  # 18.8.44 Storage Health
+  # 18.8.45 Storage Sense
+  # 18.8.46 System Restore
+  # 18.8.47 Troubleshooting and Diagnostics
+  # 18.8.47.1 Application Compatibility Diagnostics
+  # 18.8.47.2 Corrupted File Recovery
+  # 18.8.47.3 Disk Diagnostic
+  # 18.8.47.4 Fault Tolerant Heap
+  # 18.8.47.5 Microsoft Support Diagnostic Tool
+  - name: 18.8.47.5.1 - Disable MSDT Interactive communication with support provider (if disabled cannot send support data to microsoft during support session)
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\ScriptedDiagnosticsProvider\Policy'
+      name: DisableQueryRemoteServer
+      value: 0
+      type: dword
+    tags:
+      - 18.8.47.5.1
+
+  # 18.8.47.6 MSI Corrupted File Recovery
+  # 18.8.47.7 Scheduled Maintenance
+  # 18.8.47.8 Scripted Diagnostics
+  # 18.8.47.9 Windows Boot Performance Diagnostics
+  # 18.8.47.10 Windows Memory Leak Diagnosis
+  # 18.8.47.11 Windows Performance PerfTrack
+  - name: 18.8.47.11.1 - Disable PerfTrack
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WDI\{9c5a40da-b965-4fc3-8781-88dd50a6299d}'
+      name: ScenarioExecutionEnabled
+      value: 0
+      type: dword
+    tags:
+      - 18.8.47.11.1
+
+  # 18.8.48 Trusted Platform Module Services
+  # 18.8.49 User Profiles
+  - name: 18.8.49.1 - Turn off advertising ID
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo'
+      name: DisabledByGroupPolicy
+      value: 1
+      type: dword
+    tags:
+      - 18.8.49.1
+
+  # 18.8.50 Windows File Protection
+  # 18.8.51 Windows HotStart
+  # 18.8.52 Windows Time Service
+  - name: 18.8.52.1.1 - enable Windows NTP Client
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\W32Time\TimeProviders\NtpClient'
+      name: Enabled
+      value: 1
+      type: dword
+    tags:
+      - 18.8.52.1.1
+
+  - name: 18.8.52.1.2 - Disable Windows NTP Server
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\W32Time\TimeProviders\NtpServer'
+      name: Enabled
+      value: 0
+      type: dword
+    when: domain_role == "member"
+    tags:
+      - 18.8.52.1.1
+
+  # 18.9 Windows Components
+  # 18.9.1 Active Directory Federation Services
+  # 18.9.2 ActiveX Installer Service
+  # 18.9.3 Add features to Windows 8 / 8.1 / 10 (formerly Windows Anytime Upgrade)
+  # 18.9.4 App Package Deployment
+  - name: 18.9.4.1 - Disallow a window app to share data between users
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\AppModel\StateManager'
+      name: AllowSharedLocalAppData
+      value: 0
+      type: dword
+    tags:
+      - 18.9.4.1
+
+  # 18.9.5 App Privacy
+  # 18.9.6 App runtime
+  - name: 18.9.6.1 - Allow Microsoft Accounts to be optional
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: MSAOptional
+      value: 1
+      type: dword
+    tags:
+      - 18.9.6.1
+
+  # 18.9.7 Application Compatibility
+  # 18.9.8 AutoPlay Policies
+  - name: 18.9.8.1 - Disallow Autoplay for non-volume devices
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoAutoplayfornonVolume
+      value: 1
+      type: dword
+    tags:
+      - 18.9.8.1
+
+  - name: 18.9.8.2 - Do not execute any autorun commands
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoAutorun
+      value: 1
+      type: dword
+    tags:
+      - 18.9.8.2
+
+  - name: 18.9.8.3 - Turn off Autoplay
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer'
+      name: NoAutorun
+      value: 255
+      type: dword
+    tags:
+      - 18.9.8.3
+
+  # 18.9.9 Backup
+  # 18.9.10 Biometrics
+  # 18.9.10.1 Facial Features
+  - name: 18.9.10.1.1 - Configure enhanced anti-spoofing
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Biometrics\FacialFeatures'
+      name: EnhancedAntiSpoofing
+      value: 1
+      type: dword
+    tags:
+      - 18.9.10.1.1
+
+  # 18.9.11 BitLocker Drive Encryption
+  # 18.9.12 Camera
+  - name: 18.9.12.1 - Disallow use of camera
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Camera'
+      name: AllowCamera
+      value: 0
+      type: dword
+    tags:
+      - 18.9.12.1
+
+  # 18.9.13 Cloud Content
+  - name: 18.9.13.1 - Enabled microsoft consumer experiences
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
+      name: DisableWindowsConsumerFeatures
+      value: 1
+      type: dword
+    tags:
+      - 18.9.13.1
+
+  # 18.9.14 Connect
+  - name: 18.9.14.1 - Ensure Require pin for pairing is set
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Connect'
+      name: RequirePinForPairing
+      value: 1
+      type: dword
+    tags:
+      - 18.9.14.1
+
+  # 18.9.15 Credential User Interface
+  - name: 18.9.15.1 - Do not display the password reveal button
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredUI'
+      name: DisablePasswordReveal
+      value: 1
+      type: dword
+    tags:
+      - 18.9.15.1
+
+  - name: 18.9.15.2 - Disable enumerate administrator accounts on elevation
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredUI'
+      name: EnumerateAdministrators
+      value: 0
+      type: dword
+    tags:
+      - 18.9.15.2
+
+  # 18.9.16 Data Collection and Preview Builds
+  - name: 18.9.16.1 - Ensure Allow Telemetry is set to 0 - Enterprise Only or 1 - Basic
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CredUI'
+      name: EnumerateAdministrators
+      value: 1
+      type: dword
+    tags:
+      - 18.9.16.1
+
+  - name: 18.9.16.2 - Disable authenticated proxy usage
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection'
+      name: DisableEnterpriseAuthProxy
+      value: 1
+      type: dword
+    tags:
+      - 18.9.16.2
+
+  - name: 18.9.16.3 - Do not show feedback notifications
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection'
+      name: DoNotShowFeedbackNotifications
+      value: 1
+      type: dword
+    tags:
+      - 18.9.16.3
+
+  - name: 18.9.16.4 - Disable toggler user control over insider builds
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PreviewBuilds'
+      name: AllowBuildPreview
+      value: 0
+      type: dword
+    tags:
+      - 18.9.16.4
+
+  # 18.9.17 Delivery Optimization
+  # 18.9.18 Desktop Gadgets
+  # 18.9.19 Desktop Window Manager
+  # 18.9.20 Device and Driver Compatibility
+  # 18.9.21 Device Registration (formerly Workplace Join)
+  # 18.9.22 Digital Locker
+  # 18.9.23 Edge UI
+  # 18.9.24 EMET
+  # 18.9.25 Event Forwarding
+  # 18.9.26 Event Log Service
+  # 18.9.26.1 Application
+  - name: 18.9.26.1.1 - Disable Application Event Log behavior when the log file reaches max size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Application'
+      name: Retention
+      value: 0
+      type: dword
+    tags:
+      - 18.9.26.1.1
+
+  - name: 18.9.26.1.2 - Set Application maximum log size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Application'
+      name: MaxSize
+      value: "{{ win_application_log_size }}"
+      type: dword
+    tags:
+      - 18.9.26.1.2
+
+  # 18.9.26.2 Security
+  - name: 18.9.26.2.1 - Disable Security Event Log behavior when the log file reaches max size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Security'
+      name: Retention
+      value: 0
+      type: dword
+    tags:
+      - 18.9.26.2.1
+
+  - name: 18.9.26.2.2 - Set Security maximum log size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Security'
+      name: MaxSize
+      value: "{{ win_security_log_size }}"
+      type: dword
+    tags:
+      - 18.9.26.1.2
+
+  # 18.9.26.3 Setup
+  - name: 18.9.26.3.1 - Disable Setup Event Log behavior when the log file reaches max size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Setup'
+      name: Retention
+      value: 0
+      type: dword
+    tags:
+      - 18.9.26.3.1
+
+  - name: 18.9.26.3.2 - Set Setup maximum log size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Setup'
+      name: MaxSize
+      value: "{{ win_setup_log_size }}"
+      type: dword
+    tags:
+      - 18.9.26.3.2
+
+  # 18.9.26.4 System
+  - name: 18.9.26.4.1 - Disable System Event Log behavior when the log file reaches max size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\System'
+      name: Retention
+      value: 0
+      type: dword
+    tags:
+      - 18.9.26.4.1
+
+  - name: 18.9.26.4.2 - Set System maximum log size
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\System'
+      name: MaxSize
+      value: "{{ win_system_log_size }}"
+      type: dword
+    tags:
+      - 18.9.26.4.2
+
+  # 18.9.27 Event Logging
+  # 18.9.28 Event Viewer
+  # 18.9.29 Family Safety (formerly Parental Controls)
+  # 18.9.30 File Explorer (formerly Windows Explorer)
+  # 18.9.30.1 Previous Versions
+  - name: 18.9.30.2 - Enable data execution prevention for Explorer
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+      name: NoDataExecutionPrevention
+      value: 0
+      type: dword
+    tags:
+      - 18.9.30.2
+
+  - name: 18.9.30.3 - Turn on hep termination on corruption
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+      name: NoHeapTerminationOnCorruption
+      value: 0
+      type: dword
+    tags:
+      - 18.9.30.3
+
+  - name: 18.9.30.4 - Turn on shell protocol protected mode
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+      name: PreXPSP2ShellProtocolBehavior
+      value: 0
+      type: dword
+    tags:
+      - 18.9.30.4
+
+  # 18.9.31 File History
+  # 18.9.32 Find My Device
+  # 18.9.33 Game Explorer
+  # 18.9.34 Handwriting
+  # 18.9.35 HomeGroup
+  # 18.9.36 Import Video
+  # 18.9.37 Internet Explorer
+  # 18.9.38 Internet Information Services
+  # 18.9.39 Location and Sensors
+  # 18.9.39.1 Windows Location Provider
+  - name: 18.9.39.2 - Turn off location
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors'
+      name: DisableLocation
+      value: 1
+      type: dword
+    tags:
+      - 18.9.39.2
+
+  # 18.9.40 Maintenance Scheduler
+  # 18.9.41 Maps
+  # 18.9.42 MDM
+  # 18.9.43 Messaging
+  - name: 18.9.43.1 - Disallow message servvice cloud sync
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Messaging'
+      name: AllowMessageSync
+      value: 0
+      type: dword
+    tags:
+      - 18.9.43.1
+
+  # 18.9.44 Microsoft account
+  - name: 18.9.44.1 - Block all consumer Microsoft acount user authentication
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftAccount'
+      name: DisableUserAuth
+      value: 1
+      type: dword
+    tags:
+      - 18.9.44.1
+
+  # 18.9.45 Microsoft Edge
+  # 18.9.46 Microsoft FIDO Authentication
+  # 18.9.47 Microsoft Secondary Authentication Factor
+  # 18.9.48 Microsoft User Experience Virtualization
+  # 18.9.49 NetMeeting
+  # 18.9.50 Network Access Protection
+  # 18.9.51 Network Projector
+  # 18.9.52 OneDrive (formerly SkyDrive)
+  - name: 18.9.52.1 - Prevent the usage of OneDrive for file storage
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive'
+      name: DisableFileSyncNGSC
+      value: 1
+      type: dword
+    tags:
+      - 18.9.52.1
+
+  # 18.9.53 Online Assistance
+  # 18.9.54 OOBE
+  # 18.9.55 Password Synchronization
+  # 18.9.56 Portable Operating System
+  # 18.9.57 Presentation Settings
+  # 18.9.58 Push To Install
+  # 18.9.59 Remote Desktop Services (formerly Terminal Services)
+  # 18.9.59.1 RD Licensing (formerly TS Licensing)
+  # 18.9.59.2 Remote Desktop Connection Client
+  # 18.9.59.2.1 RemoteFX USB Device Redirection
+  - name: 18.9.59.2.2 - Do not allow passwords to be saved
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: DisablePasswordSaving
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.2.2
+
+  # 18.9.59.3 Remote Desktop Session Host (formerly Terminal Server)
+  # 18.9.59.3.1 Application Compatibility
+  # 18.9.59.3.2 Connections
+  - name: 18.9.59.3.2.1 - Restrict RDS Susers to a single RDS session
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fSingleSessionPerUser
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.2.1
+
+  # 18.9.59.3.3 Device and Resource Redirection
+  - name: 18.9.59.3.3.1 - Do not allow COM port redirection
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fDisableCcm
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.3.1
+
+  - name: 18.9.59.3.3.2 - Do not allow drive redirection
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fDisableCdm
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.3.2
+
+  - name: 18.9.59.3.3.3 - Do not allow LPT port redirection
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fDisableLPT
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.3.3
+
+  - name: 18.9.59.3.3.4 - Do not allow PnP device redirection
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fDisablePNPRedir
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.3.4
+
+  # 18.9.59.3.4 Licensing
+  # 18.9.59.3.5 Printer Redirection
+  # 18.9.59.3.6 Profiles
+  # 18.9.59.3.7 RD Connection Broker (formerly TS Connection Broker)
+  # 18.9.59.3.8 Remote Session Environment
+  # 18.9.59.3.9 Security
+  - name: 18.9.59.3.9.1 - Always prompt for password upon connection
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fPromptForPassword
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.9.1
+
+  - name: 18.9.59.3.9.2 - Require secure RPC communication
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: fEncryptRPCTraffic
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.9.2
+
+  - name: 18.9.59.3.9.3 - Require TLS security layer for RDP connections
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: SecurityLayer
+      value: 2
+      type: dword
+    tags:
+      - 18.9.59.3.9.3
+
+  - name: 18.9.59.3.9.4 - Require user auth for remote connections
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: UserAuthentication
+      value: 1
+      type: dword
+    tags:
+      - 18.9.59.3.9.4
+
+  - name: 18.9.59.3.9.5 - Set client connection encryption level
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: MinEncryptionLevel
+      value: 3
+      type: dword
+    tags:
+      - 18.9.59.3.9.5
+
+  # 18.9.59.3.10 Session Time Limits
+  - name: 18.9.59.3.10.1 - Set time limit for active but idle RDS Sessions
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: MaxIdleTime
+      value: 15
+      type: dword
+    tags:
+      - 18.9.59.3.10.1
+
+  - name: 18.9.59.3.10.2 - Set time limit for disconnected sessions
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: MaxDisconnectionTime
+      value: 60000
+      type: dword
+    tags:
+      - 18.9.59.3.10.2
+
+  # 18.9.59.3.11 Temporary folders
+  - name: 18.9.59.3.11.1 - Delete temp folders upon exit
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: DeleteTempDirsOnExit
+      value: 0
+      type: dword
+    tags:
+      - 18.9.59.3.11.1
+
+  - name: 18.9.59.3.11.2 - Use temporary folders per session
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+      name: PerSessionTempDir
+      value: 0
+      type: dword
+    tags:
+      - 18.9.59.3.11.2
+
+  # 18.9.60 RSS Feeds
+  - name: 18.9.60.1 - Prevent downloading of enclosures
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Internet Explorer\Feeds'
+      name: DisableEnclosureDownload
+      value: 1
+      type: dword
+    tags:
+      - 18.9.60.1
+
+  # 18.9.61 Search
+  # 18.9.61.1 OCR
+  - name: 18.9.61.2 - Disallow Cloud Search
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
+      name: AllowCloudSearch
+      value: 0
+      type: dword
+    tags:
+      - 18.9.61.2
+
+  - name: 18.9.61.3 - Allow indexing of encrypted files
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
+      name: AllowIndexingEncryptedStoresOrItems
+      value: 0
+      type: dword
+    tags:
+      - 18.9.61.3
+
+  # 18.9.62 Security Center
+  # 18.9.63 Server for NIS
+  # 18.9.64 Shutdown Options
+  # 18.9.65 Smart Card
+  # 18.9.66 Software Protection Platform
+  - name: 18.9.66.1 - Turn off KMS Client Online AVS Validation
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform'
+      name: NoGenTicket
+      value: 1
+      type: dword
+    tags:
+      - 18.9.66.1
+
+  # 18.9.67 Sound Recorder
+  # 18.9.68 Speech
+  # 18.9.69 Store
+  # 18.9.70 Sync your settings
+  # 18.9.71 Tablet PC
+  # 18.9.72 Task Scheduler
+  # 18.9.73 Text Input
+  # 18.9.74 Windows Calendar
+  # 18.9.75 Windows Color System
+  # 18.9.76 Windows Customer Experience Improvement Program
+  # 18.9.77 Windows Defender Antivirus (formerly Windows Defender)
+  # 18.9.77.1 Client Interface
+  # 18.9.77.2 Exclusions
+  # 18.9.77.3 MAPS
+  - name: 18.9.77.3.1 - Do not Configure local setting override for reporting to MAPS
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet'
+      name: LocalSettingOverrideSpynetReporting
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.3.1
+
+  - name: 18.9.77.3.2 - Do not Join Microsoft MAPS
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet'
+      name: SpynetReporting
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.3.2
+
+  # 18.9.77.4 MpEngine
+  # 18.9.77.5 Network Inspection System
+  # 18.9.77.6 Quarantine
+  # 18.9.77.7 Real-time Protection
+  - name: 18.9.77.7.1 - Turn on behavior monitoring
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'
+      name: DisableBehaviorMonitoring
+      value: 1
+      type: dword
+    tags:
+      - 18.9.77.7.1
+
+  # 18.9.77.8 Remediation
+  # 18.9.77.9 Reporting
+  - name: 18.9.77.9.1 - Disable Watson Events
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Reporting'
+      name: DisableGenericReports
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.9.1
+
+  # 18.9.77.10 Scan
+  - name: 18.9.77.10.1 - Scan removable drives
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan'
+      name: DisableRemovableDriveScanning
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.9.1
+
+  - name: 18.9.77.10.2 - Turn on Email scanning
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan'
+      name: DisableEmailScanning
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.10.2
+
+  # 18.9.77.11 Security Intelligence Updates (formerly Signature Updates)
+  # 18.9.77.12 Threats
+  # 18.9.77.13 Windows Defender Exploit Guard
+  # 18.9.77.13.1 Attack Surface Reduction
+  - name: 18.9.77.13.1.1 - Configure Attack Surface Reduction rules
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR'
+      name: ExploitGuard_ASR_Rules
+      value: 1
+      type: dword
+    tags:
+      - 18.9.77.13.1.1
+
+  - name: 18.9.77.13.1.2 - Configure Attack Surface Reduction rules and set state for each ASR rule
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules'
+      name: "{{ item }}"
+      value: 1
+      type: dword
+    loop:
+      - "26190899-1602-49e8-8b27-eb1d0a1ce869"
+      - "3b576869-a4ec-4529-8536-b80a7769e899"
+      - "5beb7efe-fd9a-4556-801d-275e5ffc04cc"
+      - "75668c1f-73b5-4cf0-bb93-3ecf5cb7cc84"
+      - "7674ba52-37eb-4a4f-a9a1-f0f9a1619a2c"
+      - "92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b"
+      - "9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2"
+      - "b2b3f03d-6a65-4f7b-a9c7-1c7ef74a9ba4"
+      - "be9ba2d9-53ea-4cdc-84e5-9b1eeee46550"
+      - "d3e037e1-3eb8-44c8-a917-57927947596d"
+      - "d4f940ab-401b-4efc-aadc-ad5f3c50688a"
+    tags:
+      - 18.9.77.13.1.2
+
+  # 18.9.77.13.2 Controlled Folder Access
+  # 18.9.77.13.3 Network Protection
+  - name: 18.9.77.13.3.1 - Block users and apps from accessing dangerous websites
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\Network Protection'
+      name: EnableNetworkProtection
+      value: 1
+      type: dword
+    tags:
+      - 18.9.77.13.1.1
+
+  - name: 18.9.77.14 - Configure detection for potentially unwanted applications
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender'
+      name: PUAProtection
+      value: 1
+      type: dword
+    tags:
+      - 18.9.77.14
+
+  - name: 18.9.77.15 - Turn on Windows Defender Antivirus
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\DisableAntiSpyware'
+      name: PUAProtection
+      value: 0
+      type: dword
+    tags:
+      - 18.9.77.15
+
+  # 18.9.78 Windows Defender Application Guard
+  # 18.9.79 Windows Defender Exploit Guard
+  # 18.9.80 Windows Defender SmartScreen
+  # 18.9.80.1 Explorer
+  - name: 18.9.80.1.1 - Enable Windows Defender SmartScreen
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+      name: " {{ item.name }}"
+      value: " {{ item.value }}"
+      type: "{{ item.type }}"
+    loop:
+      - {name: 'EnableSmartScreen', value: '1', type: 'dword'}
+      - {name: 'ShellSmartScreenLevel', value: 'Block', type: 'string'}
+    tags:
+      - 18.9.80.1.1
+
+  # 18.9.81 Windows Error Reporting
+  # 18.9.82 Windows Game Recording and Broadcasting
+  # 18.9.83 Windows Hello for Business (formerly Microsoft Passport for Work)
+  # 18.9.84 Windows Ink Workspace
+  - name: 18.9.84.1 - Disallow suggested apps in Windows Ink Workspace
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\WindowsInkWorkspace'
+      name: AllowSuggestedAppsInWindowsInkWorkspace
+      value: 0
+      type: dword
+    tags:
+      - 18.9.84.1
+
+  - name: 18.9.84.2 - Disallow Windows Ink Workspace
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\WindowsInkWorkspace'
+      name: AllowWindowsInkWorkspace
+      value: 0
+      type: dword
+    tags:
+      - 18.9.84.2
+
+  # 18.9.85 Windows Installer
+  - name: 18.9.85.1 - Do not allow user control over installs
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer'
+      name: EnableUserControl
+      value: 0
+      type: dword
+    tags:
+      - 18.9.85.1
+
+  - name: 18.9.85.2 - Do not install with elevated privileges
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer'
+      name: AlwaysInstallElevated
+      value: 0
+      type: dword
+    tags:
+      - 18.9.85.2
+
+  - name: 18.9.85.3 - Enable Interent Explorder security prompt for Installer Scripts
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer'
+      name: SafeForScripting
+      value: 0
+      type: dword
+    tags:
+      - 18.9.85.3
+
+  # 18.9.86 Windows Logon Options
+  - name: 18.9.86.1 - Do not sign in last user after a restart
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+      name: DisableAutomaticRestartSignOn
+      value: 0
+      type: dword
+    tags:
+      - 18.9.86.1
+
+  # 18.9.87 Windows Mail
+  # 18.9.88 Windows Media Center
+  # 18.9.89 Windows Media Digital Rights Management
+  # 18.9.90 Windows Media Player
+  # 18.9.91 Windows Meeting Space
+  # 18.9.92 Windows Messenger
+  # 18.9.93 Windows Mobility Center
+  # 18.9.94 Windows Movie Maker
+  # 18.9.95 Windows PowerShell
+  - name: 18.9.95.1 - Turn off PowerShell Transcription
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription'
+      name: EnableTranscripting
+      value: 0
+      type: dword
+    tags:
+      - 18.9.95.1
+
+  # 18.9.96 Windows Reliability Analysis
+  # 18.9.97 Windows Remote Management (WinRM)
+  # 18.9.97.1 WinRM Client
+# This is a scored control, but we are manually disabling it because it is needed by Ansible.
+# If you are connecting via SSH, or do not use basic authentication for Ansible, uncomment this.
+  - name: 18.9.97.1.1 - Allow Basic WinRM authentication
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client'
+      name: AllowBasic
+      value: 0
+      type: dword
+    tags:
+      - 18.9.97.1.1
+
+  - name: 18.9.97.1.2 - Allow WinRM unencrypted traffic
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client'
+      name: AllowUnencryptedTraffic
+      value: 0
+      type: dword
+    tags:
+      - 18.9.97.1.2
+
+  - name: 18.9.97.1.3 - Disallow Digest Authentication
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client'
+      name: AllowDigest
+      value: 0
+      type: dword
+    tags:
+      - 18.9.97.1.3
+
+  # Setting the next two controls affects Ansible connections over the WinRM protocol. If you
+  #  are managing machines over WinRM, setting either of these will render your machine unmanagable
+  #  via Ansible after the next restart of the WinRM service. If you using SSH connections, you can
+  #  safely uncomment these.
+##  - name: 18.9.97.2.1 - Allow Basic WinRM authentication
+##    ansible.windows.win_regedit:
+##      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service'
+##      name: AllowBasic
+##      value: 0
+##      type: dword
+##    tags:
+##      - 18.9.97.2.1
+
+##  - name: 18.9.97.2.2 - Disallow remote server management through WinRM
+##    ansible.windows.win_regedit:
+##      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service'
+##      name: AllowAutoConfig
+##      value: 0
+##      type: dword
+##    tags:
+##      - 18.9.97.2.2
+
+  - name: 18.9.97.2.3 - Disallow uncncrypted WinRM traffic
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service'
+      name: AllowUnencryptedTraffic
+      value: 0
+      type: dword
+    tags:
+      - 18.9.97.2.3
+
+  - name: 18.9.97.2.4 - Disallow WinRM from storing RunAs credentials
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service'
+      name: DisableRunAs
+      value: 1
+      type: dword
+    tags:
+      - 18.9.97.2.4
+
+  # 18.9.98 Windows Remote Shell
+# Due to certain design issues, setting this stops the ability to add or remove Roles and Features
+# via the GUI. Uncomment if you want to run it anyway
+#  - name: 18.9.98.1 - Disallow Remote Shell Acccess
+#    ansible.windows.win_regedit:
+#      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service\WinRS'
+#      name: AllowRemoteShellAccess
+#      value: 0
+#      type: dword
+#    tags:
+#     - 18.9.97.2.4
+
+  # 18.9.99 Windows Security (formerly Windows Defender Security Center)
+  # 18.9.99.1 Account protection
+  # 18.9.99.2 App and browser protection
+  - name: 18.9.99.2.1 - Prevent users from modifying settings
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\App and Browser protection'
+      name: DisallowExploitProtectionOverride
+      value: 1
+      type: dword
+    tags:
+      - 18.9.99.2.1
+
+  # 18.9.100 Windows SideShow
+  # 18.9.101 Windows System Resource Manager
+  # 18.9.102 Windows Update
+  # 18.9.102.1 Windows Update for Business (formerly Defer Windows Updates)
+  - name: 18.9.102.1.1 - Disable preview builds
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: "{{ item }}"
+      value: 1
+      type: dword
+    loop:
+      - {name: 'ManagePreviewBuilds', value: '1'}
+      - {name: 'ManagePreviewBuildsPolicyValue', value: '0'}
+    tags:
+      - 18.9.102.1.1
+
+  - name: 18.9.102.1.1 - Disable preview builds
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: "{{ item }}"
+      value: 1
+      type: dword
+    loop:
+      - {name: 'ManagePreviewBuilds', value: '1'}
+      - {name: 'ManagePreviewBuildsPolicyValue', value: '0'}
+    tags:
+      - 18.9.102.1.1
+
+  # 18.9.102.1.2 - Defer Preview builds - This setting can cause issues with WSUS, skipping
+  # 18.9.102.1.3 - Select when Quality updates are received - This setting can cause issues with WSUS, skipping
+
+  - name: 18.9.102.2 - Configure Automatic Updates
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+      name: NoAutoUpdate
+      value: "{{ disable_automatic_updates }}"
+      type: dword
+    tags:
+      - 18.9.102.2
+
+  - name: 18.9.102.2 - Configure Automatic Updates
+    block:
+      - name: 18.9.102.2 - Configure Automatic Updates
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+          name: NoAutoUpdate
+          value: "{{ au_update_options }}"
+          type: dword
+        tags:
+          - 18.9.102.2
+
+      - name: 18.9.102.3 - Configure update download and patching day
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+          name: ScheduledInstallDay
+          value: "{{ au_update_day }}"
+          type: dword
+        tags:
+          - 18.9.102.3
+
+      # The setting of the time is not part of the control, but setting the date without having a setting
+      #  in ansible for the date is missing completeness, so it's being included as part of the control.
+      - name: 18.9.102.3 - Configure update download and patching time
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+          name: ScheduledInstallTime
+          value: "{{ au_update_time }}"
+          type: dword
+        tags:
+          - 18.9.102.3
+
+      - name: 18.9.102.4 - Restart after updates even if user is logged in
+        ansible.windows.win_regedit:
+          path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+          name: NoAutoRebootWithLoggedOnUsers
+          value: "0"
+          type: dword
+        tags:
+          - 18.9.102.3
+    when: not disable_automatic_updates
+
+  # 19.1 Control Panel
+  # 19.1.1 - Add or Remove Programs
+  # 19.1.2 - Display
+  # 19.1.3 - Personalization
+  # 19.1.3.1 - Enable Screensaver - set on a per user basis, skipping
+  # 19.1.3.2 - Set screensaver name - set on a per user basis, skipping
+  # 19.1.3.3 - Password protect screensaver - set on a per user basis, skipping
+  # 19.1.3.4 - ScreenSaver timeout - set on a per user basis, skipping
+  # 19.2 - Desktop
+  # 19.3 - Network
+  # 19.4 - Shared Folders
+  # 19.5 - NOtifications
+  # 19.5.1 - Turn off Toast notifications - set on a per user basis, skipping
+  # 19.6 System
+  # 19.6.1 - CAD Options
+  # 19.6.2 - Display
+  # 19.6.3 - Driver Installation
+  # 19.6.4 - Folder redirection
+  # 19.6.5 - Group Policy
+  # 19.6.6 Internet Communication Management
+  # 19.6.6.1 Internet Communication settings
+  - name: 19.6.6.1.1 Turn off Help Expereience Improvement Program
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Policies\Microsoft\Assistance\Client\1.0'
+      name: NoImplicitFeedback
+      value: 1
+      type: dword
+    tags:
+      - 19.6.6.1.1
+
+  # 19.7 - Windows Components
+  # 19.7.1 - Add features to Windows
+  # 19.7.2 - App runtime
+  # 19.7.3 Application Compatibility
+  # 19.7.4 Attachment Manager
+  - name: 19.7.4.1 - Do not preserve information in file attachments
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Attachments'
+      name: SaveZoneInformation
+      value: 0
+      type: dword
+    tags:
+      - 19.7.4.1
+
+  - name: 19.7.4.2 - Notify antivirus programs when opening attachments
+    ansible.windows.win_regedit:
+      path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Attachments'
+      name: ScanWithAntiVirus
+      value: 1
+      type: dword
+    tags:
+      - 19.7.4.2
+
+  # 19.7.5 - AutoPlay Policies
+  # 19.7.6 - Backup
+  # 19.7.7.[1-4] Cloud Content - all controls are on a per-user basis, skipping
+  # 19.7.8 - Credential User Interface
+  # 19.7.9 - Data collection an preview builds
+  # 19.7.10 - Desktop Gadgets
+  # 19.7.11 - Desktop Window Manager
+  # 19.7.12 - Digital Locker
+  # 19.7.13 - Edge UI
+  # 19.7.14 - File explorer
+  # 19.7.15 - File Revocation
+  # 19.7.16 - IME
+  # 19.7.17 - Import Video
+  # 19.7.18 - Instant Search
+  # 19.7.19 - Internet Explorer
+  # 19.7.20 - Location and Sensors
+  # 19.7.21 - Microsoft Edge
+  # 19.7.22 - Microsoft Management Console
+  # 19.7.23 - Microsoft User Experience Virtualization
+  # 19.7.24 - NetMeeting
+  # 19.7.25 - Network Projector
+  # 19.7.26 - Network Sharing
+  # 19.7.26.1 - Enable 'Prevent users from sharing files within their profile'
+  # 19.7.27 OOBE
+  # 19.7.28 Presentation Settings
+  # 19.7.29 Remote Desktop Services
+  # 19.7.30 RSS Feeds
+  # 19.7.31 Search
+  # 19.7.32 Sound Recorder
+  # 19.7.33 Store
+  # 19.7.34 Tablet PC
+  # 19.7.35 Task Scheduler
+  # 19.7.36 Windows Calendar
+  # 19.7.37 Windows Color System
+  # 19.7.38 Windows Defender SmartScreen
+  # 19.7.39 Windows Error Reporting
+  # 19.7.40 Windows Hello for Business
+  # 19.7.41 Windows Installer
+  # 19.7.41.1 Disable 'Always install with elevated privileges'
+  # 19.7.42 Windows Logon Options
+  # 19.7.43 Windows Mail
+  # 19.7.44 Windows Media Center
+  # 19.7.45 Windows Media Player
+  # 19.7.45.1 Networking
+  # 19.7.45.2 Playback
+  # 19.7.45.2.1 'Prevent Codec Download'

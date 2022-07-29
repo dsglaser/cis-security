@@ -1,0 +1,4 @@
+---
+# indclude the type file for Ubuntu 20 type machines
+
+- include: type-files/ubuntu-18-type.yml
