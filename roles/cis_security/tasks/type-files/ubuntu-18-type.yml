@@ -13,6 +13,7 @@
 
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
+  - name: Print Header
   - ansible.builtin.debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
 
   # Collect the packages installed on the system so we can check agains them later
@@ -110,7 +111,10 @@
       dest: /etc/modprobe.d/CIS.conf
       line: "install {{ item }} /bin/true"
       state: present
-      create: yes
+      create: true
+      owner: root
+      group: root
+      mode: 0644
     with_items:
       - "{{ unused_filesystems }}"
 
@@ -151,13 +155,13 @@
           mode: 0755
           setype: etc_t
 
-      # symbolic link is required for .wants/ folder 
-      - name: Create a symbolic link      
+      # symbolic link is required for .wants/ folder
+      - name: Create a symbolic link
         ansible.builtin.file:
           src: /etc/systemd/system/tmp.mount
-          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount          
+          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount
           owner: root
-          group: root        
+          group: root
           state: link
         notify: restart tmpfs
 
@@ -391,7 +395,7 @@
         register: devshm_nodev_out
         failed_when: devshm_nodev_out == "2"
         changed_when: false
-        check_mode: no
+        check_mode: false
 
   # Let the user know if we did not find the option set.
       - name: 1.1.15 - Report to user
@@ -411,7 +415,7 @@
         register: devshm_nosuid_out
         failed_when: devshm_nosuid_out == "2"
         changed_when: false
-        check_mode: no
+        check_mode: false
 
   # Let the user know if we did not find the option set.
       - name: 1.1.16 - Report to user
@@ -431,7 +435,7 @@
         register: devshm_noexec_out
         failed_when: devshm_noexec_out == "2"
         changed_when: false
-        check_mode: no
+        check_mode: false
 
   # Let the user know if we did not find the option set.
       - name: 1.1.17 - Report to user
@@ -463,7 +467,7 @@
   - name: 1.1.22 - disable automounting
     ansible.builtin.service:
       name: autofs
-      enabled: no
+      enabled: false
       state: stopped
     when: "'autofs' in ansible_facts.packages"
     tags:
@@ -474,7 +478,10 @@
       dest: /etc/modprobe.d/CIS.conf
       line: "install usb-storage /bin/true"
       state: present
-      create: yes
+      create: true
+      owner: root
+      group: root
+      mode: 0644
     tags:
       - 1.1.23
 
@@ -581,7 +588,7 @@
       - name: 1.4.1 - Move the newly created database into place
         ansible.builtin.copy:
           src: /var/lib/aide/aide.db.new.gz
-          remote_src: yes
+          remote_src: true
           dest: /var/lib/aide/aide.db.gz
           mode: preserve
         when: not aide_path.stat.exists or not aide_path.stat.isreg
@@ -682,7 +689,7 @@
           path: /etc/shadow
           regexp: '^root:[*\!|*\*]:'
           state: absent
-        check_mode: yes
+        check_mode: true
         changed_when: false
         register: root_pw_check
         failed_when: false
@@ -713,7 +720,7 @@
         ansible.builtin.shell: "/bin/journalctl | /bin/grep 'protection: active' "
         register: nx_protection
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       # If we can't verify that it is active, we notify the user. This has to be set
       #  in the BIOS or with a special kernel (32 bit kernels only)
@@ -730,9 +737,9 @@
     ansible.builtin.sysctl:
       name: kernel.randomize_va_space
       value: "2"
-      reload: yes
+      reload: true
       state: present
-      sysctl_set: yes
+      sysctl_set: true
     tags:
       - 1.6.2
 
@@ -753,7 +760,7 @@
           name: fs.suid_dumpable
           value: "0"
           state: present
-          reload: yes
+          reload: true
 
       # The pam_limits module will configure the lines in the limits files.
       - name: 1.6.4 - Ensure core limits are set
@@ -788,61 +795,61 @@
 
   - name: 1.7.0 - Install and configure Apparmor
     block:
-      - name: 1.7.1.1 - Ensure AppArmor is installed
-        ansible.builtin.package:
-          name: "{{ item }}"
-          state: present
-        loop:
-          - apparmor
-          - apparmor-utils
-        tags:
-          - 1.7.1.1
+    - name: 1.7.1.1 - Ensure AppArmor is installed
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - apparmor
+        - apparmor-utils
+      tags:
+        - 1.7.1.1
 
-        # this control wants to check /boot/grub/grub.conf, but it's possible that it exists in the config file, but
-        #  not the boot file due to a failed grub rebuild. We should check the grub build file instead
-      - name: 1.7.1.2 - check to see if apparmor is in grub configuration
-        ansible.builtin.lineinfile:
+      # this control wants to check /boot/grub/grub.conf, but it's possible that it exists in the config file, but
+      #  not the boot file due to a failed grub rebuild. We should check the grub build file instead
+    - name: 1.7.1.2 - check to see if apparmor is in grub configuration
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^\s*GRUB_CMDLINE_LINUX.*apparmor=1'
+        state: absent
+      check_mode: true
+      changed_when: false
+      register: apparmor_grub
+      failed_when: false
+      tags:
+        - 1.7.1.2
+
+    - name: 1.7.1.2 - add apparmor to grub config file
+      ansible.builtin.replace:
           path: /etc/default/grub
-          regexp: '^\s*GRUB_CMDLINE_LINUX.*apparmor=1'
-          state: absent
-        check_mode: yes
-        changed_when: false
-        register: apparmor_grub
-        failed_when: false
-        tags:
-          - 1.7.1.2
+          regexp: '^GRUB_CMDLINE_LINUX="'
+          replace: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor '
+      notify: rebuild ubuntu-grub
+      when: not apparmor_grub.found
+      tags:
+        - 1.7.1.2
 
-      - name: 1.7.1.2 - add apparmor to grub config file
-        ansible.builtin.replace:
-            path: /etc/default/grub
-            regexp: '^GRUB_CMDLINE_LINUX="'
-            replace: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor '
-        notify: rebuild ubuntu-grub
-        when: not apparmor_grub.found
-        tags:
-          - 1.7.1.2
+    # The controls here are a bit broken, 1.7.1.3 says to put them in either enforce or complain, and then 1.7.1.4
+    #  says to put them in enforcing (one is scored, the other is not though). Both ore enforced here, disable the tag for
+    #  1.7.1.4 if you don't want them all in enforcing
+    #
+    # The control is broken in that it wants the aa-[enforce|complain] script ran against all directory contents, but
+    #  they are not all app armor profiles, so it will error. We are ignoring it at this point.
+    - name: 1.7.1.3 - Ensure all apparmor profiles are in enforce or complain mode
+      ansible.builtin.command: aa-{{ apparmor_level }} /etc/apparmor.d/*
+      when: apparmor_level == "enforce" or apparmor_level == "complain"
+      failed_when: false
+      changed_when: false
+      tags:
+        - 1.7.1.3
 
-      # The controls here are a bit broken, 1.7.1.3 says to put them in either enforce or complain, and then 1.7.1.4
-      #  says to put them in enforcing (one is scored, the other is not though). Both ore enforced here, disable the tag for
-      #  1.7.1.4 if you don't want them all in enforcing
-      #
-      # The control is broken in that it wants the aa-[enforce|complain] script ran against all directory contents, but
-      #  they are not all app armor profiles, so it will error. We are ignoring it at this point.
-      - name: 1.7.1.3 - Ensure all apparmor profiles are in enforce or complain mode
-        ansible.builtin.command: aa-{{ apparmor_level }} /etc/apparmor.d/*
-        when: apparmor_level == "enforce" or apparmor_level == "complain"
-        failed_when: false
-        changed_when: false
-        tags:
-          - 1.7.1.3
-
-      - name: 1.7.1.4 - Ensure all AppArmor profiles are enforcing
-        ansible.builtin.command: aa-enforce /etc/apparmor.d/*
-        when: apparmor_level == "enforce"
-        failed_when: false
-        changed_when: false
-        tags:
-          - 1.7.1.4
+    - name: 1.7.1.4 - Ensure all AppArmor profiles are enforcing
+      ansible.builtin.command: aa-enforce /etc/apparmor.d/*
+      when: apparmor_level == "enforce"
+      failed_when: false
+      changed_when: false
+      tags:
+        - 1.7.1.4
     tags:
       - 1.7.0
   # 1.8 Warning Banners
@@ -967,60 +974,60 @@
 
   - name: 2.2.2 - disable display manager if graphical desktop not needed
     block:
-      # Find the current default run level. The systemctl module does not handle the
-      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
-      - name: 2.2.2 - get default runlevel
-        stat:
-          path: /etc/systemd/system/default.target
-        register: default_runlevel_out
-        tags:
-          - 2.2.2
+    # Find the current default run level. The systemctl module does not handle the
+    #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+    - name: 2.2.2 - get default runlevel
+      ansible.builtin.stat:
+        path: /etc/systemd/system/default.target
+      register: default_runlevel_out
+      tags:
+        - 2.2.2
 
-      # Use systemd module to stop the GDM service
-      - name: 2.2.2 - Disable the gdm display manager
-        ansible.builtin.systemd:
-          name: gdm
-          enabled: no
-          masked: yes
-          state: stopped
-        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
-        tags:
-          - 2.2.2
+    # Use systemd module to stop the GDM service
+    - name: 2.2.2 - Disable the gdm display manager
+      ansible.builtin.systemd:
+        name: gdm
+        enabled: false
+        masked: true
+        state: stopped
+      when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
+      tags:
+        - 2.2.2
 
-      # Set the current run level. The systemctl module does not handle the
-      #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
-      - name: 2.2.2 - Set current runlevel (non graphical)
-        ansible.builtin.command: /bin/systemctl isolate multi-user.target
-        register: isolate_out
-        changed_when: isolate_out.changed
-        when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
-        tags:
-          - 2.2.2
+    # Set the current run level. The systemctl module does not handle the
+    #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
+    - name: 2.2.2 - Set current runlevel (non graphical)
+      ansible.builtin.command: /bin/systemctl isolate multi-user.target
+      register: isolate_out
+      changed_when: isolate_out.changed
+      when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
+      tags:
+        - 2.2.2
 
-      - name: 2.2.2 - Set current runlevel (graphical)
-        ansible.builtin.command: /bin/systemctl isolate graphical.target
-        register: isolate_out
-        changed_when: isolate_out.changed
-        when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
-        tags:
-          - 2.2.2
+    - name: 2.2.2 - Set current runlevel (graphical)
+      ansible.builtin.command: /bin/systemctl isolate graphical.target
+      register: isolate_out
+      changed_when: isolate_out.changed
+      when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and not graphical_interface
+      tags:
+        - 2.2.2
 
-      # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
-      - name: 2.2.2 - Set default runlevel (non graphical)
-        ansible.builtin.file:
-          src: /lib/systemd/system/multi-user.target
-          dest: /etc/systemd/system/default.target
-          owner: root
-          group: root
-        when: not graphical_interface
+    # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
+    - name: 2.2.2 - Set default runlevel (non graphical)
+      ansible.builtin.file:
+        src: /lib/systemd/system/multi-user.target
+        dest: /etc/systemd/system/default.target
+        owner: root
+        group: root
+      when: not graphical_interface
 
-      - name: 2.2.2 - Set default runlevel (graphical)
-        ansible.builtin.file:
-          src: /lib/systemd/system/graphical.target
-          dest: /etc/systemd/system/default.target
-          owner: root
-          group: root
-        when: graphical_interface
+    - name: 2.2.2 - Set default runlevel (graphical)
+      ansible.builtin.file:
+        src: /lib/systemd/system/graphical.target
+        dest: /etc/systemd/system/default.target
+        owner: root
+        group: root
+      when: graphical_interface
     tags:
       - 2.2.2
 
@@ -1153,7 +1160,7 @@
   - name: 2.2.4 - Disable cups as we my not be able to uninstall it
     ansible.builtin.service:
       name: "{{ item }}"
-      enabled: no
+      enabled: false
       state: stopped
     when: "'cups' in ansible_facts.packages"
     loop:
@@ -1167,18 +1174,18 @@
   #  If it does and we are to be a mail server, then modify it per the control.
   - name: 2.2.15 - Configure email for local-only mode if mail software is installed and not intending to be an external email relay (mail_server=false)
     block:
-      - name: 2.2.15 - Find if we have a mail agent config file
-        stat:
-          path: /etc/postfix/main.cf
-        register: postfix_out
-        changed_when: false
+    - name: 2.2.15 - Find if we have a mail agent config file
+      ansible.builtin.stat:
+        path: /etc/postfix/main.cf
+      register: postfix_out
+      changed_when: false
 
-      - name: 2.2.15 - If the file exists and not a mail server, then set loopback only
-        ansible.builtin.replace:
-          dest: /etc/postfix/main.cf
-          regexp: "^inet_interfaces = ((?!localhost).)*$"
-          replace: "inet_interfaces = loopback-only"
-        when: postfix_out.stat.exists and not email_server
+    - name: 2.2.15 - If the file exists and not a mail server, then set loopback only
+      ansible.builtin.replace:
+        dest: /etc/postfix/main.cf
+        regexp: "^inet_interfaces = ((?!localhost).)*$"
+        replace: "inet_interfaces = loopback-only"
+      when: postfix_out.stat.exists and not email_server
     tags:
       - 2.2.15
 
@@ -1193,9 +1200,9 @@
         ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
-          reload: yes
+          reload: true
           state: present
-          sysctl_set: yes
+          sysctl_set: true
         loop:
           - net.ipv4.conf.all.forwarding # (3.1.1)
           - net.ipv4.conf.all.send_redirects # (3.1.2)
@@ -1206,9 +1213,9 @@
         ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
-          reload: yes
+          reload: true
           state: present
-          sysctl_set: yes
+          sysctl_set: true
         loop:
           - net.ipv6.conf.all.forwarding # (3.1.2)
           - net.ipv6.conf.all.accept_source_route # (3.2.1)
@@ -1228,9 +1235,9 @@
         ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
-          reload: yes
+          reload: true
           state: present
-          sysctl_set: yes
+          sysctl_set: true
         loop:
           - net.ipv4.conf.all.accept_source_route # (3.2.1)
           - net.ipv4.conf.default.accept_source_route # (3.2.1)
@@ -1244,9 +1251,9 @@
         ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "1"
-          reload: yes
+          reload: true
           state: present
-          sysctl_set: yes
+          sysctl_set: true
         loop:
           - net.ipv4.conf.all.log_martians # (3.2.4)
           - net.ipv4.conf.default.log_martians # (3.2.4)
@@ -1261,9 +1268,9 @@
         ansible.builtin.sysctl:
           name: "{{ item }}"
           value: "0"
-          reload: yes
+          reload: true
           state: present
-          sysctl_set: yes
+          sysctl_set: true
         loop:
           - net.ipv6.conf.all.accept_source_route # (3.2.1)
           - net.ipv6.conf.default.accept_source_route # (3.2.1)
@@ -1359,49 +1366,50 @@
 
   - name: 3.5.1 - Install firewall package
     block:
-      - name: 3.4.1.1 - Install ufw
-        ansible.builtin.package:
-          name: "ufw"
-          state: present
-        notify: start ufw # 3.5.2.1
+    - name: 3.4.1.1 - Install ufw
+      ansible.builtin.package:
+        name: "ufw"
+        state: present
+      notify: start ufw # 3.5.2.1
 
-      - ansible.builtin.debug:
-          msg:
-            - "3.5.2.2 - Ensure default firewalld policy must be handled locally"
+    - ansible.builtin.debug:
+        msg:
+          - "3.5.2.2 - Ensure default firewalld policy must be handled locally"
 
-      - name: 3.5.2.3 - implement loopback rules (1/3)
-        ansible.builtin.ufw:
-          rule: allow
-          direction: in
-          interface: lo
+    - name: 3.5.2.3 - implement loopback rules (1/3)
+      ansible.builtin.ufw:
+        rule: allow
+        direction: in
+        interface: lo
 
-      - name: 3.5.2.3 - implment loopback rules (2/3)
-        ansible.builtin.ufw:
-          rule: deny
-          direction: in
-          from_ip: 127.0.0.0/8
+    - name: 3.5.2.3 - implment loopback rules (2/3)
+      ansible.builtin.ufw:
+        rule: deny
+        direction: in
+        from_ip: 127.0.0.0/8
 
-      - name: 3.5.2.3 - implment loopback rules (3/3)
-        ansible.builtin.ufw:
-          rule: deny
-          direction: in
-          from_ip: '::1'
+    - name: 3.5.2.3 - implment loopback rules (3/3)
+      ansible.builtin.ufw:
+        rule: deny
+        direction: in
+        from_ip: '::1'
 
-      - ansible.builtin.debug:
-          msg:
-            - "3.5.2.4 - Configure outbound connections must be handled locally"
-            - "3.5.2.5 - Ensure firewall rules exist for all open ports must be handled locally"
+    - name: Display upcoming skips
+      ansible.builtin.debug:
+        msg:
+          - "3.5.2.4 - Configure outbound connections must be handled locally"
+          - "3.5.2.5 - Ensure firewall rules exist for all open ports must be handled locally"
 
-      - name: 3.4.2.3 - Disable netfilters service
-        ansible.builtin.systemd:
-          name: nftables
-          state: stopped
-          enabled: no
-          masked: yes
-        when: "'nftables' in ansible_facts.packages"
+    - name: 3.4.2.3 - Disable netfilters service
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'nftables' in ansible_facts.packages"
 
-      # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
-      # 3.4.2.6 Ensure unnecessary services and ports are not accepted
+    # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
+    # 3.4.2.6 Ensure unnecessary services and ports are not accepted
 
     when: enable_firewall is defined and enable_firewall == "ufw"
     tags:
@@ -1440,7 +1448,7 @@
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*ipv6.disable=1'
           state: absent
-        check_mode: yes
+        check_mode: true
         changed_when: false
         register: ipv6_disable_grub
         failed_when: false
@@ -1474,7 +1482,7 @@
       - name: 4.1.1.2 - Enable auditd service
         ansible.builtin.service:
           name: auditd
-          enabled: yes
+          enabled: true
           state: started
         tags:
           - 4.1.1.2
@@ -1487,7 +1495,7 @@
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*audit=1'
           state: absent
-        check_mode: yes
+        check_mode: true
         changed_when: false
         register: audit_exist
         failed_when: false
@@ -1511,7 +1519,7 @@
           path: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX.*audit_backlog_limit'
           state: absent
-        check_mode: yes
+        check_mode: true
         changed_when: false
         register: audit_backlog_exist
         failed_when: false
@@ -1533,7 +1541,7 @@
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX=.*{{ audit_backlog_limit }}'
           state: absent
-        check_mode: yes
+        check_mode: true
         changed_when: false
         register: our_limit
         when: audit_backlog_exist.found
@@ -1557,11 +1565,11 @@
           regexp: "{{ item.find }}"
           replace: "{{ item.replace }}"
         loop:
-          - { find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
-          - { find: '^max_log_file_action\s+=\s+((?!keep_logs).)*$', replace: 'max_log_file_action = keep_logs' } # 4.1.2.2
-          - { find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email' } # 4.1.2.2
-          - { find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root' } # 4.1.2.2
-          - { find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend' } # 4.1.2.2
+          - {find: '^max_log_file\s+=\s+[^{{ log_file_size }}]', replace: 'max_log_file = {{ log_file_size }}'} # 4.1.2.1
+          - {find: '^max_log_file_action\s+=\s+((?!keep_logs).)*$', replace: 'max_log_file_action = keep_logs'} # 4.1.2.2
+          - {find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email'} # 4.1.2.2
+          - {find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root'} # 4.1.2.2
+          - {find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend'} # 4.1.2.2
         tags:
           - 4.1.2.1
           - 4.1.2.2
@@ -1737,7 +1745,7 @@
   - name: 4.2.1.2 - Enable Rsyslog
     ansible.builtin.service:
       name: rsyslog
-      enabled: yes
+      enabled: true
     tags:
       - 4.2.1.2
 
@@ -1746,7 +1754,10 @@
       path: /etc/rsyslog.conf
       regexp: '^\$FileCreateMode\s+0640'
       line: "$FileCreateMode 0640"
-      create: yes
+      create: true
+      owner: root
+      group: root
+      mode: 0644
       state: present
     tags:
       - 4.2.1.4
@@ -1808,7 +1819,7 @@
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$ModLoad\s+imtcp'
           line: "$ModLoad imtcp"
-          create: yes
+          create: true
           owner: root
           group: root
           mode: 0644
@@ -1819,7 +1830,7 @@
           dest: /etc/rsyslog.d/CIS.conf
           regexp: '^\$InputTCPServerRun {{ log_port }}'
           line: "$InputTCPServerRun {{ log_port }}"
-          create: yes
+          create: true
           owner: root
           group: root
           mode: 0644
@@ -1834,7 +1845,7 @@
         register: rsyslog_forward_out
         changed_when: false
         failed_when: rsyslog_forward_out.rc == "2"
-        check_mode: no
+        check_mode: false
 
       - name: 4.2.2.1 - Forward journald logs to rsyslog IF rsyslog is sending logs to a log host
         ansible.builtin.lineinfile:
@@ -1886,7 +1897,7 @@
     ansible.builtin.copy:
       dest: "{{ item }}"
       content: ""
-      force: no
+      force: false
       owner: root
       group: root
       mode: 0644
@@ -1899,7 +1910,7 @@
   - name: 5.1.1 - Ensure cron is enabled
     ansible.builtin.service:
       name: cron
-      enabled: yes
+      enabled: true
       state: started
     tags:
       - 5.1.1
@@ -1993,7 +2004,7 @@
           path: /etc/ssh/sshd_config
           replace: "LogLevel {{ ssh_log_level | upper }}"
           regexp: '^LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
-        notify:  restart sshd
+        notify: restart sshd
         when: ssh_log_level == "INFO" or ssh_log_level == "WARN"
         tags:
           - 5.2.5
@@ -2005,7 +2016,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^X11Forwarding\s*yes'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.6
 
@@ -2015,7 +2026,7 @@
           line: "MaxAuthTries {{ ssh_max_auth_tries }}"
           regexp: '^MaxAuthTries\s*[^1-{{ ssh_max_auth_tries | int + 1 }}]'
           insertafter: "^#MaxAuthTries"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.7
 
@@ -2024,7 +2035,7 @@
           path: /etc/ssh/sshd_config
           line: "IgnoreRhosts yes"
           regexp: '^IgnoreRhosts\s*[^y]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.8
 
@@ -2033,7 +2044,7 @@
           path: /etc/ssh/sshd_config
           line: "HostbasedAuthentication no"
           regexp: '^HostbasedAuthentication\s*[^n]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.9
 
@@ -2042,7 +2053,7 @@
           path: /etc/ssh/sshd_config
           line: "PermitRootLogin no"
           regexp: '^PermitRootLogin\s*[^n]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.10
 
@@ -2051,7 +2062,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitEmptyPasswords\s*[^n]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.11
 
@@ -2060,7 +2071,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitUserEnvironment\s*[^n]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.12
 
@@ -2069,7 +2080,7 @@
           path: /etc/ssh/sshd_config
           line: "Ciphers {{ ssh_ciphers_list }}"
           regexp: '^Ciphers ((?!{{ ssh_ciphers_list }}).)*$ '
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.13
 
@@ -2079,7 +2090,7 @@
           line: "MACs {{ ssh_mac_list }}"
           insertafter: EOF
           regexp: '^MACs ((?!{{ ssh_mac_list }}).)*$ '
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.14
 
@@ -2089,7 +2100,7 @@
           line: "KexAlgorithms {{ ssh_kex_list }}"
           insertafter: EOF
           regexp: '^KexAlgorithms ((?!{{ ssh_kex_list }}).)*$ '
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.14
 
@@ -2099,7 +2110,7 @@
           line: "ClientAliveInterval {{ ssh_alive_interval }}"
           regexp: "^ClientAliveInterval {{ ssh_alive_interval }}"
           insertafter: "^#ClientAliveInterval"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.16
 
@@ -2109,7 +2120,7 @@
           line: "ClientAliveCountMax {{ ssh_alive_count_max }}"
           regexp: "^ClientAliveCountMax {{ ssh_alive_count_max }}"
           insertafter: "^#ClientAliveCountMax"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.16
 
@@ -2119,7 +2130,7 @@
           line: "LoginGraceTime {{ ssh_grace_time }}"
           regexp: "^LoginGraceTime {{ ssh_grace_time }}"
           insertafter: "^#LoginGraceTime"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.17
 
@@ -2130,7 +2141,7 @@
           path: "/etc/ssh/sshd_config"
           line: "Banner /etc/{{ ssh_login_banner }}"
           regexp: "^Banner /etc/{{ ssh_login_banner }}"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.19
 
@@ -2139,7 +2150,7 @@
           path: "/etc/ssh/sshd_config"
           line: "UsePAM yes"
           regexp: '^UsePAM\s+[yes|no]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.20
 
@@ -2149,7 +2160,7 @@
           line: "AllowTcpForwarding no"
           regexp: '^AllowTcpForwarding\s+(yes|no)'
           insertafter: "^#AllowTcpForwarding"
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.21
 
@@ -2158,7 +2169,7 @@
           path: "/etc/ssh/sshd_config"
           line: "maxstartups 10:30:60"
           regexp: '^maxstartups\s+10:30:60'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.22
 
@@ -2167,7 +2178,7 @@
           path: "/etc/ssh/sshd_config"
           line: "maxsessions {{ ssh_max_sessions }}"
           regexp: '^maxsessions\s+[{{ ssh_max_sessions }}]'
-        notify:  restart sshd
+        notify: restart sshd
         tags:
           - 5.2.23
 
@@ -2325,14 +2336,14 @@
       - name: 5.6 - Create wheel group if it doesn't exist
         ansible.builtin.group:
           name: wheel
-          system: yes
+          system: true
           state: present
 
       - name: 5.6 - Add root to the wheel group
         ansible.builtin.user:
           name: root
           groups: wheel
-          append: yes
+          append: true
     tags:
       - 5.6.0
 
@@ -2392,7 +2403,7 @@
         ansible.builtin.shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
         register: ww_files
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.1.10 - Print any world writable files found
         ansible.builtin.debug:
@@ -2427,7 +2438,7 @@
         ansible.builtin.shell: "/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
         register: ug_files
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.1.12 - Print any ungrouped files found
         ansible.builtin.debug:
@@ -2452,7 +2463,7 @@
         ansible.builtin.shell: "/bin/cat /etc/shadow | awk -F: '($2 == \"\" ) { print $1 }'"
         changed_when: false
         register: empty_passwords
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.1 - Report the named users to the report
         ansible.builtin.debug:
@@ -2486,7 +2497,7 @@
         ansible.builtin.shell: "/bin/cat /etc/passwd | awk -F: '($3 == 0) { print $1 }'"
         register: rootuid
         changed_when: rootuid.rc == 2
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.6 - Report on mulitple accounts with UID of 0
         ansible.builtin.debug:
@@ -2504,7 +2515,7 @@
         ansible.builtin.script: files/path_check.sh
         changed_when: false
         register: path_check
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.7 - Print report to user
         ansible.builtin.debug:
@@ -2526,7 +2537,7 @@
           cmd: files/undefined_groups.sh
         register: undefined_groups
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.15 - Report to user any unreferenced groups
         ansible.builtin.debug:
@@ -2543,7 +2554,7 @@
           cmd: files/duplicate_uids.sh
         register: duplicate_uids
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.16 - Print report of duplicated UIDs to user
         ansible.builtin.debug:
@@ -2560,7 +2571,7 @@
           cmd: files/duplicate_guids.sh
         register: duplicate_guids
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.17 - Print report of duplcate GIDs to user
         ansible.builtin.debug:
@@ -2577,7 +2588,7 @@
           cmd: files/duplicate_users.sh
         register: duplicate_users
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.18 - Print report of duplicate users to user
         ansible.builtin.debug:
@@ -2594,7 +2605,7 @@
           cmd: files/duplicate_groups.sh
         register: duplicate_groups
         changed_when: false
-        check_mode: no
+        check_mode: false
 
       - name: 6.2.19 - Print report of duplicate groups to user
         ansible.builtin.debug:

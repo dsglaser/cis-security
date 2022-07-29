@@ -328,7 +328,8 @@
         tags:
           - 2.2.20
 
-      # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
+      # Control 2.2.21 "Ensure 'Deny access to this computer from the network' to include
+      # 'Guests, Local account and member of Administrators group'" has a number of caveats and is function dependent: skipping
 
       - name: 2.2.[22-25] - Ensure deny local, remote, and batch logons includes 'Guests'
         ansible.windows.win_user_right:
@@ -972,7 +973,7 @@
       path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters'
       name: NullSessionShares
       state: absent
-      delete_key: no
+      delete_key: False
     tags:
       - 2.3.10.12
 
@@ -1930,8 +1931,8 @@
       value: " {{ item.value }}"
       type: dword
     loop:
-      - { path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitBehavior', value: '0' }
-      - { path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitEnabled', value: '1' }
+      - {path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitBehavior', value: '0'}
+      - {path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters', name: 'DevicePKInitEnabled', value: '1'}
     tags:
       - 18.8.25.1
 
@@ -2878,8 +2879,8 @@
       value: " {{ item.value }}"
       type: "{{ item.type }}"
     loop:
-      - { name: 'EnableSmartScreen', value: '1', type: 'dword' }
-      - { name: 'ShellSmartScreenLevel', value: 'Block', type: 'string' }
+      - {name: 'EnableSmartScreen', value: '1', type: 'dword'}
+      - {name: 'ShellSmartScreenLevel', value: 'Block', type: 'string'}
     tags:
       - 18.9.80.1.1
 
@@ -3068,8 +3069,8 @@
       value: 1
       type: dword
     loop:
-      - { name: 'ManagePreviewBuilds', value: '1' }
-      - { name: 'ManagePreviewBuildsPolicyValue', value: '0' }
+      - {name: 'ManagePreviewBuilds', value: '1'}
+      - {name: 'ManagePreviewBuildsPolicyValue', value: '0'}
     tags:
       - 18.9.102.1.1
 
@@ -3080,8 +3081,8 @@
       value: 1
       type: dword
     loop:
-      - { name: 'ManagePreviewBuilds', value: '1' }
-      - { name: 'ManagePreviewBuildsPolicyValue', value: '0' }
+      - {name: 'ManagePreviewBuilds', value: '1'}
+      - {name: 'ManagePreviewBuildsPolicyValue', value: '0'}
     tags:
       - 18.9.102.1.1
 
