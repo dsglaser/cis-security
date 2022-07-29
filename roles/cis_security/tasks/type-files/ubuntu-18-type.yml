@@ -141,7 +141,26 @@
             Type=tmpfs
             Options=mode=1777,strictatime,noexec,nodev,nosuid
           create: true
+
+      - name: Ensure the local-fs directory is created
+        file:
+          path: /etc/systemd/system/local-fs.target.wants
+          state: directory
+          owner: root
+          group: root
+          mode: 0755
+          setype: etc_t
+
+      # symbolic link is required for .wants/ folder 
+      - name: Create a symbolic link      
+        ansible.builtin.file:
+          src: /etc/systemd/system/tmp.mount
+          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount          
+          owner: root
+          group: root        
+          state: link
         notify: restart tmpfs
+
     tags:
       - 1.1.2
       - 1.1.3
