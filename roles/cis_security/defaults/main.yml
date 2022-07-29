@@ -22,7 +22,7 @@ time_operators:                 # Windows: Users that can set the system time
 sudo_log: "/var/log/sudoers"    # Linux: log file for sudo
 
 # AIDE configuration settings
-aide_db_name:  "/var/lib/aide/aide.db.gz"        # Linux: Database name that AIDE will look for for comparison
+aide_db_name: "/var/lib/aide/aide.db.gz"        # Linux: Database name that AIDE will look for for comparison
 aide_new_db_name: "/var/lib/aide/aide.db.new.gz" # Linux: Database name created during an --init run
 aide_gzip: "yes"                                 # Linux: 'yes' or 'no' to enable gzip compression on database
 
@@ -52,7 +52,7 @@ graphical_interface: false      # Whether to disable the GDM greeter service. Th
 log_host: false                 # Linux: Whether this machine will host rsyslog messages for other machines
 log_port: 514                   # Linux: Port to listen to RSYSLOG messages on (if log_host is true)
 log_file_size: 8                # Linux: log file size. RHEL default is 8MB, control has no default
-#rsyslog_file:                  # Linux: Uncomment to copy file listed to /etc/rsyslog.d
+# rsyslog_file:                  # Linux: Uncomment to copy file listed to /etc/rsyslog.d
 
 # network security settings
 tcpwrappers: false              # Linux: Configure tcpwrappers controls. RHEL 7 control only
@@ -161,9 +161,9 @@ win_system_log_size: "32768"      # Windows. Max setup event log file size
 disable_automatic_updates: "0"     # Windows. Disable automatic updates. Set to '1' to disable automatic updates. (Choose if using 3rd party update systems)
 au_update_options: "4"            # Windows. Configure automatic updates. Possible values
                                   #  2 - Notify for download and auto install (Notify before downloading any updates)
-                                  #  3 - Auto download and notify for install (Download the updates automatically and notify when they are ready to be installed.) (Default setting)
-                                  #  4 - Auto download and schedule the install (Automatically download updates and install them on the schedule specified below.))
-                                  #  5 - Allow local admin to choose setting (Leave decision on above choices up to the local Administrators (Not Recommended))
+                                  #  3 - Auto download and notify for install (Download the updates automatically and notify. ) (Default)
+                                  #  4 - Auto download and schedule the install (Automatically download updates and install them on the schedule specified.)
+                                  #  5 - Allow local admin to choose setting (Leave decision on above choices up to the local Administrators (Not Recommended)
 au_update_day: "0"                # Windows. Configure which day automatic updates will be installed.
                                   #  Only takes effect if "automatic_updates" == "4". Possible values
                                   #  0 - Every delay

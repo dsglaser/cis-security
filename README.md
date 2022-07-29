@@ -159,3 +159,4 @@ ways files can be manipuldated with modules.
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
 - 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
 - 7/28/2022 - dsglaser@gmail.com - Adapted as a collection. Support for Ubuntu 20.04 and Windows 10
+- 7/28/2022 - dsglaser@gmail.com - Fixed formatting
