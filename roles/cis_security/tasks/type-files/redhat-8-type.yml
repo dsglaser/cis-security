@@ -88,9 +88,9 @@
       line: "install {{ item }} /bin/true"
       state: present
       create: true
-    owner: root
-    group: root
-    mode: 0644
+      owner: root
+      group: root
+      mode: 0644
     with_items:
       - "{{ unused_filesystems }}"
 
@@ -585,7 +585,7 @@
           - 1.4.1
 
       - name: Wait for AIDE initialization to complete
-        ansible.builtin.async_status:: jid={{ aide.ansible_job_id }}
+        ansible.builtin.async_status: jid={{ aide.ansible_job_id }}
         register: aide_status
         until: aide_status.finished
         when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and ansible_distribution != "SLES"
