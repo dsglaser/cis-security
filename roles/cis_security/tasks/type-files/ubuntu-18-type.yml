@@ -14,7 +14,7 @@
   # Let the user know what version of the controls file is running
   # Use a variable so it prints out the correct version.
   - name: Print Header
-  - ansible.builtin.debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+    ansible.builtin.debug: msg="CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
 
   # Collect the packages installed on the system so we can check agains them later
   - name: Collect package list
