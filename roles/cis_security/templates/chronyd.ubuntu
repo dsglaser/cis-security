@@ -5,6 +5,6 @@
 # Options to pass to chrony.
 DAEMON_OPTS=""
 
-# Sync systecm clock in containers or without CAP_SYS_TIME (likely to fail)
+# Sync system clock in containers or without CAP_SYS_TIME (likely to fail)
 # See /usr/share/doc/chrony/README.container for details.
 SYNC_IN_CONTAINER="no"

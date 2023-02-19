@@ -1,4 +1,5 @@
 ---
 # indclude the type file for Ubuntu 18 type machines
 
-- include: type-files/ubuntu-18-type.yml
+- name: Include taks for 18
+  include_tasks: type-files/ubuntu-18-type.yml

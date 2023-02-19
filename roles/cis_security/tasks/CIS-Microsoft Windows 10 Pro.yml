@@ -1,4 +1,5 @@
 ---
 # indclude the type file for MS Windows type machines
 
-- include: type-files/MS-Server-type.yml
+- name: Include Windows type tasks
+  include_tasks: type-files/MS-Server-type.yml

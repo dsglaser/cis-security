@@ -1,4 +1,5 @@
 ---
 # indclude the type file for RHEL 8 type machines
 
-- include: type-files/redhat-8-type.yml
+- name: Include RHEL8 type tasks
+  include_tasks: type-files/redhat-8-type.yml
