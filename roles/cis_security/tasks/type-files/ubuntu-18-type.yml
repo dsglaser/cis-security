@@ -40,10 +40,10 @@
   ansible.builtin.package:
     name: "*"
     state: latest
-  module_defaults:
-        apt:
-          lock_timeout: 120
-          only_upgrade: true
+    module_defaults:
+      apt:
+        lock_timeout: 120
+        only_upgrade: true
   when: update_system
   tags:
     - 1.9.0
@@ -57,48 +57,56 @@
 - name: 1.1.1.1 - Add cramfs to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['cramfs'] }}"
+  when: not skip_1.1.1.1
   tags:
     - 1.1.1.1
 
 - name: 1.1.1.2 - Add freevxfs to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['freevxfs'] }}"
+  when: not skip_1.1.1.2
   tags:
     - 1.1.1.2
 
 - name: 1.1.1.3 - Add jffs2 to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['jffs2'] }}"
+  when: not skip_1.1.1.3
   tags:
     - 1.1.1.3
 
 - name: 1.1.1.4 - Add hfs to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['hfs'] }}"
+  when: not skip_1.1.1.4
   tags:
     - 1.1.1.4
 
 - name: 1.1.1.5 - Add hfsplus to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['hfsplus'] }}"
+  when: not skip_1.1.1.5
   tags:
     - 1.1.1.5
 
 - name: 1.1.1.6 - Add squashfs to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['squashfs'] }}"
+  when: not skip_1.1.1.6
   tags:
     - 1.1.1.6
 
 - name: 1.1.1.7 - Add udf to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['udf'] }}"
+  when: not skip_1.1.1.7
   tags:
     - 1.1.1.7
 
 - name: 1.1.1.8 - Add vfat to list of unused filesystems
   ansible.builtin.set_fact:
     unused_filesystems: "{{ unused_filesystems + ['vfat'] }}"
+  when: not skip_1.1.1.8
   tags:
     - 1.1.1.8
 
@@ -167,7 +175,7 @@
         group: root
         state: link
       notify: Restart tmpfs
-
+  when: not skip_1.1.2 and not skip_1.1.3 and not skip_1.1.4 and not skip_1.1.5
   tags:
     - 1.1.2
     - 1.1.3
@@ -202,6 +210,7 @@
         msg: "FAILED CONTROL: /var is not on a separate partition"
       when: mount_count == 0
       changed_when: true
+  when: not skip_1.1.6
   # This whole block can be turned off by excluding the following tag(s)
   tags:
     - 1.1.6
@@ -229,7 +238,7 @@
       ansible.builtin.set_fact:
         mount_count: addition{{ mount_count + 1 }}
         mount_options: "{{ item.options }}"
-      when: item.mount == "/var/tmp"
+      when: item.mount == "/var/tmp" and not skip_1.1.7
       with_items:
         - "{{ ansible_mounts }}"
       tags:
@@ -240,7 +249,7 @@
     - name: 1.1.7 - Report to user if not on separate partition
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/tmp is not on a separate partition. Skipping mount option checks"
-      when: mount_count == 0
+      when: mount_count == 0 and not skip_1.1.7
       changed_when: true
       tags:
         - 1.1.7
@@ -251,7 +260,7 @@
     - name: 1.1.8 - Report to user if /var/tmp does not have nodev set
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
+      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0 and not skip_1.1.8
       changed_when: true
       tags:
         - 1.1.8
@@ -262,7 +271,7 @@
     - name: 1.1.9 - Report to user if /var/tmp does not have nosuid set
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/tmp/ does not have nosuid set"
-      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
+      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0 not skip_1.1.9
       changed_when: true
       tags:
         - 1.1.9
@@ -273,11 +282,12 @@
     - name: 1.1.10 - Report to user if /var/tmp does not have noexec set
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
-      when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
+      when: mount_options is defined and "noexec" not in mount_options and mount_count == 0 and not skip_1.1.10
       changed_when: true
       tags:
         - 1.1.10
   # This whole block can be turned off by excluding the following tag(s)
+  when: not skip_1.1.7
   tags:
     - 1.1.7
 
@@ -310,6 +320,7 @@
       when: mount_count == 0
       changed_when: true
   # This whole block can be turned off by excluding the following tag(s)
+  when: not skip_1.1.11
   tags:
     - 1.1.11
 
@@ -342,6 +353,7 @@
       when: mount_count == 0
       changed_when: true
   # This whole block can be turned off by excluding the following tag(s)
+  when: not skip_1.1.12
   tags:
     - 1.1.12
 
@@ -383,6 +395,7 @@
         msg: "FAILED CONTROL: /home does not have nodev set"
       when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
       changed_when: true
+  when: not skip_1.1.13
   tags:
     # This whole block can be turned off by excluding the following tag(s)
     - 1.1.13
@@ -406,6 +419,7 @@
         msg: "FAILED CONTROL: /dev/shm does not have nodev set"
       when: devshm_nodev_out is defined and devshm_nodev_out.stdout
       changed_when: true
+  when: not skip_1.1.15
   tags:
     # This whole block can be turned off by excluding the following tag(s)
     - 1.1.15
@@ -426,6 +440,7 @@
         msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
       when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
       changed_when: true
+  when: not skip_1.1.16
   tags:
     # This whole block can be turned off by excluding the following tag(s)
     - 1.1.16
@@ -446,6 +461,7 @@
         msg: "FAILED CONTROL: /dev/shm does not have noexec set"
       when: devexec_nosuid_out is defined and devshm_noexec_out.stdout
       changed_when: true
+  when: not skip_1.1.17
   tags:
     # This whole block can be turned off by excluding the following tag(s)
     - 1.1.17
@@ -462,6 +478,7 @@
     executable: /bin/bash
   changed_when: false
   failed_when: false
+  when: not skip_1.1.21
   tags:
     - 1.1.21
 
@@ -473,7 +490,7 @@
     name: autofs
     enabled: false
     state: stopped
-  when: "'autofs' in ansible_facts.packages"
+  when: ('autofs' in ansible_facts.packages) and not skip_1.1.22
   tags:
     - 1.1.22
 
@@ -486,6 +503,7 @@
     owner: root
     group: root
     mode: '0644'
+  when: not skip_1.1.23
   tags:
     - 1.1.23
 
@@ -496,6 +514,7 @@
 - name: 1.2.2 - Ensure GPG keys are configured
   ansible.builtin.debug:
     msg: Currently this control doesn't do anything except to check currently installed keys
+  when: not skip_1.2.2
   tags:
     - 1.2.2
 
@@ -504,6 +523,7 @@
   ansible.builtin.package:
     name: sudo
     state: present
+  when: not skip_1.3.1
   tags:
     - 1.3.1
 
@@ -515,6 +535,7 @@
     line: Defaults use_pty
     insertafter: ^# Defaults specification
     validate: /usr/sbin/visudo -cf %s
+  when: not skip_1.3.2
   tags:
     - 1.3.2
 
@@ -526,6 +547,7 @@
     line: Defaults logfile="{{ sudo_log }}"
     insertafter: ^# Defaults specification
     validate: /usr/sbin/visudo -cf %s
+  when: not skip_1.3.3
   tags:
     - 1.3.3
 
@@ -539,6 +561,7 @@
       ansible.builtin.package:
         name: aide
         state: present
+      when: not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -548,6 +571,7 @@
       stat:
         path: /var/lib/aide/aide.db.gz
       register: aide_path
+      when: not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -556,6 +580,7 @@
         dest: /etc/aide/aide.conf
         regexp: ^database=file:((?!{{ aide_db_name }}).)*$
         replace: database=file:{{ aide_db_name }}
+      when: not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -564,6 +589,7 @@
         dest: /etc/aide/aide.conf
         regexp: ^database_out=file:((?!{{ aide_new_db_name }}).)*$
         replace: database_out=file:{{ aide_new_db_name }}
+      when: not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -573,6 +599,7 @@
         regexp: ^gzip_dbout\s*=\s*((?!{{ aide_gzip }}).)*$
         line: gzip_dbout={{ aide_gzip }}
         state: present
+      when: not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -582,7 +609,7 @@
 
     - name: 1.4.1 - Initialize AIDE if it hasn't been already (/usr/bin/aide)
       ansible.builtin.command: /usr/sbin/aideinit
-      when: ( not aide_path.stat.exists or not aide_path.stat.isreg )
+      when: ( not aide_path.stat.exists or not aide_path.stat.isreg ) and not skip_1.4.1
       tags:
         - 1.4.1
 
@@ -595,7 +622,7 @@
         remote_src: true
         dest: /var/lib/aide/aide.db.gz
         mode: preserve
-      when: not aide_path.stat.exists or not aide_path.stat.isreg
+      when: not aide_path.stat.exists or not aide_path.stat.isreg and not skip_1.4.1
       changed_when: false
       tags:
         - 1.4.1
@@ -612,6 +639,7 @@
         mode: '0644'
         setype: systemd_unit_file_t
       notify: Restart aidecheck
+      when: not skip_1.4.2
       tags:
         - 1.4.2
 
@@ -619,6 +647,7 @@
       ansible.builtin.systemd:
         name: aidecheck.service
         enabled: true
+      when: not skip_1.4.2
       tags:
         - 1.4.2
 
@@ -634,8 +663,10 @@
         mode: '0644'
         setype: systemd_unit_file_t
       notify: Restart aidecheck
+      when: not skip_1.4.2
       tags:
         - 1.4.2
+  when: not skip_1.4 and not skip_1.4.0 and not skip_1.4.1 and not skip_1.4.2
   tags:
     - 1.4.0
 
@@ -646,13 +677,14 @@
   stat:
     path: /boot/efi/EFI/{{ ansible_distribution | lower }}/grub2.cfg
   register: efidir
+  when: not skip_1.5.1
   tags:
     - 1.5.1
 
 - name: 1.5.1 - set variable for grub.cfg in EFI location
   ansible.builtin.set_fact:
     grub_cfg_path: "{{ efidir.stat.path }}"
-  when: efidir.stat.path is defined
+  when: efidir.stat.path is defined and not skip_1.5.1
   tags:
     - 1.5.1
 
@@ -660,13 +692,14 @@
   stat:
     path: /boot/grub/grub.cfg
   register: grubdir
+  when: not skip_1.5.1
   tags:
     - 1.5.1
 
 - name: 1.5.1 - set variable for grub.cfg in EFI location
   ansible.builtin.set_fact:
     grub_cfg_path: "{{ grubdir.stat.path }}"
-  when: grubdir.stat.path
+  when: grubdir.stat.path and not skip_1.5.1
   tags:
     - 1.5.1
 
@@ -680,6 +713,7 @@
   loop:
     - "{{ grub_cfg_path }}"
     - /boot/grub/grubenv
+  when: not skip_1.5.1
   tags:
     - 1.5.1
 
@@ -709,6 +743,7 @@
         msg: Root password is not set and no password provided. Set ubuntu_root_password variable per instructions and restart.
       changed_when: true
       when: root_pw_check.found != "0" and root_password is not defined
+  when: not skip_1.5.3
   tags:
     - 1.5.3
 
@@ -732,6 +767,7 @@
       ansible.builtin.debug:
         msg: XD/NX support is active
       when: nx_protection.stdout is search("active")
+  when: not skip_1.6.1
   tags:
     - 1.6.1
 
@@ -744,6 +780,7 @@
     reload: true
     state: present
     sysctl_set: true
+  when: not skip_1.6.2
   tags:
     - 1.6.2
 
@@ -752,6 +789,7 @@
   ansible.builtin.package:
     name: prelink
     state: absent
+  when: not skip_1.6.3
   tags:
     - 1.6.3
 
@@ -792,6 +830,7 @@
         insertafter: "#ProcessSizeMax=2G"
       when: "'systemd-coredump' in ansible_facts.packages"
       notify: Reload systemctl
+  when: not skip_1.6.4
   tags:
     - 1.6.4
 
@@ -854,6 +893,7 @@
       changed_when: false
       tags:
         - 1.7.1.4
+  when: not skip_1.7.0
   tags:
     - 1.7.0
 # 1.8 Warning Banners
@@ -866,6 +906,7 @@
     owner: root
     group: root
     mode: '0644'
+  when: not skip_1.8.1.1 and not skip_1.8.1.4
   tags:
     - 1.8.1.1
     - 1.8.1.4
@@ -878,6 +919,7 @@
     owner: root
     group: root
     mode: '0644'
+  when: not skip_1.8.1.2  and not skip_1.8.1.5
   tags:
     - 1.8.1.2
     - 1.8.1.5
@@ -890,6 +932,7 @@
     owner: root
     group: root
     mode: '0644'
+  when: not skip_1.8.1.3 and not skip_1.8.1.6
   tags:
     - 1.8.1.3
     - 1.8.1.6
@@ -906,7 +949,7 @@
       [org/gnome/login-screen]
       banner-message-enable=true
       banner-message-text='Authorized uses only. All activity may be monitored and reported.'
-  when: graphical_inteface is defined and graphical_interface
+  when: (graphical_inteface is defined and graphical_interface) and not skip_1.8.2
   tags:
     - 1.8.2
 
@@ -916,7 +959,7 @@
   ansible.builtin.package:
     name: xinetd
     state: absent
-  when: tftp_server is defined and not tftp_server
+  when: tftp_server is defined and not tftp_server and not skip_2.1.1
   tags:
     - 2.1.1
 
@@ -924,6 +967,7 @@
   ansible.builtin.package:
     name: openbsd-inetd
     state: absent
+  when: not skip_2.1.2
   tags:
     - 2.1.2
 
@@ -932,7 +976,7 @@
   ansible.builtin.package:
     name: chrony
     state: present
-  when: time_service == "chrony"
+  when: time_service == "chrony" and  not skip_2.2.1.3
   tags:
     - 2.2.1.3
 
@@ -944,7 +988,7 @@
     owner: root
     group: root
     mode: '0644'
-  when: time_service == "chrony"
+  when: time_service == "chrony" and not skip_2.2.1.3
   notify: Restart chronyd
   tags:
     - 2.2.1.3
@@ -956,7 +1000,7 @@
     owner: root
     group: root
     mode: '0644'
-  when: time_service == "chrony" or time_service == "ntp"
+  when: time_service == "chrony" or time_service == "ntp" and not skip_2.2.1.3
   notify: Restart {{ time_service }}d
   tags:
     - 2.2.1.3
@@ -969,7 +1013,7 @@
     owner: root
     group: root
     mode: '0644'
-  when: time_service == "timesync"
+  when: time_service == "timesync" and not skip_2.2.1.2
   notify: Restart timesyncd
   tags:
     - 2.2.1.2
@@ -1034,6 +1078,7 @@
         group: root
         state: link
       when: graphical_interface
+  when: not skip_2.2.2
   tags:
     - 2.2.2
 
@@ -1046,85 +1091,91 @@
 - name: 2.2.3 - Remove avahi; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['avahi'] }}"
+  when: not skip_2.2.3
   tags:
     - 2.2.3
 
 - name: 2.2.5 - Remove isc-dhcp-server; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['isc-dhcp-server'] }}"
-  when: dhcp_server is defined and not dhcp_server
+  when: dhcp_server is defined and not dhcp_server and not skip_2.2.5
   tags:
     - 2.2.5
 
 - name: 2.2.6 - Remove slapd; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['slapd'] }}"
+  when: not skip_2.2.6
   tags:
     - 2.2.6
 
 - name: 2.2.7 - Remove nfs server; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['nfs-server'] + ['rpcbind'] }}"
-  when: nfs_server is defined and not nfs_server
+  when: nfs_server is defined and not nfs_server and not skip_2.2.7
   tags:
     - 2.2.7
 
 - name: 2.2.8 - Remove bind9; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['bind9'] }}"
-  when: dns_server is defined and not dns_server
+  when: dns_server is defined and not dns_server and not skip_2.2.8
   tags:
     - 2.2.8
 
 - name: 2.2.9 - Remove vsftpd; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['vsftpd'] }}"
-  when: ftp_server is defined and not ftp_server
+  when: ftp_server is defined and not ftp_server and not skip_2.2.9
   tags:
     - 2.2.9
 
 - name: 2.2.10 - Remove httpd; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['apache2'] }}"
-  when: http_server is defined and not http_server
+  when: http_server is defined and not http_server and not skip_2.2.10
   tags:
     - 2.2.10
 
 - name: 2.2.11 - Remove dovecot; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['dovecot'] }}"
-  when: email_server is defined and not email_server
+  when: email_server is defined and not email_server and not skip_2.2.11
   tags:
     - 2.2.11
 
 - name: 2.2.12 - Remove samba; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['samba'] }}"
-  when: smb_server is defined and not smb_server
+  when: smb_server is defined and not smb_server and not skip_2.2.12
   tags:
     - 2.2.12
 
 - name: 2.2.13 - Remove squid; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['squid'] }}"
+  when: not skip_2.2.13
   tags:
     - 2.2.13
 
 - name: 2.2.14 - Remove snmp; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['snmp'] }}"
+  when: not skip_2.2.14
   tags:
     - 2.2.14
 
 - name: 2.2.16 - Remove rsync; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['rsync'] }}"
+  when: not skip_2.2.16
   tags:
     - 2.2.16
 
 - name: 2.2.17 - Remove nis; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['nis'] }}"
+  when: not skip_2.2.17 and not skip_2.3.1
   tags:
     - 2.2.17
     - 2.3.1
@@ -1132,24 +1183,28 @@
 - name: 2.3.2 - Remove rsh; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['rsh-client'] }}"
+  when: not skip_2.3.2
   tags:
     - 2.3.2
 
 - name: 2.3.3 - Remove talk; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['talk'] }}"
+  when: not skip_2.3.3
   tags:
     - 2.3.3
 
 - name: 2.3.4 - Remove telnet; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['telnet'] }}"
+  when: not skip_2.3.4
   tags:
     - 2.3.4
 
 - name: 2.3.5 - Remove ldap-utils; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + ['ldap-utils'] }}"
+  when: not skip_2.3.5
   tags:
     - 2.3.5
 
@@ -1167,7 +1222,7 @@
     name: "{{ item }}"
     enabled: false
     state: stopped
-  when: "'cups' in ansible_facts.packages"
+  when: ('cups' in ansible_facts.packages) and not skip_2.2.4
   loop:
     - cups.service
     - cups.socket
@@ -1191,6 +1246,7 @@
         regexp: ^inet_interfaces = ((?!localhost).)*$
         replace: inet_interfaces = loopback-only
       when: postfix_out.stat.exists and not email_server
+  when: not skip_2.2.15
   tags:
     - 2.2.15
 
@@ -1231,6 +1287,7 @@
         - net.ipv6.conf.default.accept_ra # (3.2.9)
       when: not ipv6_disable
       notify: Flush network routes
+  when: not skip_3.1.0
   tags:
     - 3.1.0
 
@@ -1285,6 +1342,7 @@
         - net.ipv6.conf.default.accept_ra # (3.2.9)
       notify: Flush network routes
       when: not ipv6_disable
+  when: not skip_3.2.0
   tags:
     - 3.2.0
 
@@ -1318,7 +1376,7 @@
       loop:
         - /etc/hosts.allow # (3.3.4)
         - /etc/hosts.deny # (3.3.5)
-  when: tcpwrappers
+  when: tcpwrappers and not skip_3.3.0
   tags:
     - 3.3.0
 
@@ -1360,6 +1418,7 @@
       ansible.builtin.lineinfile: dest=/etc/modprobe.d/CIS.conf line="install {{ item }} /bin/true" state=present create=yes
       loop:
         - uncommon_network
+  when: not skip_3.4.0
   tags:
     - 3.4.0
 
@@ -1413,7 +1472,7 @@
   # 3.4.2.5 Ensure network interfaces are assigned to appropriate zone is machine dependent
   # 3.4.2.6 Ensure unnecessary services and ports are not accepted
 
-  when: enable_firewall is defined and enable_firewall == "ufw"
+  when: enable_firewall is defined and enable_firewall == "ufw" and not skip_3.5.1 and not skip_3.5.2
   tags:
     - 3.5.1
     - 3.5.2
@@ -1424,14 +1483,14 @@
   ansible.builtin.debug:
     msg:
       - Ensure default firewall policy (3.5.4.1.[1-4]) must be handled locally
-  when: enable_firewall is defined and enable_firewall == "iptables"
+  when: enable_firewall is defined and enable_firewall == "iptables" and not skip_3.5.4
   tags:
     - 3.5.4
 
 - name: 3.5.4.2 - Configure IPv6 iptables
   ansible.builtin.debug:
     msg: 3.5.4.2.[1-4], Configure IPv6 ip6tables skipping due to low use
-  when: ipv6_disable and enable_firewall == "firewalld"
+  when: ipv6_disable and enable_firewall == "firewalld" and not skip_3.5.4.2
   tags:
     - 3.5.4.2
 
@@ -1462,7 +1521,7 @@
         replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
       notify: Rebuild ubuntu-grub
       when: not ipv6_disable_grub.found and ipv6_disable
-
+  when: not skip_3.7.0
   tags:
     - 3.7.0
 
@@ -1566,7 +1625,7 @@
         replace: "{{ item.replace }}"
       loop:
         - { find: "^max_log_file\\s+=\\s+[^{{ log_file_size }}]", replace: "max_log_file = {{ log_file_size }}" } # 4.1.2.1
-        - { find: "^max_log_file_action\\s+=\\s+((?!keep_logs).)*$", replace: max_log_file_action = keep_logs } # 4.1.2.2
+        - { find: "^max_log_file_action\\s+=\\s+((?!keep_logs).)*$", replace: max_log_file_action = max_log_file_action|default("keep_logs") } # 4.1.2.2
         - { find: "^space_left_action\\s+=\\s+((?!email).)*$", replace: space_left_action = email } # 4.1.2.2
         - { find: "^action_mail_acct\\s+=\\s+((?!root).)*$", replace: action_mail_acct = root } # 4.1.2.2
         - { find: "^admin_space_left_action\\s+=\\s+((?!suspend).)*$", replace: admin_space_left_action = suspend } # 4.1.2.2
@@ -1729,7 +1788,7 @@
       notify: Restart auditd
       tags:
         - 4.1.17
-  when: enable_audit is defined and enable_audit
+  when: enable_audit is defined and enable_audit and not skip_4.1.0
   tags:
     - 4.1.0
 
@@ -1738,6 +1797,7 @@
   ansible.builtin.package:
     name: rsyslog
     state: present
+  when: not skip_4.2.1.1
   tags:
     - 4.2.1.1
 
@@ -1745,6 +1805,7 @@
   ansible.builtin.service:
     name: rsyslog
     enabled: true
+  when: not skip_4.2.1.2
   tags:
     - 4.2.1.2
 
@@ -1758,6 +1819,7 @@
     group: root
     mode: '0644'
     state: present
+  when: not skip_4.2.1.4
   tags:
     - 4.2.1.4
 
@@ -1768,7 +1830,7 @@
     owner: root
     group: root
     mode: '0640'
-  when: rsylog_file is defined
+  when: rsylog_file is defined and not skip_4.2.1.4
   tags:
     - 4.2.1.4
 
@@ -1834,6 +1896,7 @@
         group: root
         mode: '0644'
       when: log_host is defined and log_host
+  when: not skip_4.2.1.6
   tags:
     - 4.2.1.6
 
@@ -1853,6 +1916,7 @@
         line: ForwardToSyslog=yes
         insertafter: "#ForwardToSyslog=no"
       when: rsyslog_forward_out.stdout
+  when: not skip_4.2.2.1
   tags:
     - 4.2.2.1
 
@@ -1862,6 +1926,7 @@
     regexp: ^Compress=((?!yes).)*$
     line: Compress=yes
     insertafter: ^#Compress=
+  when: not skip_4.2.2.2
   tags:
     - 4.2.2.2
 
@@ -1871,6 +1936,7 @@
     regexp: ^Storage=((?!persistent).)*$
     line: Storage=persistent
     insertafter: ^#Storage=
+  when: not skip_4.2.2.3
   tags:
     - 4.2.2.3
 
@@ -1881,6 +1947,7 @@
   ansible.builtin.package:
     name: logrotate
     state: present
+  when: not skip_4.3.0
   tags:
     - 4.3.0
 
@@ -1902,6 +1969,7 @@
   with_items:
     - /etc/cron.allow
     - /etc/at.allow
+  when: not skip_5.1.8
   tags:
     - 5.1.8
 
@@ -1910,6 +1978,7 @@
     name: cron
     enabled: true
     state: started
+  when: not skip_5.1.1
   tags:
     - 5.1.1
 
@@ -1919,6 +1988,7 @@
     owner: root
     group: root
     mode: '0600'
+  when: not skip_5.1.2
   tags:
     - 5.1.2
 
@@ -1934,6 +2004,7 @@
     - /etc/cron.weekly
     - /etc/cron.monthly
     - /etc/cron.d
+  when: not skip_5.1.3 and not skip_5.1.4 and not skip_5.1.5 and not skip_5.1.6 and not skip_5.1.7
   tags:
     - 5.1.3
     - 5.1.4
@@ -2179,7 +2250,7 @@
       notify: Restart sshd
       tags:
         - 5.2.23
-
+  when: not skip_5.2.0
   tags:
     - 5.2.0
 
@@ -2229,6 +2300,7 @@
         regexp: ^minlen = {{ password_min_length }}
         insertafter: ^# minlen = 8
       when: password_req_digit
+  when: not skip_5.3.1
   tags:
     - 5.3.1
 
@@ -2247,6 +2319,7 @@
     regexp: ^PASS_MAX_DAYS\s*((?!{{ password_expire_days }}).)*$
     line: PASS_MAX_DAYS  {{ password_expire_days }}
     state: present
+  when: not skip_5.4.1.1
   tags:
     - 5.4.1.1
 
@@ -2256,6 +2329,7 @@
     regexp: ^PASS_MIN_DAYS\s*((?!{{ password_min_days }}).)*$
     line: PASS_MIN_DAYS  {{ password_min_days }}
     state: present
+  when: not skip_5.4.1.2
   tags:
     - 5.4.1.2
 
@@ -2265,6 +2339,7 @@
     regexp: ^PASS_WARN_AGE\s*((?!{{ password_warning_days }}).)*$
     line: PASS_WARN_AGE  {{ password_warning_days }}
     state: present
+  when: not skip_5.4.1.3
   tags:
     - 5.4.1.3
 
@@ -2278,6 +2353,7 @@
     owner: root
     group: root
     mode: '0600'
+  when: not skip_5.4.1.4
   tags:
     - 5.4.1.4
 
@@ -2291,6 +2367,7 @@
 - name: 5.4.3 - Ensure default group for root is GID 0
   ansible.builtin.command: /usr/sbin/usermod -g 0 root
   changed_when: false
+  when: not skip_5.4.3
   tags:
     - 5.4.3
 
@@ -2302,6 +2379,7 @@
   loop:
     - /etc/bash.bashrc
     - /etc/profile
+  when: not skip_5.4.4
   tags:
     - 5.4.4
 
@@ -2313,6 +2391,7 @@
   loop:
     - /etc/bash.bashrc
     - /etc/profile
+  when: not skip_5.4.5
   tags:
     - 5.4.5
 
@@ -2340,6 +2419,7 @@
         name: root
         groups: wheel
         append: true
+  when: not skip_5.6.0
   tags:
     - 5.6.0
 
@@ -2357,6 +2437,7 @@
   loop:
     - passwd
     - group
+  when: not skip_6.1.2 and not skip_6.1.4
   tags:
     - 6.1.2
     - 6.1.4
@@ -2370,6 +2451,7 @@
   loop:
     - shadow
     - gshadow
+  when: not skip_6.1.3 and not skip_6.1.5
   tags:
     - 6.1.3
     - 6.1.5
@@ -2385,6 +2467,7 @@
     - shadow-
     - group-
     - gshadow-
+  when: not skip_6.1.6 and not skip_6.1.7 and not skip_6.1.8 and not skip_6.1.9
   tags:
     - 6.1.6
     - 6.1.7
@@ -2406,6 +2489,7 @@
         msg: "World writiable files found: {{ ww_files.stdout }}"
       changed_when: true
       when: ww_files.stdout
+  when: not skip_6.1.10
   tags:
     - 6.1.10
 
@@ -2423,6 +2507,7 @@
         msg: "unowned files found: {{ uo_files.stdout }}"
       changed_when: true
       when: uo_files.stdout
+  when: not skip_6.1.11
   tags:
     - 6.1.11
 
@@ -2441,6 +2526,7 @@
         msg: "ungrouped files found: {{ uo_files.stdout }}"
       changed_when: true
       when: ug_files.stdout
+  when: not skip_6.1.12
   tags:
     - 6.1.12
 
@@ -2466,6 +2552,7 @@
       when: empty_passwords.stdout
       changed_when: true
       loop: "{{ empty_passwords.stdout_lines }}"
+  when: not skip_6.2.1
   tags:
     - 6.2.1
 
@@ -2474,7 +2561,7 @@
     regexp: ^\+:.*
     state: absent
     path: "{{ item }}"
-  when: ypbind is defined and not ypbind
+  when: ypbind is defined and not ypbind and not skip_6.2.2 and not skip_6.2.4 and not skip_6.2.5
   loop:
     - /etc/passwd
     - /etc/shadow
@@ -2501,6 +2588,7 @@
           - " {{ rootuid.stdout_lines }}"
       changed_when: true
       when: rootuid.stdout != 'root'
+  when: not skip_6.2.6
   tags:
     - 6.2.6
 
@@ -2519,6 +2607,7 @@
           - that exist in root's path because of this. It should be run as root on the target machine manually.
           - " {{ path_check.stdout }}"
       when: path_check.stdout
+  when: not skip_6.2.7
   tags:
     - 6.2.7
 
@@ -2539,6 +2628,7 @@
         msg: "{{ undefined_groups.stdout_lines }}"
       changed_when: true
       when: undefined_groups.stdout
+  when: not skip_6.2.15
   tags:
     - 6.2.15
 
@@ -2556,6 +2646,7 @@
         msg: "{{ duplicate_uids.stdout_lines }}"
       changed_when: true
       when: duplicate_uids.stdout
+  when: not skip_6.2.16
   tags:
     - 6.2.16
 
@@ -2573,6 +2664,7 @@
         msg: "{{ duplicate_guids.stdout_lines }}"
       changed_when: true
       when: duplicate_guids.stdout
+  when: not skip_6.2.17
   tags:
     - 6.2.17
 
@@ -2590,6 +2682,7 @@
         msg: "{{ duplicate_users.stdout_lines }}"
       changed_when: true
       when: duplicate_users.stdout
+  when: not skip_6.2.18
   tags:
     - 6.2.18
 
@@ -2607,6 +2700,7 @@
         msg: "{{ duplicate_groups.stdout_lines }}"
       changed_when: true
       when: duplicate_groups.stdout
+  when: not skip_6.2.19
   tags:
     - 6.2.19
 
@@ -2623,3 +2717,4 @@
         msg: Shadow group exists in /etc/group. Remove
       changed_when: true
       when: shadow_out.stdout
+  when: not skip_6.2.20
