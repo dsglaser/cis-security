@@ -137,7 +137,7 @@
   tags:
     - 5.4.4
 
-- name: 5.4.5 - Ensure shell timeout is {{ shell_timeout }} seconds or less (SLES)
+- name: 5.4.5 - Ensure shell timeout is set (SLES)
   ansible.builtin.blockinfile:
     path: "{{ item }}"
     block: "TMOUT={{ shell_timeout }}"
