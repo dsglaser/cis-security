@@ -24,7 +24,7 @@
             replace: ""
           with_items:
             - apparmor=0
-          notify: rebuild grub
+          notify: Rebuild grub
           tags:
             - 1.6.2.1
 
