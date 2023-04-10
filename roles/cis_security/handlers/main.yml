@@ -17,7 +17,7 @@
 #  needs to do a selinux relabel
 - name: Reboot
   ansible.builtin.reboot:
-    reboot_timeout: 600
+#    reboot_timeout: 600
 
 - name: Restart ntpd
   ansible.builtin.service:
