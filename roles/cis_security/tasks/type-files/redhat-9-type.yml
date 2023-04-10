@@ -1350,7 +1350,7 @@
 
 - name: 3.3.9 - Ensure IPv6 router advertisements are not accepted
   ansible.builtin.set_fact:
-    unneeded_ipv6_network: "{{ unneeded_ipv6_network | combine({ item : : '0' }) }}"
+    unneeded_ipv6_network: "{{ unneeded_ipv6_network | combine({ item : '0' }) }}"
   when: not ipv6_disable
   loop:
     - net.ipv6.conf.all.accept_ra
@@ -1369,7 +1369,7 @@
 # The sysctl module will configure certain sysctl parameters. They are
 #  collected into a loop here to speed the implementation
 # Once complete, notify the system to flush the network routes
-- name: 3.3 - Process unneeded network settings
+- name: 3.3 - Process unneeded network settings for IPv4
   tags:
     - 3.3.0
   block:
@@ -1380,11 +1380,21 @@
         reload: true
         state: present
         sysctl_set: true
-#      with_dict:
-#        - unneeded_ipv4_network
-      loop:
-        - "{{ lookup(  'dict' , unneeded_ipv4_network) }}"
-#        - "{{ lookup('dict' , unneeded_ipv6_network) }}"
+      loop: "{{ lookup('ansible.builtin.dict' , unneeded_ipv4_network) }}"
+      notify: Flush network routes
+
+- name: 3.3 - Process unneeded network settings for IPv6
+  tags:
+    - 3.3.0
+  block:
+    - name: 3.3 - Set networking parameters
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        reload: true
+        state: present
+        sysctl_set: true
+      loop: "{{ lookup('ansible.builtin.dict' , unneeded_ipv6_network) }}"
       notify: Flush network routes
 
 - name: 3.1.3 - Disable uncommon network protocols
@@ -2349,7 +2359,7 @@
         path: "/etc/ssh/sshd_config"
         line: "Banner /etc/{{ ssh_login_banner }}"
         regexp: "^Banner /etc/{{ ssh_login_banner }}"
-        insertafter: "^#Banner\snone"
+        insertafter: "^#Banner none"
       notify: Restart sshd
       tags:
         - 5.2.15
