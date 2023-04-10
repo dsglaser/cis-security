@@ -64,10 +64,17 @@ tcpwrappers: false              # Linux: Configure tcpwrappers controls. RHEL 7 
 tcpwrappers_pkg: "tcp_wrappers" # Linux: Name of tcp wrappers package in repository
 enable_firewall: firewalld      # Linux: supported values are firewalld or iptables
 firewalld_default_zone: public  # Linux: default firwall zone
+motd_use: true                  # Linux: RHEL 9: set to 'true' to use motd file, 'false' to not use
 motd_file: "banner"             # Linux: File location by default in 'files' directory
+issue_use: true                 # Linux: RHEL 9: set to 'true' to use issue file, 'false' to not use
 issue_file: "issue"             # Linux: File location by default in 'files' directory
+issue_net_use: true             # Linux: RHEL 9: set to 'true' to use issue.net file, 'false' to not use
 issue_net_file: "issue"         # Linux: File location by default in 'files' diretory
 ipv6_disable: true              # Common: Set to true to disable ipv6 support on host
+
+# Cron/at variables
+cron_allow: []                  # Linux: RHEL9, list of users to add to cron.allow
+at_allow: []                  # Linux: RHEL9, list of users to add to at_allow.allow
 
 # SSH Server settings
 ssh_log_level: INFO             # Linux: Control is INFO or VERBOSE. Stricter is not approved and more verbose exposes user info
@@ -84,7 +91,10 @@ ssh_alive_count_max: 0          # Linux: Control is 0 count
 ssh_grace_time: 60              # Linux: Control is for 60 seconds or less
 ssh_max_sessions: 4             # Linux: Control is 4 sessions from a single host
 ssh_login_banner: issue.net     # Linux: a file with no path will exist in the role's files directory, an absolute path will exist on the control host
-
+ssh_allowed_users: ""           # Linux: RHEL9, space separated list of users to add to AllowUsers list
+ssh_allowed_groups: ""          # Linux: RHEL9, space separated list of users to add to DenyUsers list
+ssh_denied_users: "root"            # Linux: RHEL9, space separated list of users to add to AllowGroups list
+ssh_denied_groups: "adm"           # Linux: RHEL9, space separated list of users to add to DneyGroups list
 # Password and account settings, all settings below match controls
 password_min_length: 14           # Common
 password_req_digit: true          # Linux
