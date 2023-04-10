@@ -17,13 +17,15 @@ readme: README.md
 # A list of the collection's content authors. Can be just the name or in the format 'Full Name <email> (url)
 # @nicks:irc/im.site#channel'
 authors:
-- David Glaser <dsglaser@gmail.com>
+  - David Glaser <dsglaser@gmail.com>
 
 
 ### OPTIONAL but strongly recommended
 
 # A short summary description of the collection
-description: A collection to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, Ubuntu 18.04 LTS, Ubuntu 20.04 LTS, Microsoft Windows Server 2019, and Microsoft Windows 10.
+description: |
+    A collection to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones
+    (Oracle, CentOS), SLES 15, Ubuntu 18.04 LTS, Ubuntu 20.04 LTS, Microsoft Windows Server 2019, and Microsoft Windows 10.
 
 # Either a single license or a list of licenses for content inside of a collection. Ansible Galaxy currently only
 # accepts L(SPDX,https://spdx.org/licenses/) licenses. This key is mutually exclusive with 'license_file'
@@ -43,17 +45,17 @@ tags: [system, security]
 # L(specifiers,https://python-semanticversion.readthedocs.io/en/latest/#requirement-specification). Multiple version
 # range specifiers can be set and are separated by ','
 dependencies:
-     "community.general": "*"
-     "community.windows": "*"
+  "community.general": "*"
+  "community.windows": "*"
 
 # The URL of the originating SCM repository
 repository: https://github.com/dsglaser/cis-security
 
 # The URL to any online docs
-#documentation: http://docs.example.com
+# documentation: http://docs.example.com
 
 # The URL to the homepage of the collection/project
-#homepage: http://example.com
+# homepage: http://example.com
 
 # The URL to the collection issue tracker
 issues: https://github.com/dsglaser/cis-security/issues
