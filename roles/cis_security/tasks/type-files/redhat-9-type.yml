@@ -73,7 +73,7 @@
     create: true
     owner: root
     group: root
-    mode: 644
+    mode: 0644
     setype: modules_conf_t
     block: |
       install udf /bin/false
@@ -122,7 +122,6 @@
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
 - name: 1.1.6 - Report if /var is not on a separate partition
-  # This whole block can be turned off by excluding the following tag(s)
   tags:
     - 1.1.6
   block:
@@ -576,6 +575,7 @@
             group: root
             mode: 0644
             setype: systemd_unit_file_t
+          notify: Restart aidecheck
 
         - name: 1.3.2 - Enable aidecheck.timer
           ansible.builtin.systemd:
@@ -859,7 +859,7 @@
         path: /etc/systemd/system/default.target
       register: default_runlevel_out
       tags:
-        - 2.2.2
+        - 1.8.1
 
     # Set the current run level. The systemctl module does not handle the
     #  get-default routine, so we are looking at the target of the symlink at /etc/systemd/system/default.target
@@ -869,7 +869,7 @@
       changed_when: isolate_out.changed
       when: default_runlevel_out.stat.lnk_target is search("graphical.target") and not graphical_interface
       tags:
-        - 2.2.2
+        - 1.8.1
 
     - name: 1.8.1 - Set current runlevel (graphical)
       ansible.builtin.command: /usr/bin/systemctl isolate graphical.target
@@ -877,7 +877,7 @@
       changed_when: isolate_out.changed
       when: default_runlevel_out.stat.lnk_target is search("multi-user.target") and graphical_interface
       tags:
-        - 2.2.2
+        - 1.8.1
 
     # Set the default run level. We are doing it the hard way since systemctl doesn't handle set-default
     - name: 1.8.1 - Set default runlevel (non graphical)
@@ -952,7 +952,7 @@
         insertafter: "[org/gnome/login-screen]"
         block: |
           banner-message-enable=true
-          banner-message-text='Authorized uses only. All activity may be monitored and reported.'
+          banner-message-text='Authorized users only. All activity may be monitored and reported.'
       tags:
         - 1.8.2
 
@@ -1068,56 +1068,25 @@
   tags:
     - 2.2.1
 
-- name: 2.2.18 - Remove rsync-daemon; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'rsync-daemon' ] }}"
-  tags:
-    - 2.2.18
-
 - name: 2.2.2 - Remove avahi; add to removal list
   ansible.builtin.set_fact:
     unneeded_packages: "{{ unneeded_packages + [ 'avahi' ] }}"
   tags:
     - 2.2.2
 
-- name: 2.2.12 - Remove snmp; add to removal list
+- name: 2.2.4 - Remove dhcp; add to removal list
   ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'net-snmp' ] + [ 'net-snmp-libs'] }}"
+    unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
+  when: dhcp_server is defined and not dhcp_server
   tags:
-    - 2.2.12
+    - 2.2.4
 
-- name: 2.2.11 - Remove squid; add to removal list
+- name: 2.2.5 - Remove bind; add to removal list
   ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'squid' ] }}"
+    unneeded_packages: "{{ unneeded_packages + [ 'bind' ] + [ 'unbound' ] }}"
+  when: dns_server is defined and not dns_server
   tags:
-    - 2.2.11
-
-- name: 2.2.7 - Remove tftp-server; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'tftp-server' ] }}"
-  tags:
-    - 2.2.7
-
-- name: 2.2.10 - Remove samba; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'samba' ] }}"
-  when: smb_server is defined and not smb_server
-  tags:
-    - 2.2.10
-
-- name: 2.2.9 - Remove dovecot and cyrus-imapd; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'dovecot' ] + [ 'cyrus-imapd'] }}"
-  when: email_server is defined and not email_server
-  tags:
-    - 2.2.9
-
-- name: 2.2.8 - Remove httpd; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
-  when: http_server is defined and not http_server
-  tags:
-    - 2.2.8
+    - 2.2.5
 
 - name: 2.2.6 - Remove vsftpd; add to removal list
   ansible.builtin.set_fact:
@@ -1126,12 +1095,56 @@
   tags:
     - 2.2.6
 
-- name: 2.2.5 - Remove bind; add to removal list
+- name: 2.2.7 - Remove tftp-server; add to removal list
   ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'bind' ] + [ 'unbound' ] }}"
-  when: dns_server is defined and not dns_server
+    unneeded_packages: "{{ unneeded_packages + [ 'tftp-server' ] }}"
   tags:
-    - 2.2.5
+    - 2.2.7
+
+- name: 2.2.8 - Remove httpd; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'httpd' ] + [ 'httpd-tools' ] + [ 'mod_ssl' ] }}"
+  when: http_server is defined and not http_server
+  tags:
+    - 2.2.8
+
+- name: 2.2.9 - Remove dovecot and cyrus-imapd; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'dovecot' ] + [ 'cyrus-imapd'] }}"
+  when: email_server is defined and not email_server
+  tags:
+    - 2.2.9
+
+- name: 2.2.10 - Remove samba; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'samba' ] }}"
+  when: smb_server is defined and not smb_server
+  tags:
+    - 2.2.10
+
+- name: 2.2.11 - Remove squid; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'squid' ] }}"
+  tags:
+    - 2.2.11
+
+- name: 2.2.12 - Remove snmp; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'net-snmp' ] + [ 'net-snmp-libs'] }}"
+  tags:
+    - 2.2.12
+
+- name: 2.2.13 - Remove telnet-server; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'telnet-server' ] }}"
+  tags:
+    - 2.2.13
+
+- name: 2.2.14 - Remove dnsmasq; add to removal list
+  ansible.builtin.set_fact:
+    unneeded_packages: "{{ unneeded_packages + [ 'dnsmasq' ] }}"
+  tags:
+    - 2.2.14
 
 - name: 2.2.16 - Remove nfs server; add to removal list
   ansible.builtin.set_fact:
@@ -1146,24 +1159,11 @@
   tags:
     - 2.2.17
 
-- name: 2.2.13 - Remove telnet-server; add to removal list
+- name: 2.2.18 - Remove rsync-daemon; add to removal list
   ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'telnet-server' ] }}"
+    unneeded_packages: "{{ unneeded_packages + [ 'rsync-daemon' ] }}"
   tags:
-    - 2.2.13
-
-- name: 2.2.14 - Remove dnsmasq; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'dnsmasq' ] }}"
-  tags:
-    - 2.2.14
-
-- name: 2.2.4 - Remove dhcp; add to removal list
-  ansible.builtin.set_fact:
-    unneeded_packages: "{{ unneeded_packages + [ 'dhcp' ] }}"
-  when: dhcp_server is defined and not dhcp_server
-  tags:
-    - 2.2.4
+    - 2.2.18
 
 - name: 2.3.1 - Remove telnet; add to removal list
   ansible.builtin.set_fact:
@@ -1267,7 +1267,10 @@
 
 - name: 3.2.2 - Ensure packet redirect sending is disabled
   ansible.builtin.set_fact:
-    unneeded_ipv4_network: "{{ unneeded_ipv4_network | combine({ 'net.ipv4.conf.all.send_redirects' : '0' }) }}"
+    unneeded_ipv4_network: "{{ unneeded_ipv4_network | combine({ item : '0' }) }}"
+  loop:
+    - net.ipv4.conf.all.send_redirects
+    - net.ipv4.conf.default.send_redirects
   tags:
     - 3.2.2
 
@@ -1397,9 +1400,9 @@
       loop: "{{ lookup('ansible.builtin.dict' , unneeded_ipv6_network) }}"
       notify: Flush network routes
 
-- name: 3.1.3 - Disable uncommon network protocols
+- name: 3.1 - Disable uncommon network protocols
   tags:
-    - 3.1.3
+    - 3.1.1
   block:
     # This collection of tasks creates a empty list and save it as a fact.
     #  For every item that is encountered (without the tag being skipped),
@@ -1436,6 +1439,7 @@
       with_items:
         - "{{ uncommon_network }}"
 
+# Section 3 - Firewall
 #   iptables is deprecated and not covered under the CIS controls for RHEL 9
 
 - name: 3.4.1.1 - ensure nftables is installed
