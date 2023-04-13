@@ -53,11 +53,13 @@ ypbind: false
 graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
 
 log_service: "journald"         # journald or rsyslog for logging. Choose one. Currently only implemented in RHEL 9!
+remote_log_service: false       # Whether to configure journald to start systemd-journal-remote.service
 # Rsyslog service
 log_host: false                 # Linux: Whether this machine will host rsyslog messages for other machines
 log_port: 514                   # Linux: Port to listen to RSYSLOG messages on (if log_host is true)
 log_file_size: 8                # Linux: log file size. RHEL default is 8MB, control has no default
 # rsyslog_file:                  # Linux: Uncomment to copy file listed to /etc/rsyslog.d
+logrotate_file:                 # Linux: RHEL 8/9, Copy file listed for logrotate
 
 # network security settings
 tcpwrappers: false              # Linux: Configure tcpwrappers controls. RHEL 7 control only
@@ -101,6 +103,7 @@ password_req_digit: true          # Linux
 password_req_upper: true          # Linux
 password_req_lower: true          # Linux
 password_req_special: true        # Linux
+password_hash_alg: "yescrypt"      # Linux (RHEL 8/9), set password hashing algorithm, set to 'sha512' or 'yescrypt'
 password_min_days: 7              # Common: Windows has this control listed as 1 day
 password_expire_days: 365         # Common: Windows has this control listed as 24 days
 password_warning_days: 7          # Common: Windows has this control listed as 'between 5 and 14 days'
