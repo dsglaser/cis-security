@@ -7,6 +7,7 @@
 #  contain multiple controls have tasks with tags. Blocks that consist of a
 #  single control and are just put together for convience sake, do not have
 #  sub-block tasks with tags.
+
 # Comments about how the modules are used will become more infrequent as
 #  the file goes along to avoid repeating oneself.
 
@@ -15,6 +16,7 @@
 - name: Print Header
   ansible.builtin.debug:
     msg: "CIS Controls for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+
 # Collect the packages installed on the system so we can check agains them later
 - name: Collect package list
   ansible.builtin.package_facts:
@@ -128,13 +130,13 @@
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
-- name: 1.1.3 - Report if /var is not on a separate partition
+- name: 1.1.3 - Configure /var
   tags:
     - 1.1.3
   block:
     # Create a empty integer variable and set it as a fact on the managed
     #  machine.
-    - name: 1.1.3 - Set/reset mount counter
+    - name: 1.1.3 - Set/reset /var mount counter
       ansible.builtin.set_fact:
         mount_count: 0
 
@@ -148,27 +150,44 @@
       when: item.mount == "/var"
       with_items:
         - "{{ ansible_mounts }}"
-
     # If the number in mount_count variable is > 0, then we found the mount. If not,
     #  then report to the user that the given filesystem was not on a separate partition.
-    - name: 1.1.3.1 - Report to user
+    - name: 1.1.3.1 - Report to user if /var is not on a separate partition
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var is not on a separate partition"
       when: mount_count == 0
       changed_when: true
+      tags:
+        - 1.1.3.1
+
+    - name: 1.1.3.2 - Report to user if /var does not have nodev set
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /var does not have nodev set"
+      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
+      changed_when: true
+      tags:
+        - 1.1.3.2
+
+    # Look through the mount_options variable for the given filesystem option. if it is
+    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+    #  let the user know.
+    - name: 1.1.3.3 Report to user if /var does not have nosuid set
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /var does not have nosuid set"
+      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
+      changed_when: true
+      tags:
+        - 1.1.3.3
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
-- name: 1.1.4 - /var/tmp partition and mount options
+- name: 1.1.4.1 - Configure /var/tmp
   tags:
-    - 1.1.4.1
-    - 1.1.4.2
-    - 1.1.4.3
-    - 1.1.4.4
+    - 1.1.4
   block:
     # Create a empty integer variable and set it as a fact on the managed
     #  machine.
-    - name: 1.1.4.1 - Set/reset mount counter
+    - name: 1.1.4 - Set/reset /var/tmp mount counter
       ansible.builtin.set_fact:
         mount_count: 0
 
@@ -199,13 +218,13 @@
     # Look through the mount_options variable for the given filesystem option. if it is
     #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
     #  let the user know.
-    - name: 1.1.4.4 - Report to user if /var/tmp does not have nodev set
+    - name: 1.1.4.2 - Report to user if /var/tmp does not have noexec set
       ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
+        msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
+      when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
       changed_when: true
       tags:
-        - 1.1.4.4
+        - 1.1.4.2
 
     # Look through the mount_options variable for the given filesystem option. if it is
     #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
@@ -221,23 +240,23 @@
     # Look through the mount_options variable for the given filesystem option. if it is
     #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
     #  let the user know.
-    - name: 1.1.4.2 - Report to user if /var/tmp does not have noexec set
+    - name: 1.1.4.4 - Report to user if /var/tmp does not have nodev set
       ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
-      when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
+        msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
+      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
       changed_when: true
       tags:
-        - 1.1.4.2
+        - 1.1.4.4
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
-- name: 1.1.5.1 - Report if /var/log is not on a separate partition
+- name: 1.1.5 - Configure /var
   tags:
-    - 1.1.5.1
+    - 1.1.5
   block:
     # Create a empty integer variable and set it as a fact on the managed
     #  machine.
-    - name: 1.1.5.1 - Set/reset mount counter
+    - name: 1.1.5 - Set/reset /var/log mount counter
       ansible.builtin.set_fact:
         mount_count: 0
 
@@ -251,24 +270,47 @@
       when: item.mount == "/var/log"
       with_items:
         - "{{ ansible_mounts }}"
+      tags:
+        - 1.1.5.1
 
     # If the number in mount_count variable is > 0, then we found the mount. If not,
     #  then report to the user that the given filesystem was not on a separate partition.
-    - name: 1.1.5.1 - Report to user
+    - name: 1.1.5.1 - Report to user if /var/log is not on separate partition
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/log is not on a separate partition"
       when: mount_count == 0
       changed_when: true
+      tags:
+        - 1.1.5.1
+
+    - name: 1.1.5.2 - Report to user if /var/log does not have nodev set
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /var/log does not have nodev set"
+      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
+      changed_when: true
+      tags:
+        - 1.1.5.2
+
+    # Look through the mount_options variable for the given filesystem option. if it is
+    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+    #  let the user know.
+    - name: 1.1.5.3 Report to user if /var/log does not have nosuid set
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /var/log does not have nosuid set"
+      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
+      changed_when: true
+      tags:
+        - 1.1.5.3
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
-- name: 1.1.6.1 - Report if /var/log/audit is not on a separate partition
+- name: 1.1.6 - Configure /var/log/audit
   tags:
-    - 1.1.12
+    - 1.1.6
   block:
     # Create a empty integer variable and set it as a fact on the managed
     #  machine.
-    - name: 1.1.6.1 - Set/reset mount counter
+    - name: 1.1.6 - Set/reset /var/log/audit mount counter
       ansible.builtin.set_fact:
         mount_count: 0
 
@@ -282,24 +324,28 @@
       when: item.mount == "/var/log/audit"
       with_items:
         - "{{ ansible_mounts }}"
+      tags:
+        - 1.1.6.1
 
     # If the number in mount_count variable is > 0, then we found the mount. If not,
     #  then report to the user that the given filesystem was not on a separate partition.
-    - name: 1.1.6.1 - Report to user
+    - name: 1.1.6.1 - Report to user if /var/log/audit is not on a separate partition
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /var/log/audit is not on a separate partition"
       when: mount_count == 0
       changed_when: true
+      tags:
+        - 1.1.6.1
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
-- name: 1.1.7.1 - Report if /home is not on a separate partition
+- name: 1.1.7 - Configure /home
   tags:
-    - 1.1.7.1
+    - 1.1.7
   block:
     # Create a empty integer variable and set it as a fact on the managed
     #  machine.
-    - name: 1.1.7.1 - Set/reset mount counter
+    - name: 1.1.7 - Set/reset mount counter
       ansible.builtin.set_fact:
         mount_count: 0
 
@@ -314,6 +360,8 @@
       when: item.mount == "/home"
       with_items:
         - "{{ ansible_mounts }}"
+      tags:
+        - 1.1.7.1
 
     # If the number in mount_count variable is > 0, then we found the mount. If not,
     #  then report to the user that the given filesystem was not on a separate partition.
@@ -322,23 +370,35 @@
         msg: "FAILED CONTROL: /home is not on a separate partition. Skipping mount option checks"
       when: mount_count == 0
       changed_when: true
+      tags:
+        - 1.1.7.1
 
     # Look through the mount_options variable for the given filesystem option. if it is
     #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
     #  let the user know.
-    - name: 1.1.7.1 - Report to user if /home does not have nodev set
+    - name: 1.1.7.2 - Report to user if /home does not have nodev set
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /home does not have nodev set"
       when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
       changed_when: true
+      tags:
+        - 1.1.7.2
+
+    - name: 1.1.7.3 Report to user if /home does not have nosuid set
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /home does not have nosuid set"
+      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
+      changed_when: true
+      tags:
+        - 1.1.7.3
 
 # /dev/shm does not exist in ansible_mounts so we have to check the
 #  mount command directly. This requires the use of the shell command which
 #  is not ideal.
 # Grep out /dev/shm and see if the given option is set.
-- name: 1.1.8.1 - Report if /dev/shm does not have nodev set
+- name: 1.1.8 - Configure /dev/shm
   tags:
-    - 1.1.8.1
+    - 1.1.8
   block:
     - name: Determine if /dev/shm has nodev set
       ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
@@ -348,16 +408,19 @@
       check_mode: false
 
 # Let the user know if we did not find the option set.
-    - name: 1.1.8.1 - Report to user
+    - name: 1.1.8.2- Report to user if /dev/shm does not have nodev set
+
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /dev/shm does not have nodev set"
       when: devshm_nodev_out is defined and devshm_nodev_out.stdout
       changed_when: true
+      tags:
+        - 1.1.8.2
 
 # Grep out /dev/shm and see if the given option is set.
-- name: 1.1.8.3 - Report if /dev/shm does not have nosuid set
+- name: 1.1.8.4 - Report if /dev/shm does not have nosuid set
   tags:
-    - 1.1.8.3
+    - 1.1.8.4
   block:
     - name: Determine if /dev/shm has nosuid set
       ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
@@ -366,39 +429,41 @@
       changed_when: false
       check_mode: false
 
-# Let the user know if we did not find the option set.
-    - name: 1.1.8.3 - Report to user about /dev/shm
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
-      when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
-      changed_when: true
-
-# Grep out /dev/shm and see if the given option is set.
-- name: 1.1.8.2 - Report if /dev/shm does not have noexec set
+- name: 1.1.8.3 - Report if /dev/shm does not have noexec set
   tags:
-    - 1.1.8.2
+    - 1.1.8.3
   block:
-    - name: 1.1.8.2 - Determine if /dev/shm has noexec set
+    - name: 1.1.8.3 - Determine if /dev/shm has noexec set
       ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
       register: devshm_noexec_out
       failed_when: devshm_noexec_out == "2"
       changed_when: false
       check_mode: false
+      tags:
+        - 1.1.8.3
 
 # Let the user know if we did not find the option set.
-    - name: 1.1.8.2 - Report to user
+    - name: 1.1.8.3 - Report to user if /dev/shm does not have noexec set
       ansible.builtin.debug:
         msg: "FAILED CONTROL: /dev/shm does not have noexec set"
       when: devshm_noexec_out is defined and devshm_noexec_out.stdout
       changed_when: true
+      tags:
+        - 1.1.8.3
+# Let the user know if we did not find the option set.
+    - name: 1.1.8.2 - Report to user about /dev/shm
+      ansible.builtin.debug:
+        msg: "FAILED CONTROL: /dev/shm does not have nosuid set"
+      when: devshm_nosuid_out is defined and devshm_nosuid_out.stdout
+      changed_when: true
 
-# Control 1.1.18, 1.1.19, 1.1.20 are for removable media
+# Control 1.1.9 is for removable media
 
 # Turn off and disable the autofs service using the service module.
 # We check to see if the package that autofs belongs to (convienently called autofs)
 #  exists in the ansible_facts.packages list we gathered early in the play
 - name: 1.1.22 - disable automounting
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: autofs
     enabled: false
     state: stopped
@@ -426,7 +491,6 @@
 - name: 1.2.[3,4] - Ensure GPG keys are configured
   tags:
     - 1.2.3
-    - 1.2.4
   block:
     # Replace any instances of gpgcheck with a 1 after it to 'gpgcheck = 1'
     - name: 1.2.2 - set master yum.conf gpgcheck to '1'
@@ -443,7 +507,7 @@
         replace: "gpgcheck=1"
       when: gpgcheck and ansible_distribution == "Fedora"
 
-    # 1.2.3 is just to ensure repositores are configured correctly. Environment dependant
+    # 1.2.4 - Ensure repo_gpgcheck is globally activated doesn't work on all repos so skipped. Environment dependant
 
     # Find all files in /etc/yum.repos.d and add them to a list variable
     - name: 1.2.4 - find all repo files in /etc/yum.repos.d/
@@ -641,6 +705,28 @@
   tags:
     - 1.4.2
 
+- name: 1.4.3 - Require authorization to enter Rescue mode
+  tags:
+    - 1.4.3
+  block:
+    - name: 1.4.3 - Require authorization to enter Rescue mode - create dir
+      ansible.builtin.file:
+        dest: "/etc/systemd/system/rescue.service.d/"
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: 1.4.3 - Require authorization to enter Rescue mode - set file
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/rescue.service.d/00-require-auth.conf"
+        owner: root
+        group: root
+        mode: 0644
+        setype: etc_t
+        content: |
+          [Service]
+          ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue
 
 # 1.5 Additional Process Hardening
 
@@ -739,7 +825,7 @@
     group: root
     mode: 0644
     state: touch
-  when: ( ansible_selinux.mode == "disabled" and selinux | lower != "disabled" ) or selinux_installed
+  when: ( ansible_selinux.mode == "disabled" and selinux | lower != "disabled" ) or selinux_installed.changed
   notify: Reboot
   tags:
     - 1.6.1.3
@@ -1053,18 +1139,6 @@
       ansible.builtin.stat:
         path: /etc/systemd/system/default.target
       register: default_runlevel_out
-      tags:
-        - 2.2.2
-
-    # Use systemd module to stop the GDM service
-    - name: 2.2.2 - Disable the gdm display manager
-      ansible.builtin.systemd:
-        name: gdm
-        enabled: false
-        masked: true
-        state: stopped
-        daemon-reload: true
-      when: "'gdm' in ansible_facts.packages and not graphical_interface"
       tags:
         - 2.2.2
 
@@ -1526,8 +1600,12 @@
 - name: 3.4.1 - Configure firewalld
   when: enable_firewall is defined and enable_firewall == "firewalld"
   tags:
-    - 3.4.1.1
+    - 3.4.1
   block:
+    - name: 3.4.1 - Configure firewalld
+      debug:
+        msg: "3.4.1 - Configure firewalld"
+
     - name: 3.4.1.1 - Install firewalld
       ansible.builtin.dnf:
         name: "firewalld"
@@ -1586,10 +1664,14 @@
           - "3.4.1.7 - Ensure default firewalld policy must be handled locally"
 
 - name: 3.4.2 - Configure nftables
-  when: enable_firewall is defined and enable_firewall == "firewalld"
+  when: enable_firewall is defined and enable_firewall == "nftables"
   tags:
-    - 3.4.2.1
+    - 3.4.2
   block:
+    - name: 3.4.2 - Configure nftables
+      debug:
+        msg: "3.4.2 - Configure nftables"
+
     - name: 3.4.2.1 - ensure nftables is installed
       ansible.builtin.dnf:
         name: nftables
@@ -1609,11 +1691,19 @@
 
     # Control 3.4.2.4 requires manual review, skipping (can be a TODO)
 
-    - name: 3.4.2.5 - Create a basic table if none exist
-      ansible.builtin.command: nft create table inet firewalld NFTables
-      when: not tables_list
+    - name: 3.4.2.5 - Ensure netfilters has at least one table
+      when: enable_firewall is defined and enable_firewall == "nftables"
       tags:
         - 3.4.2.5
+      block:
+        - name: 3.4.2.5 - Find any current netfilter tables
+          ansible.builtin.command: nft list tables
+          register: tables_list
+          changed_when: false
+
+        - name: 3.4.2.5 - Create a basic table if none exist
+          ansible.builtin.command: nft create table inet firewalld NFTables
+          when: not tables_list
 
 # Control 3.4.2.[6-9,11] is not set as it is very machine dependant
 
@@ -1689,6 +1779,8 @@
 # Section 4 - Logging and Auditing
 - name: 4.1 Install and configure system auditing
   when: enable_audit is defined and enable_audit
+  tags:
+    - 4.1.0
   block:
     - name: 4.1.1.1 - Install Auditd
       ansible.builtin.dnf:
@@ -2055,7 +2147,7 @@
       tags:
         - 4.2.1.3
       block:
-        - name: Find any rsyslog files where all logs are being forwarded to a loghost
+        - name: 4.2.1.3 - Find any rsyslog files where all logs are being forwarded to a loghost
           ansible.builtin.shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
           register: rsyslog_forward_out
           changed_when: false
@@ -2091,7 +2183,7 @@
         owner: root
         group: root
         mode: 0640
-      when: rsyslog_file is defined
+      when: rsyslog_file is defined and rsyslog_file | length > 0
       tags:
         - 4.2.1.5
 
@@ -2228,7 +2320,7 @@
 
     # Control 4.2.2.6, configure log rotation is machine specific, skipping
     #   TODO
-    # Control 4.2.2.7, Ensure permissions on log files are configured, is machine dependant, skipping
+    # Control 4.2.2.7, Ensure journald default file permissions configured, is machine dependant, skipping
 
 # Control 4.2.3 is machine specific, skipping
 
@@ -2414,11 +2506,11 @@
     - name: 5.2.4 - Ensure SSH access is limited (AllowUsers)
       ansible.builtin.lineinfile:
         path: "/etc/ssh/sshd_config"
-        regexp: ^{{ item.0 }}\ *{{ item.1 }}
-        line: "{{ item.0 }}  {{ item.1 }}"
+        regexp: ^{{ item.key }}\ *{{ item.value }}
+        line: "{{ item.key }}  {{ item.value }}"
       notify: Restart sshd
       loop:
-        - { key: 'AllowUsers', value: "{{ ssh_allowed_groups }}" }
+        - { key: 'AllowUsers', value: "{{ ssh_allowed_users }}" }
       when: ssh_allowed_users is defined and ssh_allowed_users
       tags:
         - 5.2.4
@@ -2426,7 +2518,7 @@
     - name: 5.2.4 - Ensure SSH access is limited (AllowGroups)
       ansible.builtin.lineinfile:
         path: "/etc/ssh/sshd_config"
-        regexp: ^{{ item.key }}\s+{{ item.value }}
+        regexp: ^{{ item.key }}\ *{{ item.value }}
         line: "{{ item.key }}  {{ item.value }}"
       notify: Restart sshd
       loop:
@@ -2450,8 +2542,8 @@
     - name: 5.2.4 - Ensure SSH access is limited (DenyGroups)
       ansible.builtin.lineinfile:
         path: "/etc/ssh/sshd_config"
-        regexp: ^{{ item.0 }}\ *{{ item.1 }}
-        line: "{{ item.0 }}  {{ item.1 }}"
+        regexp: ^{{ item.key }}\ *{{ item.value }}
+        line: "{{ item.key }}  {{ item.value }}"
       notify: Restart sshd
       loop:
         - { key: 'DenyGroups', value: "{{ ssh_denied_groups }}" }
@@ -2758,7 +2850,7 @@
   ansible.builtin.lineinfile:
     path: /etc/security/faillock.conf
     regexp: "^\ *deny\ *=\ *{{ password_failed_attempts }}*$"
-    line: "deny={{ password_failed_attempts }}"
+    line: "deny = {{ password_failed_attempts }}"
     insertafter: "#\ *deny"
     owner: root
     group: root
@@ -2767,11 +2859,11 @@
     - 5.5.2
 
 - name: 5.5.2 - Ensure lockout time for failed password attempts is configured
-  ansible.builtin.replace:
+  ansible.builtin.lineinfile:
     path: /etc/security/faillock.conf
     regexp: "^\ *unlock_time\ *=\ *{{ password_failed_time }}*$"
-    replace: "unlock_time={{ password_failed_time }}"
-    after: "#\ *deny"
+    line: "unlock_time={{ password_failed_time }}"
+    insertafter: "#\ *deny"
     owner: root
     group: root
     mode: 0600

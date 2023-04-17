@@ -52,13 +52,15 @@ tftp_server: false              # Linux: TFTPd Server. Option for RHEL7 only
 ypbind: false
 graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
 
-log_service: "journald"         # journald or rsyslog for logging. Choose one. Currently only implemented in RHEL 9!
+# Logging services variables
+log_service: "journald"         # journald or rsyslog for logging. Choose one. Currently only implemented in RHEL 8/9!
 remote_log_service: false       # Whether to configure journald to start systemd-journal-remote.service
-# Rsyslog service
 log_host: false                 # Linux: Whether this machine will host rsyslog messages for other machines
 log_port: 514                   # Linux: Port to listen to RSYSLOG messages on (if log_host is true)
+log_file: /var/log/audit/auditd.log # Linux: path and location of audit log
 log_file_size: 8                # Linux: log file size. RHEL default is 8MB, control has no default
-# rsyslog_file:                  # Linux: Uncomment to copy file listed to /etc/rsyslog.d
+log_group: root                 # Group that owns the auditd log files (root or adm) RHEL 8/9
+rsyslog_file:                   # Linux: Copy file listed for configuring rsyslog
 logrotate_file:                 # Linux: RHEL 8/9, Copy file listed for logrotate
 
 # network security settings
@@ -97,6 +99,7 @@ ssh_allowed_users: ""           # Linux: RHEL9, space separated list of users to
 ssh_allowed_groups: ""          # Linux: RHEL9, space separated list of users to add to DenyUsers list
 ssh_denied_users: "root"            # Linux: RHEL9, space separated list of users to add to AllowGroups list
 ssh_denied_groups: "adm"           # Linux: RHEL9, space separated list of users to add to DneyGroups list
+
 # Password and account settings, all settings below match controls
 password_min_length: 14           # Common
 password_req_digit: true          # Linux

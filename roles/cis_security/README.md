@@ -20,7 +20,8 @@ Benchmark Versions:
 | Operating System | OS Benchmark version |
 | -----------------|--------------------- |
 | RHEL 7 | v2.2.0 |
-| RHEL 8 | v1.0.0 |
+| RHEL 8 | v2.0.0 |
+| RHEL 9 | v1.0.0
 | CentOS 7 | v2.2.0 |
 | CentOS 8 | v1.0.0 |
 | Fedora 31 | \(Fedora 28\) v1.1.0 |
@@ -38,7 +39,7 @@ been made to update the controls to work with the newer operating systems. Older
 To implement the collection correctly, you will require the following
 
 Control machine:
-- Ansible 2.9+
+- Ansible-core 2.11+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
@@ -161,3 +162,4 @@ ways files can be manipuldated with modules.
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
 - 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
 - 7/24/2022 - dsglaser@gmail.com - Coversion to full collection status (Namespace: dsglaser)
+- 4/14/2023 - dsglaser@gmail.com - Added support for RHEL 9, updated RHEL 8 to CIS v2.0.0

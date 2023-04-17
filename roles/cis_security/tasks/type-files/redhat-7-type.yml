@@ -1523,7 +1523,9 @@
 
   # Section 3 - Firewall
 
-  - name: 3.6 - Install firewalld
+  - name: 3.6 - Configure firewalld
+    tags:
+      - 3.6.0
     block:
       - name: 3.6.1 - Install firewalld
         ansible.builtin.package:
@@ -1554,10 +1556,10 @@
         notify: Restart firewalld
 
     when: enable_firewall is defined and enable_firewall == "firewalld"
-    tags:
-      - 3.6.1
 
-  - name: 3.6.1 - Install iptables
+  - name: 3.6.1 - Configure iptables
+    tags:
+      - 3.6.0
     block:
       - name: 3.6.1 Install iptables
         ansible.builtin.package:
@@ -1576,8 +1578,6 @@
           enabled: false
           ignore_errors: true
     when: enable_firewall is defined and enable_firewall == "iptables"
-    tags:
-      - 3.6.1
 
   - ansible.builtin.debug:
       msg: " Ensure default firewall policy (3.6.[2-5]) must be handled locally"
