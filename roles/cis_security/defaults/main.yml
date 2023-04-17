@@ -11,7 +11,7 @@ crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 # Network Time Services
-time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only. RHEL8 only ships with chrony and this variable is not used
+time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only. RHEL8/9 only ships with chrony and this variable is not used
                                 # Linux: Choices are 'ntp' or chrony'. For Ubuntu, this can also accept 'none' as an option to use only systemd timedatectl
 time_server: "2.rhel.pool.ntp.org" # Linux: Time server for ntp, chrony, or timedatectl
 time_operators:                 # Windows: Users that can set the system time
@@ -20,6 +20,10 @@ time_operators:                 # Windows: Users that can set the system time
 
 # Sudo Configuration
 sudo_log: "/var/log/sudoers"    # Linux: log file for sudo
+
+# GDM Timeout Configuration
+idle_delay: 900                 # Seconds of inactivity before locking screen
+lock_delay: 5                   # Seconds of blank screen before locking
 
 # AIDE configuration settings
 aide_db_name: "/var/lib/aide/aide.db.gz"        # Linux: Database name that AIDE will look for for comparison
@@ -48,33 +52,53 @@ tftp_server: false              # Linux: TFTPd Server. Option for RHEL7 only
 ypbind: false
 graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
 
-# Rsyslog service
+# Logging services variables
+log_service: "journald"         # journald or rsyslog for logging. Choose one. Currently only implemented in RHEL 8/9!
+remote_log_service: false       # Whether to configure journald to start systemd-journal-remote.service
 log_host: false                 # Linux: Whether this machine will host rsyslog messages for other machines
 log_port: 514                   # Linux: Port to listen to RSYSLOG messages on (if log_host is true)
+log_file: /var/log/audit/auditd.log # Linux: path and location of audit log
 log_file_size: 8                # Linux: log file size. RHEL default is 8MB, control has no default
-# rsyslog_file:                  # Linux: Uncomment to copy file listed to /etc/rsyslog.d
+log_group: root                 # Group that owns the auditd log files (root or adm) RHEL 8/9
+rsyslog_file:                   # Linux: Copy file listed for configuring rsyslog
+logrotate_file:                 # Linux: RHEL 8/9, Copy file listed for logrotate
 
 # network security settings
 tcpwrappers: false              # Linux: Configure tcpwrappers controls. RHEL 7 control only
 tcpwrappers_pkg: "tcp_wrappers" # Linux: Name of tcp wrappers package in repository
 enable_firewall: firewalld      # Linux: supported values are firewalld or iptables
 firewalld_default_zone: public  # Linux: default firwall zone
+motd_use: true                  # Linux: RHEL 9: set to 'true' to use motd file, 'false' to not use
 motd_file: "banner"             # Linux: File location by default in 'files' directory
+issue_use: true                 # Linux: RHEL 9: set to 'true' to use issue file, 'false' to not use
 issue_file: "issue"             # Linux: File location by default in 'files' directory
-issue.net_file: "issue"         # Linux: File location by default in 'files' diretory
+issue_net_use: true             # Linux: RHEL 9: set to 'true' to use issue.net file, 'false' to not use
+issue_net_file: "issue"         # Linux: File location by default in 'files' diretory
 ipv6_disable: true              # Common: Set to true to disable ipv6 support on host
+
+# Cron/at variables
+cron_allow: []                  # Linux: RHEL9, list of users to add to cron.allow
+at_allow: []                  # Linux: RHEL9, list of users to add to at_allow.allow
 
 # SSH Server settings
 ssh_log_level: INFO             # Linux: Control is INFO or VERBOSE. Stricter is not approved and more verbose exposes user info
 ssh_max_auth_tries: 4           # Linux: Control is 4 retries
-ssh_mac_list: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com"   # Linux: RHEL7 only control
-ssh_ciphers_list: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"                        # Linux: Ubuntu control only
-ssh_kex_list: "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1" # Linux: Ubuntu control only
+ssh_mac_list: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com"
+                                # Linux: RHEL7 only control
+ssh_ciphers_list: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+                                # Linux: Ubuntu control only
+ssh_kex_list:
+  - "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1"
+                                # Linux: Ubuntu control only
 ssh_alive_interval: 300         # Linux: Control is 5 minutes
 ssh_alive_count_max: 0          # Linux: Control is 0 count
 ssh_grace_time: 60              # Linux: Control is for 60 seconds or less
 ssh_max_sessions: 4             # Linux: Control is 4 sessions from a single host
 ssh_login_banner: issue.net     # Linux: a file with no path will exist in the role's files directory, an absolute path will exist on the control host
+ssh_allowed_users: ""           # Linux: RHEL9, space separated list of users to add to AllowUsers list
+ssh_allowed_groups: ""          # Linux: RHEL9, space separated list of users to add to DenyUsers list
+ssh_denied_users: "root"            # Linux: RHEL9, space separated list of users to add to AllowGroups list
+ssh_denied_groups: "adm"           # Linux: RHEL9, space separated list of users to add to DneyGroups list
 
 # Password and account settings, all settings below match controls
 password_min_length: 14           # Common
@@ -82,10 +106,13 @@ password_req_digit: true          # Linux
 password_req_upper: true          # Linux
 password_req_lower: true          # Linux
 password_req_special: true        # Linux
+password_hash_alg: "yescrypt"      # Linux (RHEL 8/9), set password hashing algorithm, set to 'sha512' or 'yescrypt'
 password_min_days: 7              # Common: Windows has this control listed as 1 day
 password_expire_days: 365         # Common: Windows has this control listed as 24 days
 password_warning_days: 7          # Common: Windows has this control listed as 'between 5 and 14 days'
 password_inactive_lock_days: 30   # Linux
+password_failed_attempts: 5       # RHEL 9: Number of attempts before locking account
+password_failed_time: 900         # RHEL 9: amount of time to lock an account that has exceeded failed attemps
 password_history: 24              # Windows: number of passwords to remember.
 account_lockout_duration: 15      # Windows:
 account_lockout_threshold: 10     # Windows:
@@ -93,8 +120,8 @@ account_reset_duration: 15        # Windows:
 cached_logins: 4                  # Windows: Number of login credentials to cache
 enable_guest: false               # Windows: enable guest account
 rename_guest: "Guest"             # Windows: name of guest account. Will have no effect if enable_gues variable is set to false
-enable_Administrator: true        # Windows: enable Administrator account
-rename_Administrator: "Administrator" # Windows: name of Administrator account. Will have no effect if enable_Administrator variable is set to false
+enable_administrator: true        # Windows: enable Administrator account
+rename_administrator: "Administrator" # Windows: name of Administrator account. Will have no effect if enable_Administrator variable is set to false
 dc_network_logon_right:           # Windows: Users that have access to log on from the network (domain controllers)
   - "Administrators"
   - "Authenticated Users"

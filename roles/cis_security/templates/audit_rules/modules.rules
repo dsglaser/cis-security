@@ -1,4 +1,5 @@
 -w /sbin/insmod -p x -k modules
 -w /sbin/rmmod -p x -k modules
 -w /sbin/modprobe -p x -k modules
--a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+-a always,exit -F path=/usr/bin/kmod -F perm=x -F auid>={{ min_uid.stdout }} -F auid!=unset -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -S finit_module -S query_module -F auid>={{ min_uid.stdout }} -F auid!=unset -k modules

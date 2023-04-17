@@ -1,0 +1,1 @@
+-a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>={{ min_uid.stdout }} -F auid!=-1 -k perm_chng

@@ -568,8 +568,8 @@
     community.windows.win_security_policy:
       section: System Access
       key: NewAdministratorName
-      value: '{{ rename_Administrator }}'
-    when: (enable_Administrator | lower) == "true"
+      value: '{{ rename_administrator }}'
+    when: (enable_administrator | lower) == "true"
     tags:
       - 2.3.1.5
 
@@ -577,7 +577,7 @@
     community.windows.win_security_policy:
       section: System Access
       key: NewGuestName
-      value: '{{ rename_Administrator }}'
+      value: '{{ rename_administrator }}'
     when: (enable_guest | lower) == "true"
     tags:
       - 2.3.1.6

@@ -164,7 +164,7 @@
           owner: root
           group: root
           state: link
-        notify: restart tmpfs
+        notify: Restart tmpfs
 
     tags:
       - 1.1.2
@@ -608,7 +608,7 @@
           group: root
           mode: 0644
           setype: systemd_unit_file_t
-        notify: restart aidecheck
+        notify: Restart aidecheck
         tags:
           - 1.4.2
 
@@ -630,7 +630,7 @@
           group: root
           mode: 0644
           setype: systemd_unit_file_t
-        notify: restart aidecheck
+        notify: Restart aidecheck
         tags:
           - 1.4.2
     tags:
@@ -779,7 +779,7 @@
           line: "Storage=none"
           insertafter: "#Storage=external"
         when: "'systemd-coredump' in ansible_facts.packages"
-        notify: reload systemctl
+        notify: Reload systemctl
 
       - name: 1.6.4 - Limit coredump processsize if systemd-coredump package is installed
         ansible.builtin.lineinfile:
@@ -788,7 +788,7 @@
           line: "ProcessSizeMax=0"
           insertafter: "#ProcessSizeMax=2G"
         when: "'systemd-coredump' in ansible_facts.packages"
-        notify: reload systemctl
+        notify: Reload systemctl
     tags:
       - 1.6.4
 
@@ -825,7 +825,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="apparmor=1 security=apparmor '
-      notify: rebuild ubuntu-grub
+      notify: Rebuild ubuntu-grub
       when: not apparmor_grub.found
       tags:
         - 1.7.1.2
@@ -942,7 +942,7 @@
       group: root
       mode: 0644
     when: time_service == "chrony"
-    notify: restart chronyd
+    notify: Restart chronyd
     tags:
       - 2.2.1.3
 
@@ -954,7 +954,7 @@
       group: root
       mode: 0644
     when: time_service == "chrony" or time_service == "ntp"
-    notify: restart {{ time_service }}d
+    notify: Restart {{ time_service }}d
     tags:
       - 2.2.1.3
 
@@ -967,7 +967,7 @@
       group: root
       mode: 0644
     when: time_service == "timesync"
-    notify: restart timesyncd
+    notify: Restart timesyncd
     tags:
       - 2.2.1.2
 
@@ -1208,7 +1208,7 @@
           - net.ipv4.conf.all.forwarding # (3.1.1)
           - net.ipv4.conf.all.send_redirects # (3.1.2)
           - net.ipv4.conf.default.send_redirects # (3.1.2)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.1 - Set ipv6 networking parameters (OFF)
         ansible.builtin.sysctl:
@@ -1226,7 +1226,7 @@
           - net.ipv6.conf.all.accept_ra # (3.2.9)
           - net.ipv6.conf.default.accept_ra # (3.2.9)
         when: not ipv6_disable
-        notify: flush network routes
+        notify: Flush network routes
     tags:
       - 3.1.0
 
@@ -1246,7 +1246,7 @@
           - net.ipv4.conf.default.accept_redirects # (3.2.2)
           - net.ipv4.conf.all.secure_redirects # (3.2.3)
           - net.ipv4.conf.default.secure_redirects # (3.2.3)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.2.[4-8] - Set ipv4 networking parameters (ON)
         ansible.builtin.sysctl:
@@ -1263,7 +1263,7 @@
           - net.ipv4.conf.all.rp_filter # (3.2.7)
           - net.ipv4.conf.default.rp_filter # (3.2.7)
           - net.ipv4.tcp_syncookies # ( 3.2.8)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.2 - Set ipv6 networking parameters (OFF)
         ansible.builtin.sysctl:
@@ -1279,7 +1279,7 @@
           - net.ipv6.conf.default.accept_redirects # (3.2.2)
           - net.ipv6.conf.all.accept_ra # (3.2.9)
           - net.ipv6.conf.default.accept_ra # (3.2.9)
-        notify: flush network routes
+        notify: Flush network routes
         when: not ipv6_disable
     tags:
       - 3.2.0
@@ -1371,7 +1371,7 @@
       ansible.builtin.package:
         name: "ufw"
         state: present
-      notify: start ufw # 3.5.2.1
+      notify: Start ufw # 3.5.2.1
 
     - ansible.builtin.debug:
         msg:
@@ -1461,7 +1461,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
-        notify: rebuild ubuntu-grub
+        notify: Rebuild ubuntu-grub
         when: not ipv6_disable_grub.found and ipv6_disable
 
     tags:
@@ -1510,7 +1510,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
-        notify: rebuild ubuntu-grub
+        notify: Rebuild ubuntu-grub
         when: not audit_exist.found
         tags:
           - 4.1.1.3
@@ -1532,7 +1532,7 @@
           dest: /etc/default/grub
           regexp: '^\s*GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit_backlog_limit={{ audit_backlog_limit }} '
-        notify: rebuild ubuntu-grub
+        notify: Rebuild ubuntu-grub
         when: not audit_backlog_exist.found
         tags:
           - 4.1.1.4
@@ -1554,7 +1554,7 @@
           dest: /etc/default/grub
           regexp: 'audit_backlog_limit=[\S]*'
           replace: 'audit_backlog_limit={{ audit_backlog_limit }}'
-        notify: rebuild ubuntu-grub
+        notify: Rebuild ubuntu-grub
         when: audit_backlog_exist.found and not our_limit.found
         tags:
           - 4.1.1.4
@@ -1583,7 +1583,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           - 4.1.3
 
@@ -1594,7 +1594,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.4
 
@@ -1610,7 +1610,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.5
 
@@ -1621,7 +1621,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.6
 
@@ -1632,7 +1632,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.7
 
@@ -1643,7 +1643,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.8
 
@@ -1655,7 +1655,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.9
 
@@ -1666,7 +1666,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.10
 
@@ -1680,7 +1680,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.12
 
@@ -1691,7 +1691,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.13
 
@@ -1704,7 +1704,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.14
           4.1.15
@@ -1716,7 +1716,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.16
 
@@ -1728,7 +1728,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.17
     when: enable_audit is defined and enable_audit
@@ -2005,7 +2005,7 @@
           path: /etc/ssh/sshd_config
           replace: "LogLevel {{ ssh_log_level | upper }}"
           regexp: '^LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
-        notify: restart sshd
+        notify: Restart sshd
         when: ssh_log_level == "INFO" or ssh_log_level == "WARN"
         tags:
           - 5.2.5
@@ -2017,7 +2017,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^X11Forwarding\s*yes'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.6
 
@@ -2027,7 +2027,7 @@
           line: "MaxAuthTries {{ ssh_max_auth_tries }}"
           regexp: '^MaxAuthTries\s*[^1-{{ ssh_max_auth_tries | int + 1 }}]'
           insertafter: "^#MaxAuthTries"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.7
 
@@ -2036,7 +2036,7 @@
           path: /etc/ssh/sshd_config
           line: "IgnoreRhosts yes"
           regexp: '^IgnoreRhosts\s*[^y]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.8
 
@@ -2045,7 +2045,7 @@
           path: /etc/ssh/sshd_config
           line: "HostbasedAuthentication no"
           regexp: '^HostbasedAuthentication\s*[^n]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.9
 
@@ -2054,7 +2054,7 @@
           path: /etc/ssh/sshd_config
           line: "PermitRootLogin no"
           regexp: '^PermitRootLogin\s*[^n]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.10
 
@@ -2063,7 +2063,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitEmptyPasswords\s*[^n]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.11
 
@@ -2072,7 +2072,7 @@
           path: /etc/ssh/sshd_config
           state: absent
           regexp: '^PermitUserEnvironment\s*[^n]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.12
 
@@ -2081,7 +2081,7 @@
           path: /etc/ssh/sshd_config
           line: "Ciphers {{ ssh_ciphers_list }}"
           regexp: '^Ciphers ((?!{{ ssh_ciphers_list }}).)*$ '
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.13
 
@@ -2091,7 +2091,7 @@
           line: "MACs {{ ssh_mac_list }}"
           insertafter: EOF
           regexp: '^MACs ((?!{{ ssh_mac_list }}).)*$ '
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.14
 
@@ -2101,7 +2101,7 @@
           line: "KexAlgorithms {{ ssh_kex_list }}"
           insertafter: EOF
           regexp: '^KexAlgorithms ((?!{{ ssh_kex_list }}).)*$ '
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.14
 
@@ -2111,7 +2111,7 @@
           line: "ClientAliveInterval {{ ssh_alive_interval }}"
           regexp: "^ClientAliveInterval {{ ssh_alive_interval }}"
           insertafter: "^#ClientAliveInterval"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.16
 
@@ -2121,7 +2121,7 @@
           line: "ClientAliveCountMax {{ ssh_alive_count_max }}"
           regexp: "^ClientAliveCountMax {{ ssh_alive_count_max }}"
           insertafter: "^#ClientAliveCountMax"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.16
 
@@ -2131,7 +2131,7 @@
           line: "LoginGraceTime {{ ssh_grace_time }}"
           regexp: "^LoginGraceTime {{ ssh_grace_time }}"
           insertafter: "^#LoginGraceTime"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.17
 
@@ -2142,7 +2142,7 @@
           path: "/etc/ssh/sshd_config"
           line: "Banner /etc/{{ ssh_login_banner }}"
           regexp: "^Banner /etc/{{ ssh_login_banner }}"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.19
 
@@ -2151,7 +2151,7 @@
           path: "/etc/ssh/sshd_config"
           line: "UsePAM yes"
           regexp: '^UsePAM\s+[yes|no]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.20
 
@@ -2161,7 +2161,7 @@
           line: "AllowTcpForwarding no"
           regexp: '^AllowTcpForwarding\s+(yes|no)'
           insertafter: "^#AllowTcpForwarding"
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.21
 
@@ -2170,7 +2170,7 @@
           path: "/etc/ssh/sshd_config"
           line: "maxstartups 10:30:60"
           regexp: '^maxstartups\s+10:30:60'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.22
 
@@ -2179,7 +2179,7 @@
           path: "/etc/ssh/sshd_config"
           line: "maxsessions {{ ssh_max_sessions }}"
           regexp: '^maxsessions\s+[{{ ssh_max_sessions }}]'
-        notify: restart sshd
+        notify: Restart sshd
         tags:
           - 5.2.23
 

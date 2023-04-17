@@ -636,7 +636,7 @@
           group: root
           mode: 0644
           setype: systemd_unit_file_t
-        notify: restart aidecheck
+        notify: Restart aidecheck
         tags:
           - 1.3.2
 
@@ -658,7 +658,7 @@
           group: root
           mode: 0644
           setype: systemd_unit_file_t
-        notify: restart aidecheck
+        notify: Restart aidecheck
         tags:
           - 1.3.2
     tags:
@@ -810,7 +810,7 @@
           - selinux=0
           - enforcing=0
         when: selinux is defined and selinux != "Disabled"
-        notify: rebuild grub
+        notify: Rebuild grub
         tags:
           - 1.6.1.1
 
@@ -842,7 +842,7 @@
           mode: 0644
           state: touch
         when: ansible_selinux.status == "disabled" and selinux | lower != "disabled"
-        notify: reboot
+        notify: Reboot
         tags:
           - 1.6.1.2
 
@@ -931,7 +931,7 @@
   # Use copy module to copy in the appropriate files based on variable and set permissions
   - name: 1.7.1.3 - Install issue.net banners
     ansible.builtin.copy:
-      src: "{{ issue_file }}"
+      src: "{{ issue_net_file }}"
       dest: /etc/issue.net
       owner: root
       group: root
@@ -1020,7 +1020,7 @@
       group: root
       mode: 0644
     when: time_service == "chrony" or time_service == "ntp"
-    notify: restart {{ time_service }}d
+    notify: Restart {{ time_service }}d
     tags:
       - 2.2.1.2
       - 2.2.1.3
@@ -1033,7 +1033,7 @@
       group: root
       mode: 0644
     when: time_service == "chrony" or time_service == "ntp"
-    notify: restart {{ time_service }}d
+    notify: Restart {{ time_service }}d
     tags:
       - 2.2.1.3
 
@@ -1293,7 +1293,7 @@
           regexp: "^inet_interfaces = ((?!localhost).)*$"
           replace: "inet_interfaces = loopback-only"
         when: postfix_out.stat.exists and not email_server
-        notify: restart postfix
+        notify: Restart postfix
     tags:
       - 2.2.15
 
@@ -1317,7 +1317,7 @@
           - net.ipv4.ip_forward # (3.1.1)
           - net.ipv4.conf.all.send_redirects # (3.1.2)
           - net.ipv4.conf.default.send_redirects # (3.1.2)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.1 - Set ipv6 networking parameters (OFF)
         ansible.builtin.sysctl:
@@ -1329,7 +1329,7 @@
         loop:
           - net.ipv6.conf.all.forwarding # (3.1.1)
         when: not ipv6_disable
-        notify: flush network routes
+        notify: Flush network routes
     tags:
       - 3.1.0
 
@@ -1349,7 +1349,7 @@
           - net.ipv4.conf.default.accept_redirects # (3.2.2)
           - net.ipv4.conf.all.secure_redirects # (3.2.3)
           - net.ipv4.conf.default.secure_redirects # (3.2.3)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.2.[4-8] - Set ipv4 networking parameters (ON)
         ansible.builtin.sysctl:
@@ -1366,7 +1366,7 @@
           - net.ipv4.conf.all.rp_filter # (3.2.7)
           - net.ipv4.conf.default.rp_filter # (3.2.7)
           - net.ipv4.tcp_syncookies # ( 3.2.8)
-        notify: flush network routes
+        notify: Flush network routes
 
       - name: 3.2 - Set ipv6 networking parameters (OFF)
         ansible.builtin.sysctl:
@@ -1382,7 +1382,7 @@
           - net.ipv6.conf.default.accept_redirects # (3.2.2)
           - net.ipv6.conf.all.accept_ra # (3.2.9)
           - net.ipv6.conf.default.accept_ra # (3.2.9)
-        notify: flush network routes
+        notify: Flush network routes
         when: not ipv6_disable
     tags:
       - 3.2.0
@@ -1401,7 +1401,7 @@
           - net.ipv6.conf.default.accept_redirects # (3.3.2)
           - net.ipv6.conf.all.accept_ra # (3.3.1)
           - net.ipv6.conf.default.accept_ra # (3.3.1)
-        notify: flush network routes
+        notify: Flush network routes
         when: not ipv6_disable
         tags:
           - 3.3.1
@@ -1429,7 +1429,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="ipv6.disable=1 '
-        notify: rebuild grub
+        notify: Rebuild grub
         when: not ipv6_disable_grub.found and ipv6_disable
         tags:
           - 3.3.3
@@ -1523,13 +1523,15 @@
 
   # Section 3 - Firewall
 
-  - name: 3.6 - Install firewalld
+  - name: 3.6 - Configure firewalld
+    tags:
+      - 3.6.0
     block:
       - name: 3.6.1 - Install firewalld
         ansible.builtin.package:
           name: "firewalld"
           state: present
-        notify: start firewalld
+        notify: Start firewalld
 
       - name: 3.6.1 - Disable iptables
         ansible.builtin.service:
@@ -1551,13 +1553,13 @@
             regexp: '^DefaultZone\s*((?!{{ firewalld_default_zone }}).)*$'
             line: "DefaultZone={{ firewalld_default_zone }}"
         when: firewalld_default_zone is defined
-        notify: restart firewalld
+        notify: Restart firewalld
 
     when: enable_firewall is defined and enable_firewall == "firewalld"
-    tags:
-      - 3.6.1
 
-  - name: 3.6.1 - Install iptables
+  - name: 3.6.1 - Configure iptables
+    tags:
+      - 3.6.0
     block:
       - name: 3.6.1 Install iptables
         ansible.builtin.package:
@@ -1565,7 +1567,7 @@
             - "iptables"
             - "iptables-services"
           state: present
-        notify: start iptables
+        notify: Start iptables
         tags:
           - 3.6.1
 
@@ -1576,8 +1578,6 @@
           enabled: false
           ignore_errors: true
     when: enable_firewall is defined and enable_firewall == "iptables"
-    tags:
-      - 3.6.1
 
   - ansible.builtin.debug:
       msg: " Ensure default firewall policy (3.6.[2-5]) must be handled locally"
@@ -1610,7 +1610,7 @@
           - {find: '^space_left_action\s+=\s+((?!email).)*$', replace: 'space_left_action = email'} # 4.1.1.2
           - {find: '^action_mail_acct\s+=\s+((?!root).)*$', replace: 'action_mail_acct = root'} # 4.1.1.2
           - {find: '^admin_space_left_action\s+=\s+((?!suspend).)*$', replace: 'admin_space_left_action = suspend'} # 4.1.1.2
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           - 4.1.1.2
           - 4.1.1.3
@@ -1645,7 +1645,7 @@
           path: /etc/default/grub
           regexp: '^GRUB_CMDLINE_LINUX="'
           replace: 'GRUB_CMDLINE_LINUX="audit=1 '
-        notify: rebuild grub
+        notify: Rebuild grub
         when: not audit_exist.found
         tags:
           - 4.1.1.3
@@ -1660,7 +1660,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           - 4.1.4
 
@@ -1671,7 +1671,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.5
 
@@ -1682,7 +1682,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           - 4.1.6
 
@@ -1693,7 +1693,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.7
 
@@ -1704,7 +1704,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.8
 
@@ -1715,7 +1715,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.9
 
@@ -1727,7 +1727,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.10
 
@@ -1739,7 +1739,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.11
 
@@ -1753,7 +1753,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.13
 
@@ -1764,7 +1764,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.14
 
@@ -1775,7 +1775,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.15
           4.1.16
@@ -1787,7 +1787,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.17
 
@@ -1799,7 +1799,7 @@
           owner: root
           group: root
           mode: 0600
-        notify: restart auditd
+        notify: Restart auditd
         tags:
           4.1.18
     when: enable_audit is defined and enable_audit
@@ -1999,7 +1999,7 @@
         path: /etc/ssh/sshd_config
         replace: "LogLevel {{ ssh_log_level | upper }}"
         regexp: '^#?LogLevel\s*(QUIET|FATAL|ERROR|DEBUG)*$'
-      notify: restart sshd
+      notify: Restart sshd
       when: ssh_log_level == "INFO" or ssh_log_level == "WARN"
       tags:
         - 5.2.3
@@ -2011,7 +2011,7 @@
         path: /etc/ssh/sshd_config
         state: absent
         regexp: '^X11Forwarding\s*yes'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.4
 
@@ -2021,7 +2021,7 @@
         line: "MaxAuthTries {{ ssh_max_auth_tries }}"
         regexp: '^MaxAuthTries\s*[^1-{{ ssh_max_auth_tries | int + 1 }}]'
         insertafter: "^#MaxAuthTries"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.5
 
@@ -2030,7 +2030,7 @@
         path: /etc/ssh/sshd_config
         line: "IgnoreRhosts yes"
         regexp: '^IgnoreRhosts\s*[^y]'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.6
 
@@ -2039,7 +2039,7 @@
         path: /etc/ssh/sshd_config
         line: "HostbasedAuthentication no"
         regexp: '^HostbasedAuthentication\s*[^n]'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.7
 
@@ -2048,7 +2048,7 @@
         path: /etc/ssh/sshd_config
         line: "PermitRootLogin no"
         regexp: '^PermitRootLogin\s*[^n]'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.8
 
@@ -2057,7 +2057,7 @@
         path: /etc/ssh/sshd_config
         state: absent
         regexp: '^PermitEmptyPasswords\s*[^n]'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.9
 
@@ -2066,7 +2066,7 @@
         path: /etc/ssh/sshd_config
         state: absent
         regexp: '^PermitUserEnvironment\s*[^n]'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.10
 
@@ -2076,7 +2076,7 @@
         line: "MACs {{ ssh_mac_list }}"
         insertafter: EOF
         regexp: '^MACs {{ ssh_mac_list }}'
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.11
 
@@ -2086,7 +2086,7 @@
         line: "ClientAliveInterval {{ ssh_alive_interval }}"
         regexp: "^ClientAliveInterval {{ ssh_alive_interval }}"
         insertafter: "^#ClientAliveInterval"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.12
 
@@ -2096,7 +2096,7 @@
         line: "ClientAliveCountMax {{ ssh_alive_count_max }}"
         regexp: "^ClientAliveCountMax {{ ssh_alive_count_max }}"
         insertafter: "^#ClientAliveCountMax"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.12
 
@@ -2106,7 +2106,7 @@
         line: "LoginGraceTime {{ ssh_grace_time }}"
         regexp: "^LoginGraceTime {{ ssh_grace_time }}"
         insertafter: "^#LoginGraceTime"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.13
 
@@ -2118,7 +2118,7 @@
         path: "/etc/ssh/sshd_config"
         line: "Banner /etc/{{ ssh_login_banner }}"
         regexp: "^Banner /etc/{{ ssh_login_banner }}"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.15
 
@@ -2130,7 +2130,7 @@
         line: "AllowTcpForwarding no"
         regexp: '^AllowTcpForwarding\s+(yes|no)'
         insertafter: "^#AllowTcpForwarding"
-      notify: restart sshd
+      notify: Restart sshd
       tags:
         - 5.2.17
 

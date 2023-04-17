@@ -1,0 +1,1 @@
+-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>={{ min_uid.stdout }} -F auid!=unset -k perm_chng
