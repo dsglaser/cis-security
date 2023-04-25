@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 cat /etc/passwd | cut -f1 -d":" | sort -n | uniq -c | while read x ; do
   [ -z "${x}" ] && break
   set - $x
