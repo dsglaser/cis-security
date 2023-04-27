@@ -1,6 +1,6 @@
 # cis_security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu 18.04 / 20.04 LTS and certain Windows servers.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu 18.04 / 20.04 LTS and certain Windows servers.
 
 ### Introduction
 
@@ -20,7 +20,8 @@ Benchmark Versions:
 | Operating System | OS Benchmark version |
 | -----------------|--------------------- |
 | RHEL 7 | v2.2.0 |
-| RHEL 8 | v1.0.1 |
+| RHEL 8 | v2.0.1 |
+| RHEL 9 | V1.0.0 |
 | CentOS 7 | v2.2.0 |
 | CentOS 8 | v1.0.0 |
 | Fedora 31 | \(Fedora 28\) v1.1.0 |
@@ -41,7 +42,7 @@ been made to update the controls to work with the newer operating systems. Older
 To implement the collection correctly, you will require the following
 
 Control machine:
-- Ansible 2.9+
+- Ansible 2.11+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
