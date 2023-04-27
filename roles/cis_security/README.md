@@ -1,6 +1,6 @@
 # cis_security
 
-A collection to implement Center for Internet Security (CIS) controls for RHEL (7-8) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
+A collection to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
 
 ### Introduction
 
