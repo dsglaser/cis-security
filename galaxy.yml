@@ -25,7 +25,7 @@ authors:
 # A short summary description of the collection
 description: |
     A collection to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones
-    (Oracle, CentOS), SLES 15, Ubuntu 18.04 LTS, Ubuntu 20.04 LTS, Microsoft Windows Server 2019, and Microsoft Windows 10.
+    (Oracle, CentOS), SLES 15, Ubuntu [18,20,22].04 LTS, Microsoft Windows Server 2019, and Microsoft Windows 10.
 
 # Either a single license or a list of licenses for content inside of a collection. Ansible Galaxy currently only
 # accepts L(SPDX,https://spdx.org/licenses/) licenses. This key is mutually exclusive with 'license_file'
