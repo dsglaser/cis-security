@@ -11,12 +11,13 @@ crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 # Network Time Services
-time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only. RHEL8/9 only ships with chrony and this variable is not used
+time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only; options are 'chrony' or 'timesyncd'. RHEL8/9 only ships with chrony and this variable is not used
                                 # Linux: Choices are 'ntp' or chrony'. For Ubuntu, this can also accept 'none' as an option to use only systemd timedatectl
 time_server: "2.rhel.pool.ntp.org" # Linux: Time server for ntp, chrony, or timedatectl
 time_operators:                 # Windows: Users that can set the system time
   - "Administrators"
   - "LOCAL SERVICE"
+time_user: "_chrony"            # Linux: Ubuntu 22 only, user to run time daemon as
 
 # Sudo Configuration
 sudo_log: "/var/log/sudoers"    # Linux: log file for sudo
@@ -52,6 +53,9 @@ tftp_server: false              # Linux: TFTPd Server. Option for RHEL7 only
 ypbind: false
 graphical_interface: false      # Whether to disable the GDM greeter service. The service will disabled on 'false'
 
+# Services
+service_bluetooth:              # Linux: Ubuntu 22 only. Set to 'false' to disable bluetooth service
+
 # Logging services variables
 log_service: "journald"         # journald or rsyslog for logging. Choose one. Currently only implemented in RHEL 8/9!
 remote_log_service: false       # Whether to configure journald to start systemd-journal-remote.service
@@ -66,7 +70,7 @@ logrotate_file:                 # Linux: RHEL 8/9, Copy file listed for logrotat
 # network security settings
 tcpwrappers: false              # Linux: Configure tcpwrappers controls. RHEL 7 control only
 tcpwrappers_pkg: "tcp_wrappers" # Linux: Name of tcp wrappers package in repository
-enable_firewall: firewalld      # Linux: supported values are firewalld or iptables
+enable_firewall: firewalld      # Linux: supported values are firewalld (RHEL), nftables (RHEL, Ubuntu) or iptables (Ubuntu)
 firewalld_default_zone: public  # Linux: default firwall zone
 motd_use: true                  # Linux: RHEL 9: set to 'true' to use motd file, 'false' to not use
 motd_file: "banner"             # Linux: File location by default in 'files' directory
@@ -88,7 +92,7 @@ ssh_mac_list: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-
 ssh_ciphers_list: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
                                 # Linux: Ubuntu control only
 ssh_kex_list:
-  - "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1"
+  - 'curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1'
                                 # Linux: Ubuntu control only
 ssh_alive_interval: 300         # Linux: Control is 5 minutes
 ssh_alive_count_max: 0          # Linux: Control is 0 count
@@ -98,7 +102,7 @@ ssh_login_banner: issue.net     # Linux: a file with no path will exist in the r
 ssh_allowed_users: ""           # Linux: RHEL9, space separated list of users to add to AllowUsers list
 ssh_allowed_groups: ""          # Linux: RHEL9, space separated list of users to add to DenyUsers list
 ssh_denied_users: "root"            # Linux: RHEL9, space separated list of users to add to AllowGroups list
-ssh_denied_groups: "adm"           # Linux: RHEL9, space separated list of users to add to DneyGroups list
+ssh_denied_groups: ""           # Linux: RHEL9, space separated list of users to add to DneyGroups list
 
 # Password and account settings, all settings below match controls
 password_min_length: 14           # Common
@@ -114,6 +118,7 @@ password_inactive_lock_days: 30   # Linux
 password_failed_attempts: 5       # RHEL 9: Number of attempts before locking account
 password_failed_time: 900         # RHEL 9: amount of time to lock an account that has exceeded failed attemps
 password_history: 24              # Windows: number of passwords to remember.
+password_max_repeat: 3            # Linux: Ubuntu 22 only, number of same characters in a passwd
 account_lockout_duration: 15      # Windows:
 account_lockout_threshold: 10     # Windows:
 account_reset_duration: 15        # Windows:
