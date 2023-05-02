@@ -9,7 +9,6 @@
   ansible.builtin.service:
     name: auditd
     state: restarted
-    use: service
   when: ansible_os_family != "windows"
   listen: "Restart auditd"
 
@@ -89,6 +88,7 @@
   ansible.builtin.systemd:
     name: aidecheck
     enabled: true
+    daemon_reload: true
     state: restarted
 
 - name: Flush network routes
