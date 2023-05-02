@@ -1,6 +1,6 @@
 # cis_security
 
-A collection to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu 18.04 LTS and certain Windows servers.
+A collection to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), SLES 15, and Ubuntu (18,22).04 LTS and certain Windows servers.
 
 ## Introduction
 
@@ -29,6 +29,7 @@ Benchmark Versions:
 | Oracle Linux 8 | v1.0.0 |
 | SUSE Linux Enterprise 15 SP1 | \(SUSE Linux Enterprise 12\) v2.1.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
+| Ubuntu 22.04 LTS | 1.0.0 |
 | Windows Server 2019 | v1.8.1 |
 
 - Some distributions use older CIS benchmarks that were the most recent at the time of creation. Efforts have
@@ -174,4 +175,5 @@ ways files can be manipuldated with modules.
 - 2/25/2020 - dsglaser@gmail.com - Added SLES 15 SP 1 support
 - 3/17/2020 - dsglaser@gmail.com - Added Windows 2019 support
 - 7/24/2022 - dsglaser@gmail.com - Coversion to full collection status (Namespace: dsglaser)
-- 4/14/2023 - dsglaser@gmail.com - Added support for RHEL 9, updated RHEL 8 to CIS v2.0.0
+- 4/14/2023 - dsglaser@gmail.com - Added support for RHEL 9, updated RHEL 8 to CIS v2.0.0o
+- 5/2/2023  - dsglaser@gmail.com - Added support for Ubuntu 22.04 LTS
