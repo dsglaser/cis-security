@@ -1,8 +1,8 @@
 # cis_security
 
-A role to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu 18.04 / 20.04 LTS and certain Windows servers.
+A role to implement Center for Internet Security (CIS) controls for RHEL (7-9) and RHEL clones (Oracle, CentOS), recent Fedora (31-32), SLES 15, and Ubuntu \[18-22\].04 LTS and certain Windows servers.
 
-### Introduction
+## Introduction
 
 The [Center for Internet Security](https://www.cisecurity.org/) provides a set of
 security benchmarks for operating systems designed to decrease the vulnerability vectors of a system.
@@ -31,6 +31,7 @@ Benchmark Versions:
 | SUSE Linux Enterprise 15 SP1 | \(SUSE Linux Enterprise 12\) v2.1.0 |
 | Ubuntu 18.04 LTS | v2.0.1 |
 | Ubuntu 20.04 LTS | \(Ubuntu 18.04 LTS\) v2.0.1 |
+| Ubuntu 22.04 LTS | v1.0.0 |
 | Windows Server 2019 | v1.8.1 |
 | Windows 10 | \(Windows Server 2019\) v1.8.1 |
 
@@ -38,14 +39,17 @@ Benchmark Versions:
 been made to update the controls to work with the newer operating systems. Older versions of the benchmarks are listed in parenthesis.
 - SUSE Linux Enterprise 15 SP1 uses the RHEL 7 task file since their controls are so similar. If you want to exclude a SUSE tag, make sure you use the associated RHEL 7 tag number if they are different.  Tags can be found in the appropriate controls_list file found in the docs directory.
 
-### Requirements
+## Requirements
+
 To implement the collection correctly, you will require the following
 
 Control machine:
+
 - Ansible 2.11+
 - Machine connected to a package repository source (Satellite or yum repo)
 
 Target machine:
+
 - SSH connection with prviiledge escalation on Linux machines.
   - Python interpreter
 - WinRM connection with user with admin priviledge for Windows. Alternatively you can use an SSH connection.
@@ -56,13 +60,14 @@ Some of the Ansible modules that are used require Ansible 2.7 and newer.
 For most of the collection to work, you will need to have a package repo where you can install packages for
 the target machine. Registering with Satellite, a package repository, SCM, or a local package collection is recommended before using this, unless you exclude any tags that install packages.
 
-### Use and Care
+## Use and Care
+
 The collection is designed to run on the machines in the chart above. It may run on other Red Hat and Ubuntu deriviatives, but it has not been tested on them. Upon initiation, the collection will automatically detect the OS and run the appropriate task list.
 
 As the role runs, you will see an output listing the control number and a brief description of the
 task being performed (or skipped):
 
-```
+```bash
 TASK [security-rollup : 1.7.1.3 - Set SELinux policy to targeted] ******************************
 ok: [192.168.122.252]
 ```
@@ -70,16 +75,19 @@ ok: [192.168.122.252]
 The controls are implemented as Ansible tags. By default all tags are run on a given system. To
 disable a tag from running, run the playbook with the tag excluded (--skip-tags "x.y.z"):
 
-```
+```bash
 ansible-playbook -i <inventory> <playbook.yml> --skip-tags "x.y.z"
 ```
+
 Multiple tags can be listed, separated by commas:
-```
+
+```bash
 ansible-playbook -i <inventory> <playbook.yml> --skip-tags "x.y.z,a.b.c"
 ```
+
 Note: Some automation tasks handle multiple controls. In the role you may see something like this:
 
-```
+```yaml
 - name: 6.1.[2,4] - Ensure permissions on /etc/passwd /etc/group
   file:
     path: /etc/{{item}}
@@ -93,12 +101,14 @@ Note: Some automation tasks handle multiple controls. In the role you may see so
     - 6.1.2
     - 6.1.4
 ```
-* In this control, two tags are being processed, '6.1.2' and '6.1.4' if you want this control to not
+
+- In this control, two tags are being processed, '6.1.2' and '6.1.4' if you want this control to not
 run, you must exclude both tags:
 
-```
+```bash
 ansible-playbook -i <inventory> <playbook.yml> --skip-tags "6.1.2,6.1.4"
 ```
+
 Some controls are surrouned by Ansible blocks that themselves have tags. Excluding the tag that applies
 to the block will exclude all of the tasks inside of the block. If the block's tag is **not** excluded,
 then individual tasks inside of the block can be excluded by excluding their tags.
@@ -111,18 +121,20 @@ tasks, or set values. These are explained and given default values in the **role
 file. Do not set these values in that file, but create and include your own variable file to override the
 defaults or set them as host variables.
 
-### Idempotency
+## Idempotency
+
 Every effort has been made to make the controls idempotent, however some Ansible modules do not have the ability
 to measure every need as currently written and shell or command has been utilized to implement controls. This
 has the effect of bringing down the quality score on Ansible Galaxy, but the roles can be run multiple times
 without fear of breaking.
 
-### Learning Tool
+## Learning Tool
+
 A secondary purpose of this collection is to show numerous ways that Ansible can be used to
 manage systems with various modules. The first time a module is used it is commented on many times
 to explain what the module is doing. Other times you may see something like the following:
 
-```
+```yaml
   - name: 5.4.4 - Ensure umask is set
     replace:
       path: "{{ item }}"
@@ -147,12 +159,13 @@ to explain what the module is doing. Other times you may see something like the 
     tags:
       - 5.4.5
 ```
+
 Both of these tasks manipulate the same file in the same way. They could have been written
 with the same module, even in the same task with a loop, but here it illustrates different
 ways files can be manipuldated with modules.
 
+## Change Log
 
-### Change Log
 - 1/20/2020 - dsglaser@gmail.com - Initial creation
 - 1/22/2020 - dsglaser@gmail.com - Added enhanced selinux controls
 - 2/18/2020 - dsglaser@gmail.com - Added support for Ubuntu 18.04 LTS, added RHEL clone links
