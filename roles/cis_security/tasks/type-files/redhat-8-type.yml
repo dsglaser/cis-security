@@ -75,7 +75,7 @@
 #  to remove packages from the system that are not needed.
 - name: Remove unused_filesystem list
   ansible.builtin.dnf:
-    name: unused_filesystems
+    name: "{{ unused_filesystems }}"
     state: absent
 
 - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf

@@ -74,10 +74,8 @@
 #  to remove packages from the system that are not needed.
 - name: 1.1 - Process unused_filesystem list
   ansible.builtin.package:
-    name: "{{ item }}"
+    name: "{{ unused_filesystems }}"
     state: absent
-  loop:
-    - unused_filesystems
   tags:
     - 1.1.0
 
