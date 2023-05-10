@@ -46,13 +46,6 @@
   tags:
     - 1.9.0
 
-# This collection of tasks creates a empty list and save it as a fact.
-#  For every item that is encountered (without the tag being skipped),
-#  add a string to the list.
-- name: 1.1 Disable unused filesystems
-  ansible.builtin.set_fact:
-    unused_filesystems: []
-
 - name: 1.1.1.1 - disable squashfs
   ansible.builtin.blockinfile:
     path: /etc/modprobe.d/squashfs.conf
