@@ -1049,7 +1049,7 @@
 # 1.8.5 - Diable media automount
 - name: 1.8.5 - disable removable media automount in GDM
   ansible.builtin.copy:
-    dest: "/etc/dconf/db/local.d/00-media-automount"
+    dest: "/etc/dconf/db/distro.d/00-media-automount"
     owner: root
     group: root
     mode: 0644

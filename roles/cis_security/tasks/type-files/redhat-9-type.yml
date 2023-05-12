@@ -1044,7 +1044,7 @@
 
     - name: 1.8.4 Set gdm timeouts
       ansible.builtin.blockinfile:
-        path: /etc/dconf/db/local.d/00-screensaver
+        path: /etc/dconf/db/distro.d/00-screensaver
         owner: root
         group: root
         mode: 0644
