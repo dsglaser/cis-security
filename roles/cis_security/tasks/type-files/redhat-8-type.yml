@@ -81,7 +81,7 @@
 - name: Add unused_filesystems to /etc/modprobe.d/CIS.conf
   ansible.builtin.lineinfile:
     dest: /etc/modprobe.d/CIS.conf
-    line: "install {{ item }} /bin/true"
+    line: "install {{ item }} /bin/false"
     state: present
     create: true
     owner: root

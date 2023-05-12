@@ -1496,7 +1496,7 @@
     - name: 3.1.3 - Process uncommon network list
       ansible.builtin.lineinfile:
         dest: /etc/modprobe.d/CIS.conf
-        line: "install {{ item }} /bin/true"
+        line: "install {{ item }} /bin/false"
         state: present
         create: true
         owner: root
