@@ -6,9 +6,7 @@
 # https://access.redhat.com/solutions/2664811
 
 - name: Restart auditd
-  ansible.builtin.service:
-    name: auditd
-    state: restarted
+  ansible.builtin.command: service auditd restart
   when: ansible_os_family != "windows"
   listen: "Restart auditd"
 
