@@ -11,8 +11,9 @@ crypto_policy: "DEFAULT"        # Options are DEFAULT, FIPS, or LEGACY
 apparmor_level: "enforce"     # Set all profiles in /etc/apparmor.d/* to this level. Options are enforce or complain
 
 # Network Time Services
-time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only; options are 'chrony' or 'timesyncd'. RHEL8/9 only ships with chrony and this variable is not used
-                                # Linux: Choices are 'ntp' or chrony'. For Ubuntu, this can also accept 'none' as an option to use only systemd timedatectl
+time_service: "chrony"          # Linux: Option for RHEL7/Ubuntu only; options are 'chrony' or 'timesyncd'.
+                                #  RHEL8/9 only ships with chrony and this variable is not used
+                                #  Linux: Choices are 'ntp' or chrony'. For Ubuntu, this can also accept 'none' as an option to use only systemd timedatectl
 time_server: "2.rhel.pool.ntp.org" # Linux: Time server for ntp, chrony, or timedatectl
 time_operators:                 # Windows: Users that can set the system time
   - "Administrators"
