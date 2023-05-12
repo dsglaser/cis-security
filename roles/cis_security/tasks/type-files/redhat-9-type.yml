@@ -2869,6 +2869,7 @@
   loop:
     - /etc/bashrc
     - /etc/profile
+    - /etc/login.defs
   tags:
     - 5.6.5
 

@@ -2940,11 +2940,11 @@
 
 # 5.5.3 - Password retention involves configuring pam.conf, skipping
 
-- name: 5.5.4 - Ensure password hashing algorithm is SHA-512 or yescrypt
+- name: 5.5.4 - Ensure password hashing algorithm is SHA-512
   ansible.builtin.replace:
     path: /etc/libuser.conf
     regexp: "^crypt_style\ *=\ *(sha512|yescrypt)"
-    replace: "crypt_style = {{ password_hash_alg | lower }}"
+    replace: "crypt_style = sha512"
     after: "[defaults]"
     owner: root
     group: root
@@ -2952,11 +2952,11 @@
   tags:
     - 5.5.4
 
-- name: 5.5.4 - Ensure password hashing algorithm is SHA-512 or yescrypt
+- name: 5.5.4 - Ensure password hashing algorithm is SHA-512
   ansible.builtin.replace:
     path: /etc/login.defs
     regexp: "^ENCRYPT_METHOD\ *(SHA512|YESCRYPT)"
-    replace: "ENCRYPT_METHOD {{ password_hash_alg | upper }}"
+    replace: "ENCRYPT_METHOD SHA512"
   tags:
     - 5.5.4
 
@@ -3033,6 +3033,7 @@
   loop:
     - /etc/bashrc
     - /etc/profile
+    - /etc/login.defs
   tags:
     - 5.6.5
 
