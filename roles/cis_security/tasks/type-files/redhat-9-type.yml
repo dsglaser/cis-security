@@ -797,7 +797,7 @@
   with_items:
     - selinux=0
     - enforcing=0
-  when: selinux is defined and selinux != "Disabled"
+  when: selinux is defined and selinux | lower != "disabled"
   notify: Rebuild grub
   tags:
     - 1.6.1.2
@@ -808,7 +808,7 @@
     dest: /etc/selinux/config
     regexp: "^SELINUXTYPE=((?!{{ selinux_policy }}).)*$"
     replace: "SELINUXTYPE={{ selinux_policy }}"
-  when: ( selinux is defined and selinux_policy is defined ) and selinux != "Disabled"
+  when: ( selinux is defined and selinux_policy is defined ) and selinux | lower != "disabled"
   tags:
     - 1.6.1.3
 
@@ -821,7 +821,7 @@
     group: root
     mode: 0644
     state: touch
-  when: ( ansible_selinux.mode == "disabled" and selinux | lower != "disabled" ) or selinux_installed.changed
+  when: ( ansible_selinux.status == "disabled" and selinux | lower != "disabled" ) or selinux_installed.changed
   notify: Reboot
   tags:
     - 1.6.1.3
@@ -843,12 +843,12 @@
 - name: 1.6.1.6 - Report on unconfined running services
   tags:
     - 1.6.1.6
+  when: ansible_selinux.status != "disabled"
   block:
     # In RHEL8, all unconfined services run under their own context
     - name: 1.6.1.6 - Generate report on unconfined running services
       ansible.builtin.shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
       register: unconfined_services_out
-      when: ansible_selinux.status != "disabled"
       failed_when: unconfined_services_out.rc == "2"
       changed_when: false
       check_mode: false
