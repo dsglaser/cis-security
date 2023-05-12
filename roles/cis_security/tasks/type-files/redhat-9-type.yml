@@ -151,24 +151,30 @@
       tags:
         - 1.1.3.1
 
-    - name: 1.1.3.2 - Report to user if /var does not have nodev set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
-      changed_when: true
+    - name: 1.1.3.[2-3] - /var mount option controls
       tags:
         - 1.1.3.2
-
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.3.3 Report to user if /var does not have nosuid set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var does not have nosuid set"
-      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
-      changed_when: true
-      tags:
         - 1.1.3.3
+      when: mount_count != 0
+      block:
+        - name: 1.1.3.2 - Report to user if /var does not have nodev set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var does not have nodev set"
+          when: mount_options is defined and "nodev" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.3.2
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.3.3 Report to user if /var does not have nosuid set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var does not have nosuid set"
+          when: mount_options is defined and "nodsuid" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.3.3
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
@@ -206,38 +212,45 @@
       tags:
         - 1.1.4.1
 
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.4.2 - Report to user if /var/tmp does not have noexec set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
-      when: mount_options is defined and "noexec" not in mount_options and mount_count == 0
-      changed_when: true
+    - name: 1.1.4.[2-4] - /var/tmp mount option controls
       tags:
         - 1.1.4.2
-
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.4.3 - Report to user if /var/tmp does not have nosuid set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/tmp/ does not have nosuid set"
-      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
-      changed_when: true
-      tags:
         - 1.1.4.3
-
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.4.4 - Report to user if /var/tmp does not have nodev set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
-      changed_when: true
-      tags:
         - 1.1.4.4
+      when: mount_count != 0
+      block:
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.4.2 - Report to user if /var/tmp does not have noexec set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/tmp/ does not have noexec set"
+          when: mount_options is defined and "noexec" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.4.2
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.4.3 - Report to user if /var/tmp does not have nosuid set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/tmp/ does not have nosuid set"
+          when: mount_options is defined and "nodsuid" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.4.3
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.4.4 - Report to user if /var/tmp does not have nodev set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/tmp/ does not have nodev set"
+          when: mount_options is defined and "nodev" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.4.4
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
@@ -274,24 +287,30 @@
       tags:
         - 1.1.5.1
 
-    - name: 1.1.5.2 - Report to user if /var/log does not have nodev set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/log does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
-      changed_when: true
+    - name: 1.1.5.[2-3] - /var/log mount option controls
       tags:
         - 1.1.5.2
-
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.5.3 Report to user if /var/log does not have nosuid set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /var/log does not have nosuid set"
-      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
-      changed_when: true
-      tags:
         - 1.1.5.3
+      when: mount_count != 0
+      block:
+        - name: 1.1.5.2 - Report to user if /var/log does not have nodev set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/log does not have nodev set"
+          when: mount_options is defined and "nodev" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.5.2
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.5.3 Report to user if /var/log does not have nosuid set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/log does not have nosuid set"
+          when: mount_options is defined and "nodsuid" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.5.3
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
@@ -327,6 +346,46 @@
       changed_when: true
       tags:
         - 1.1.6.1
+
+    - name: 1.1.6.[2-4] - /var/log/audit mount option controls
+      tags:
+        - 1.1.5.2
+        - 1.1.5.3
+        - 1.1.5.4
+      when: mount_count != 0
+      block:
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.6.2 - Report to user if /var/log/audit does not have noexec set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/log/audit/ does not have noexec set"
+          when: mount_options is defined and "noexec" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.6.2
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.6.3 - Report to user if /var/log/audit does not have nodev set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/log/audit/ does not have nodev set"
+          when: mount_options is defined and "nodev" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.6.3
+
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.6.4 - Report to user if /var/log/audit does not have nosuid set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /var/log/audit/ does not have nosuid set"
+          when: mount_options is defined and "nodsuid" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.6.4
 
 # Determine if a filesystem is on a separate partition, if so, then
 #  check to see if various filesystem options exist for the filesystem
@@ -364,24 +423,30 @@
       tags:
         - 1.1.7.1
 
-    # Look through the mount_options variable for the given filesystem option. if it is
-    #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
-    #  let the user know.
-    - name: 1.1.7.2 - Report to user if /home does not have nodev set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /home does not have nodev set"
-      when: mount_options is defined and "nodev" not in mount_options and mount_count == 0
-      changed_when: true
+    - name: 1.1.7.[2-3] - /home mount option controls
       tags:
         - 1.1.7.2
-
-    - name: 1.1.7.3 Report to user if /home does not have nosuid set
-      ansible.builtin.debug:
-        msg: "FAILED CONTROL: /home does not have nosuid set"
-      when: mount_options is defined and "nodsuid" not in mount_options and mount_count == 0
-      changed_when: true
-      tags:
         - 1.1.7.3
+      when: mount_count != 0
+      block:
+        # Look through the mount_options variable for the given filesystem option. if it is
+        #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
+        #  let the user know.
+        - name: 1.1.7.2 - Report to user if /home does not have nodev set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /home does not have nodev set"
+          when: mount_options is defined and "nodev" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.7.2
+
+        - name: 1.1.7.3 Report to user if /home does not have nosuid set
+          ansible.builtin.debug:
+            msg: "FAILED CONTROL: /home does not have nosuid set"
+          when: mount_options is defined and "nodsuid" not in mount_options
+          changed_when: true
+          tags:
+            - 1.1.7.3
 
 # /dev/shm does not exist in ansible_mounts so we have to check the
 #  mount command directly. This requires the use of the shell command which
@@ -2804,6 +2869,7 @@
   loop:
     - /etc/bashrc
     - /etc/profile
+    - /etc/login.defs
   tags:
     - 5.6.5
 
