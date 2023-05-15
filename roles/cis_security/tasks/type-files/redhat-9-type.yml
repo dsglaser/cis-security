@@ -1438,13 +1438,19 @@
 
 - name: 3.3.2 - Ensure ICMP redirects are not accepted
   ansible.builtin.set_fact:
-    unneeded_ipv4_network: "{{ unneeded_ipv4_network | combine({ 'net.ipv4.conf.all.accept_redirects' : '0' }) }}"
+    unneeded_ipv4_network: "{{ unneeded_ipv4_network | combine({ item : '0' }) }}"
+  loop:
+    - net.ipv4.conf.all.accept_redirects
+    - net.ipv4.conf.default.accept_redirects
   tags:
     - 3.3.2
 
 - name: 3.3.2 - Ensure ICMP redirects are not accepted
   ansible.builtin.set_fact:
-    unneeded_ipv6_network: "{{ unneeded_ipv6_network | combine({ 'net.ipv6.conf.all.accept_redirects' : '0' }) }}"
+    unneeded_ipv6_network: "{{ unneeded_ipv6_network | combine({ item : '0' }) }}"
+  loop:
+    - net.ipv6.conf.all.accept_redirects
+    - net.ipv6.conf.default.accept_redirects
   when: not ipv6_disable
   tags:
     - 3.3.2
