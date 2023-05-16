@@ -49,47 +49,57 @@
 # This collection of tasks creates a empty list and save it as a fact.
 #  For every item that is encountered (without the tag being skipped),
 #  add a string to the list.
-- name: 1.1 Disable unused filesystems
-  ansible.builtin.set_fact:
-    unused_filesystems: []
 
-- name: 1.1.1.1 - Add cramfs to list of unused filesystems
-  ansible.builtin.set_fact:
-    unused_filesystems: "{{ unused_filesystems + [ 'cramfs' ] }}"
+# RHEL 8.0 v2.0.0 controls removed a lot of the older unused filesystems from controls, so switching to a more basic
+#  setup to match RHEL 9.
+- name: 1.1.1.0 - Remove old /etc/modprobe.d/CIS.conf
+  ansible.builtin.file:
+    path: /etc/modprobe.d/CIS.conf
+    state: absent
+  tags:
+    - 1.1.1.0
+
+- name: 1.1.1.1 - disable cramfs
+  ansible.builtin.blockinfile:
+    path: /etc/modprobe.d/cramfs.conf
+    create: true
+    owner: root
+    group: root
+    mode: 644
+    setype: modules_conf_t
+    block: |
+      install cramfs /bin/false
+      blacklist cramfs
   tags:
     - 1.1.1.1
 
-- name: 1.1.1.2 - Add squashfs to list of unused filesystems
-  ansible.builtin.set_fact:
-    unused_filesystems: "{{ unused_filesystems + [ 'squashfs' ] }}"
+- name: 1.1.1.2 - disable squashfs
+  ansible.builtin.blockinfile:
+    path: /etc/modprobe.d/squashfs.conf
+    create: true
+    owner: root
+    group: root
+    mode: 644
+    setype: modules_conf_t
+    block: |
+      install squashfs /bin/false
+      blacklist squashfs
   tags:
     - 1.1.1.2
 
-- name: 1.1.1.3 - Add udf to list of unused filesystems
-  ansible.builtin.set_fact:
-    unused_filesystems: "{{ unused_filesystems + [ 'udf' ] }}"
-  tags:
-    - 1.1.1.3
-
-# With the list complete, use it with the system's package manager
-#  to remove packages from the system that are not needed.
-- name: 1.1 - Remove unused_filesystem list
-  ansible.builtin.dnf:
-    name: "{{ unused_filesystems }}"
-    state: absent
-
-- name: 1.1 - Add unused_filesystems to /etc/modprobe.d/CIS.conf
-  ansible.builtin.lineinfile:
-    dest: /etc/modprobe.d/CIS.conf
-    line: "install {{ item }} /bin/false"
-    state: present
+- name: 1.1.1.3 - disable udf
+  ansible.builtin.blockinfile:
+    path: /etc/modprobe.d/udf.conf
     create: true
     owner: root
     group: root
     mode: 0644
     setype: modules_conf_t
-  with_items:
-    - "{{ unused_filesystems }}"
+    block: |
+      install udf /bin/false
+      blacklist udf
+  tags:
+    - 1.1.1.3
 
 # Create and configure the local-fs systemd service file
 - name: 1.1.[2-5] - Ensure /tmp is configured
