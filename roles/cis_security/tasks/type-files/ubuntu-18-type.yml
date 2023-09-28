@@ -159,8 +159,8 @@
       # symbolic link is required for .wants/ folder
       - name: Create a symbolic link
         ansible.builtin.file:
-          src: /etc/systemd/system/tmp.mount
-          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount
+          src: /usr/share/systemd/tmp.mount
+          dest: /etc/systemd/system/tmp.mount
           owner: root
           group: root
           state: link
@@ -698,7 +698,7 @@
       - name: 1.5.3 - Set root password
         ansible.builtin.user:
           name: root
-          password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+          password: "{{ root_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
         when: root_pw_check.found != "0" and root_password is defined
 
       - name: 1.5.3 - Set root password
@@ -1153,7 +1153,7 @@
   #  to remove packages from the system that are not needed.
   - name: Process removal list
     ansible.builtin.package:
-      name: unneeded_packages
+      name: "{{ unneeded_packages }}"
       state: absent
 
   # Cups should be remove per control 2.2.16, but it may not be able to due to

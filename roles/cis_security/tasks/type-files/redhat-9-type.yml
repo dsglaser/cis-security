@@ -138,6 +138,7 @@
     - name: 1.1.3.1 - Determine if /var is on a separate partition
       ansible.builtin.set_fact:
         mount_count: "addition{{ mount_count + 1 }}"
+        mount_options: "{{ item.options }}"
       when: item.mount == "/var"
       with_items:
         - "{{ ansible_mounts }}"
@@ -271,6 +272,7 @@
     - name: 1.1.5.1 - Determine if /var/log is on a separate partition
       ansible.builtin.set_fact:
         mount_count: "addition{{ mount_count + 1 }}"
+        mount_options: "{{ item.options }}"
       when: item.mount == "/var/log"
       with_items:
         - "{{ ansible_mounts }}"
@@ -304,7 +306,7 @@
         # Look through the mount_options variable for the given filesystem option. if it is
         #  not found, or if the filesystem is not on a separate partition (therefore has no mount options)
         #  let the user know.
-        - name: 1.1.5.3 Report to user if /var/log does not have nosuid set
+        - name: 1.1.5.3 - Report to user if /var/log does not have nosuid set
           ansible.builtin.debug:
             msg: "FAILED CONTROL: /var/log does not have nosuid set"
           when: mount_options is defined and "nodsuid" not in mount_options
@@ -331,6 +333,7 @@
     - name: 1.1.6.1 - Determine if /var/log/audit is on a separate partition
       ansible.builtin.set_fact:
         mount_count: "addition{{ mount_count + 1 }}"
+        mount_options: "{{ item.options }}"
       when: item.mount == "/var/log/audit"
       with_items:
         - "{{ ansible_mounts }}"
@@ -700,6 +703,7 @@
             group: root
             mode: 0644
             setype: systemd_unit_file_t
+          notify: Restart aidecheck
 
         - name: 1.3.2 - Enable aidecheck.timer
           ansible.builtin.systemd:
@@ -742,14 +746,14 @@
     path: "/boot/grub2/grub.cfg"
   register: grubdir
   tags:
-    1.4.1
+    1.4.0
 
 - name: 1.4.0 - Check if the grub user.cfg exists
   ansible.builtin.stat:
     path: "/boot/grub2/user.cfg"
   register: usercfgdir
   tags:
-    1.4.1
+    1.4.0
 
 # Control 1.4.1, Grub bootloader password - skipped
 
@@ -839,7 +843,7 @@
       - python3-libselinux
     state: present
   register: selinux_installed
-  when: selinux is defined and selinux != "Disabled"
+  when: selinux is defined and selinux | lower != "disabled"
   tags:
     - 1.6.1.1
 
@@ -1556,38 +1560,16 @@
     # This collection of tasks creates a empty list and save it as a fact.
     #  For every item that is encountered (without the tag being skipped),
     #  add a string to the list.
-    - name: 3.1.0 - Create empty list of uncommon network protocols to disable
-      ansible.builtin.set_fact:
-        uncommon_network: []
 
-    - name: 3.1.1 - Disable TIPC
-      ansible.builtin.set_fact:
-        uncommon_network: "{{ uncommon_network + [ 'tipc' ] }}"
-
-    - name: 3.1.3 - Process uncommon network list
-      ansible.builtin.lineinfile:
-        dest: /etc/modprobe.d/CIS.conf
-        line: "install {{ item }} /bin/false"
-        state: present
+    - name: 3.1.3 - Disable TIPC
+      ansible.builtin.blockinfile:
+        path: /etc/modprobe.d/tipc.conf
         create: true
-        owner: root
-        group: root
-        mode: 0644
-      with_items:
-        - "{{ uncommon_network }}"
-
-    - name: 3.1.3 - Add to blacklist
-      ansible.builtin.lineinfile:
-        dest: /etc/modprobe.d/CIS.conf
-        line: "blacklist {{ item }}"
-        state: present
-        create: true
-        owner: root
-        group: root
-        mode: 0644
-      with_items:
-        - "{{ uncommon_network }}"
-
+        block: |
+          install udf /bin/false
+          blacklist udf
+      tags:
+        - 3.1.3
 # Section 3 - Firewall
 #   iptables is deprecated and not covered under the CIS controls for RHEL 9
 
@@ -2898,7 +2880,7 @@
     - name: 5.6.6 - Set root password
       ansible.builtin.user:
         name: root
-        password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        password: "{{ root_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
       when: root_pw_check.found != "0" and root_password is defined
 
 # Section 6 - System Maintenance
