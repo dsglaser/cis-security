@@ -1153,7 +1153,7 @@
   #  to remove packages from the system that are not needed.
   - name: Process removal list
     ansible.builtin.package:
-      name: unneeded_packages
+      name: "{{ unneeded_packages }}"
       state: absent
 
   # Cups should be remove per control 2.2.16, but it may not be able to due to

@@ -1228,7 +1228,7 @@
 #  to remove packages from the system that are not needed.
 - name: Process removal list
   ansible.builtin.apt:
-    name: unneeded_packages
+    name: "{{ unneeded_packages }}"
     state: absent
     purge: true
   tags:
