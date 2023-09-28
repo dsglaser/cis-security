@@ -2880,7 +2880,7 @@
     - name: 5.6.6 - Set root password
       ansible.builtin.user:
         name: root
-        password: "{{ 'root_password' | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        password: "{{ root_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
       when: root_pw_check.found != "0" and root_password is defined
 
 # Section 6 - System Maintenance
