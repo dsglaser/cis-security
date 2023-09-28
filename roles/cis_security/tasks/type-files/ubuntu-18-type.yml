@@ -159,8 +159,8 @@
       # symbolic link is required for .wants/ folder
       - name: Create a symbolic link
         ansible.builtin.file:
-          src: /etc/systemd/system/tmp.mount
-          dest: /etc/systemd/system/local-fs.target.wants/tmp.mount
+          src: /usr/share/systemd/tmp.mount
+          dest: /etc/systemd/system/tmp.mount
           owner: root
           group: root
           state: link
