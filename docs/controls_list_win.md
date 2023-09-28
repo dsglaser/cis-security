@@ -33,8 +33,8 @@ Below are the tags used in the CIS roles on Windows Machines.
 | 2.2.17 | Ensure symbolic link creation is restricted (domain controller)|X|X|X|
 | 2.2.18 | Ensure symbolic link creation is restricted (member or standalone server )|X|X|X|
 | 2.2.19 | Ensure 'Debug programs' is set to 'Administrators'|X|X|X|
-| 2.2.20 Deny accesss to this computer from network (domain computer)|X|X|X|
-| 2.2.20 Deny accesss to this computer from network (domain computer)|X|X|X|
+| 2.2.20 | Deny accesss to this computer from network (domain computer)|X|X|X|
+| 2.2.20 | Deny accesss to this computer from network (domain computer)|X|X|X|
 | 2.2.[22-25] | Ensure deny local, remote, and batch logons includes 'Guests'|X|X|X|
 | 2.2.28 | Ensure 'Enable computer and user accounts to be trusted for delegation' is set to 'No One'| |X| |
 | 2.2.29 | Ensure 'Debug programs' is set to 'Administrators'|X|X|X|
