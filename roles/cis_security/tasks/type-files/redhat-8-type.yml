@@ -93,7 +93,7 @@
     create: true
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
     setype: modules_conf_t
     block: |
       install udf /bin/false
@@ -118,7 +118,7 @@
         state: directory
         owner: root
         group: root
-        mode: 0755
+        mode:  "0755"
         setype: etc_t
 
     # Add content to the file we created using the blockinfile command.
@@ -135,7 +135,7 @@
         create: true
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
       notify: Restart tmpfs
 
 # Determine if a filesystem is on a separate partition, if so, then
@@ -557,7 +557,7 @@
     create: true
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   tags:
     - 1.1.23
 
@@ -710,7 +710,7 @@
             dest: /etc/systemd/system/aidecheck.service
             owner: root
             group: root
-            mode: 0644
+            mode:  "0644"
             setype: systemd_unit_file_t
 
         - name: 1.3.2 - Enable aidecheck.service
@@ -727,7 +727,7 @@
             dest: /etc/systemd/system/aidecheck.timer
             owner: root
             group: root
-            mode: 0644
+            mode:  "0644"
             setype: systemd_unit_file_t
           notify: Restart aidecheck
 
@@ -777,7 +777,7 @@
     path: "{{ item }}"
     owner: root
     group: root
-    mode: 0600
+    mode: "0600"
   loop:
     - "{{ grub_cfg_path }}"
     - /boot/grub2/grubenv
@@ -794,14 +794,14 @@
         state: directory
         owner: root
         group: root
-        mode: 0755
+        mode:  "0755"
 
     - name: 1.4.3 - Require authorization to enter Rescue mode - set file
       ansible.builtin.copy:
         dest: "/etc/systemd/system/rescue.service.d/00-require-auth.conf"
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
         content: |
           [Service]
@@ -815,7 +815,7 @@
     create: true
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
     block: |
       Storage=none
     state: present
@@ -829,7 +829,7 @@
     create: true
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
     block: |
       ProcessSizeMax=0
     state: present
@@ -902,7 +902,7 @@
     path: /.autorelabel
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
     state: touch
   when: ( ansible_selinux.status == "disabled" and selinux | lower != "disabled" ) or selinux_installed.changed
   notify: Reboot
@@ -969,7 +969,7 @@
     dest: /etc/motd
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   when: motd_use is defined and motd_use
   tags:
     - 1.7.1
@@ -982,7 +982,7 @@
     dest: /etc/issue
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   when: issue_use is defined and issue_use
   tags:
     - 1.7.2
@@ -995,7 +995,7 @@
     dest: /etc/issue.net
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   when: issue_net_use is defined and issue_net_use
   tags:
     - 1.7.3
@@ -1070,7 +1070,7 @@
         path: /etc/dconf/profile/gdm
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
         create: true
         block: |
@@ -1086,7 +1086,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
         create: true
         block: |
@@ -1101,7 +1101,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
         insertafter: "[org/gnome/login-screen]"
         block: |
@@ -1115,7 +1115,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
         insertafter: "[org/gnome/login-screen]"
         block: |
@@ -1131,7 +1131,7 @@
     dest: "/etc/dconf/db/distro.d/00-media-automount"
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
     content: |
       [org/gnome/desktop/media-handling]
       automount=false
@@ -1192,7 +1192,7 @@
     dest: /etc/chrony.conf
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   notify: Restart chronyd
   tags:
     - 2.1.2
@@ -1203,7 +1203,7 @@
     dest: /etc/sysconfig/{{ time_service }}d
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   notify: Restart {{ time_service }}d
   tags:
     - 2.2.1.3
@@ -1678,7 +1678,7 @@
         create: true
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
       with_items:
         - "{{ uncommon_network }}"
 
@@ -2015,7 +2015,7 @@
         src: audit_rules/sudolog.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.1
@@ -2027,7 +2027,7 @@
         src: audit_rules/user_emulation.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.2
@@ -2038,7 +2038,7 @@
         src: audit_rules/datetime.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.4
@@ -2050,7 +2050,7 @@
         src: audit_rules/network.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.5
@@ -2063,7 +2063,7 @@
         src: audit_rules/file-system-mounts.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         4.1.3.7
@@ -2075,7 +2075,7 @@
         src: audit_rules/bad-file-access.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         4.1.3.7
@@ -2086,7 +2086,7 @@
         src: audit_rules/user-group-info.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.8
@@ -2097,7 +2097,7 @@
         src: audit_rules/dac.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.9
@@ -2108,7 +2108,7 @@
         src: audit_rules/sessions.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.11
@@ -2119,7 +2119,7 @@
         src: audit_rules/login.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.12
@@ -2130,7 +2130,7 @@
         src: audit_rules/delete.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.13
@@ -2141,7 +2141,7 @@
         src: audit_rules/MAC-policy.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.14
@@ -2152,7 +2152,7 @@
         src: audit_rules/chcon.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.15
@@ -2163,7 +2163,7 @@
         src: audit_rules/setfacl.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.16
@@ -2174,7 +2174,7 @@
         src: audit_rules/chacl.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.17
@@ -2185,7 +2185,7 @@
         src: audit_rules/usermod.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.18
@@ -2196,7 +2196,7 @@
         src: audit_rules/modules.rules
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.19
@@ -2208,7 +2208,7 @@
           -e 2
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       notify: Restart auditd
       tags:
         - 4.1.3.20
@@ -2261,7 +2261,7 @@
         create: true
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         state: present
       notify: Restart rsyslog
       tags:
@@ -2329,7 +2329,7 @@
             create: true
             owner: root
             group: root
-            mode: 0644
+            mode:  "0644"
           when: log_host is defined and log_host
 
         - name: 4.2.1.7 - Enable TCP Port listening on port {{ log_port }}
@@ -2340,7 +2340,7 @@
             create: true
             owner: root
             group: root
-            mode: 0644
+            mode:  "0644"
           when: log_host is defined and log_host
 
 # 4.2.2 Configure journald
@@ -2433,7 +2433,7 @@
         dest: /etc/logrotate.conf
         owner: root
         group: root
-        mode: 0644
+        mode:  "0644"
         setype: etc_t
       when: logrotate_file and logrotate_file | length > 0
 
@@ -2452,7 +2452,7 @@
         path: /etc/cron.allow
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
         state: file
       when: cron_allow and cron_allow | length > 0
       tags:
@@ -2465,7 +2465,7 @@
         line: "{{ item.0 }}"
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
         create: true
       loop:
         - "{{ cron_allow }}"
@@ -2486,7 +2486,7 @@
         path: /etc/crontab
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       tags:
         - 5.1.2
 
@@ -2514,7 +2514,7 @@
         path: /etc/at.allow
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
         state: file
       when: at_allow and at_allow | length > 0
       tags:
@@ -2527,7 +2527,7 @@
         line: "{{ item.0 }}"
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
         create: true
       loop:
         - "{{ at_allow }}"
@@ -2544,7 +2544,7 @@
         dest: /etc/ssh/sshd_config
         owner: root
         group: root
-        mode: 0600
+        mode: "0600"
       tags:
         - 5.2.1
 
@@ -2565,7 +2565,7 @@
             dest: "{{ item.path }}"
             owner: root
             group: root
-            mode: 0600
+            mode: "0600"
           loop: "{{ ssh_host_out.files }}"
 
     - name: 5.2.3 - Set Permissions on ssh public host keys
@@ -2585,7 +2585,7 @@
             dest: "{{ item.path }}"
             owner: root
             group: root
-            mode: 0644
+            mode:  "0644"
           loop: "{{ ssh_hostpub_out.files }}"
 
     - name: 5.2.4 - Ensure SSH access is limited (AllowUsers)
@@ -2935,7 +2935,7 @@
     insertafter: "#\ *deny"
     owner: root
     group: root
-    mode: 0600
+    mode: "0600"
   tags:
     - 5.5.2
 
@@ -2947,7 +2947,7 @@
     insertafter: "#\ *deny"
     owner: root
     group: root
-    mode: 0600
+    mode: "0600"
   tags:
     - 5.5.2
 
@@ -2961,7 +2961,7 @@
     after: "[defaults]"
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   tags:
     - 5.5.4
 
@@ -3001,7 +3001,7 @@
     - 5.6.1.3
 
 # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
-# The defaults perms are 0644 on the file, but after useradd is run against it, it changes to 0600, so we'll change it as well
+# The defaults perms are  "0644" on the file, but after useradd is run against it, it changes to "0600", so we'll change it as well
 - name: 5.6.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
   ansible.builtin.replace:
     path: /etc/default/useradd
@@ -3009,7 +3009,7 @@
     replace: "INACTIVE={{ password_inactive_lock_days }}"
     owner: root
     group: root
-    mode: 0600
+    mode: "0600"
   tags:
     - 5.6.1.4
 
@@ -3092,7 +3092,7 @@
     path: /etc/{{ item }}
     owner: root
     group: root
-    mode: 0644
+    mode:  "0644"
   loop:
     - passwd
     - passwd-
@@ -3109,7 +3109,7 @@
     path: /etc/{{ item }}
     owner: root
     group: root
-    mode: 0000
+    mode:  "0000"
   loop:
     - shadow
     - shadow-
