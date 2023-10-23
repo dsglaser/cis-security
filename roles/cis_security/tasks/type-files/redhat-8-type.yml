@@ -93,7 +93,7 @@
     create: true
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
     setype: modules_conf_t
     block: |
       install udf /bin/false
@@ -118,7 +118,7 @@
         state: directory
         owner: root
         group: root
-        mode:  "0755"
+        mode: "0755"
         setype: etc_t
 
     # Add content to the file we created using the blockinfile command.
@@ -135,7 +135,7 @@
         create: true
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
       notify: Restart tmpfs
 
 # Determine if a filesystem is on a separate partition, if so, then
@@ -479,7 +479,7 @@
     - 1.1.8
   block:
     - name: Determine if /dev/shm has nodev set
-      ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
+      ansible.builtin.shell: set -o pipefail && false | cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nodev
       register: devshm_nodev_out
       failed_when: devshm_nodev_out == "2"
       changed_when: false
@@ -500,7 +500,7 @@
     - 1.1.8.4
   block:
     - name: Determine if /dev/shm has nosuid set
-      ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
+      ansible.builtin.shell: set -o pipefail && false | cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v nosuid
       register: devshm_nosuid_out
       failed_when: devshm_nosuid_out == "2"
       changed_when: false
@@ -511,7 +511,7 @@
     - 1.1.8.3
   block:
     - name: 1.1.8.3 - Determine if /dev/shm has noexec set
-      ansible.builtin.shell: cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
+      ansible.builtin.shell: set -o pipefail && false | cat /proc/mounts | /usr/bin/grep /dev/shm | /usr/bin/grep -v noexec
       register: devshm_noexec_out
       failed_when: devshm_noexec_out == "2"
       changed_when: false
@@ -557,7 +557,7 @@
     create: true
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   tags:
     - 1.1.23
 
@@ -710,7 +710,7 @@
             dest: /etc/systemd/system/aidecheck.service
             owner: root
             group: root
-            mode:  "0644"
+            mode: "0644"
             setype: systemd_unit_file_t
 
         - name: 1.3.2 - Enable aidecheck.service
@@ -727,7 +727,7 @@
             dest: /etc/systemd/system/aidecheck.timer
             owner: root
             group: root
-            mode:  "0644"
+            mode: "0644"
             setype: systemd_unit_file_t
           notify: Restart aidecheck
 
@@ -794,14 +794,14 @@
         state: directory
         owner: root
         group: root
-        mode:  "0755"
+        mode: "0755"
 
     - name: 1.4.3 - Require authorization to enter Rescue mode - set file
       ansible.builtin.copy:
         dest: "/etc/systemd/system/rescue.service.d/00-require-auth.conf"
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
         content: |
           [Service]
@@ -815,7 +815,7 @@
     create: true
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
     block: |
       Storage=none
     state: present
@@ -829,7 +829,7 @@
     create: true
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
     block: |
       ProcessSizeMax=0
     state: present
@@ -902,7 +902,7 @@
     path: /.autorelabel
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
     state: touch
   when: ( ansible_selinux.status == "disabled" and selinux | lower != "disabled" ) or selinux_installed.changed
   notify: Reboot
@@ -930,7 +930,7 @@
   block:
     # In RHEL8, all unconfined services run under their own context
     - name: 1.6.1.6 - Generate report on unconfined running services
-      ansible.builtin.shell: /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
+      ansible.builtin.shell: set -o pipefail && false | /usr/bin/ps -eZ | /usr/bin/grep unconfined_service_t
       register: unconfined_services_out
       failed_when: unconfined_services_out.rc == "2"
       changed_when: false
@@ -969,7 +969,7 @@
     dest: /etc/motd
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   when: motd_use is defined and motd_use
   tags:
     - 1.7.1
@@ -982,7 +982,7 @@
     dest: /etc/issue
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   when: issue_use is defined and issue_use
   tags:
     - 1.7.2
@@ -995,7 +995,7 @@
     dest: /etc/issue.net
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   when: issue_net_use is defined and issue_net_use
   tags:
     - 1.7.3
@@ -1070,7 +1070,7 @@
         path: /etc/dconf/profile/gdm
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
         create: true
         block: |
@@ -1086,7 +1086,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
         create: true
         block: |
@@ -1101,7 +1101,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
         insertafter: "[org/gnome/login-screen]"
         block: |
@@ -1115,7 +1115,7 @@
         path: /etc/dconf/db/gdm.d/01-banner-message
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
         insertafter: "[org/gnome/login-screen]"
         block: |
@@ -1131,7 +1131,7 @@
     dest: "/etc/dconf/db/distro.d/00-media-automount"
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
     content: |
       [org/gnome/desktop/media-handling]
       automount=false
@@ -1192,7 +1192,7 @@
     dest: /etc/chrony.conf
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   notify: Restart chronyd
   tags:
     - 2.1.2
@@ -1203,7 +1203,7 @@
     dest: /etc/sysconfig/{{ time_service }}d
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   notify: Restart {{ time_service }}d
   tags:
     - 2.2.1.3
@@ -1678,7 +1678,7 @@
         create: true
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
       with_items:
         - "{{ uncommon_network }}"
 
@@ -2239,7 +2239,7 @@
         - 4.2.1.3
       block:
         - name: 4.2.1.3 - Find any rsyslog files where all logs are being forwarded to a loghost
-          ansible.builtin.shell: /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+          ansible.builtin.shell: set -o pipefail && false | /usr/bin/grep -l -s "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
           register: rsyslog_forward_out
           changed_when: false
           failed_when: rsyslog_forward_out.rc == "2"
@@ -2261,7 +2261,7 @@
         create: true
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         state: present
       notify: Restart rsyslog
       tags:
@@ -2329,7 +2329,7 @@
             create: true
             owner: root
             group: root
-            mode:  "0644"
+            mode: "0644"
           when: log_host is defined and log_host
 
         - name: 4.2.1.7 - Enable TCP Port listening on port {{ log_port }}
@@ -2340,7 +2340,7 @@
             create: true
             owner: root
             group: root
-            mode:  "0644"
+            mode: "0644"
           when: log_host is defined and log_host
 
 # 4.2.2 Configure journald
@@ -2433,7 +2433,7 @@
         dest: /etc/logrotate.conf
         owner: root
         group: root
-        mode:  "0644"
+        mode: "0644"
         setype: etc_t
       when: logrotate_file and logrotate_file | length > 0
 
@@ -2585,7 +2585,7 @@
             dest: "{{ item.path }}"
             owner: root
             group: root
-            mode:  "0644"
+            mode: "0644"
           loop: "{{ ssh_hostpub_out.files }}"
 
     - name: 5.2.4 - Ensure SSH access is limited (AllowUsers)
@@ -2961,7 +2961,7 @@
     after: "[defaults]"
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   tags:
     - 5.5.4
 
@@ -3001,7 +3001,7 @@
     - 5.6.1.3
 
 # We need to do this the hard way because the user module that calls /usr/sbin/useradd does not support setting inactive days
-# The defaults perms are  "0644" on the file, but after useradd is run against it, it changes to "0600", so we'll change it as well
+# The defaults perms are "0644" on the file, but after useradd is run against it, it changes to "0600", so we'll change it as well
 - name: 5.6.1.4 - Disable accounts that are inactive for {{ password_inactive_lock_days }} days after password expiration
   ansible.builtin.replace:
     path: /etc/default/useradd
@@ -3092,7 +3092,7 @@
     path: /etc/{{ item }}
     owner: root
     group: root
-    mode:  "0644"
+    mode: "0644"
   loop:
     - passwd
     - passwd-
@@ -3109,7 +3109,7 @@
     path: /etc/{{ item }}
     owner: root
     group: root
-    mode:  "0000"
+    mode: "0000"
   loop:
     - shadow
     - shadow-
@@ -3128,7 +3128,7 @@
     - 6.1.11
   block:
     - name: 6.1.11 - Find any world writiable files
-      ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
+      ansible.builtin.shell: set -o pipefail && false | "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -type f -perm -0002"
       register: ww_files
       changed_when: false
       check_mode: false
@@ -3146,7 +3146,7 @@
     - 6.1.12
   block:
     - name: 6.1.12 - Find any unowned files
-      ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
+      ansible.builtin.shell: set -o pipefail && false | set -o pipefail && false | "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nouser"
       register: uo_files
       changed_when: false
       check_mode: false
@@ -3162,7 +3162,7 @@
     - 6.1.12
   block:
     - name: 6.1.13 - Find any ungrouped files
-      ansible.builtin.shell: "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
+      ansible.builtin.shell: set -o pipefail && false | "/usr/bin/df --local -P | /usr/bin/awk {' if (NR!=1) print $6'} | /usr/bin/xargs -I '{}' find '{}' -xdev -nogroup"
       register: ug_files
       changed_when: false
       check_mode: false
