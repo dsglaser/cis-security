@@ -1570,70 +1570,164 @@
           blacklist udf
       tags:
         - 3.1.3
+
 # Section 3 - Firewall
 #   iptables is deprecated and not covered under the CIS controls for RHEL 9
 
-- name: 3.4.1.1 - ensure nftables is installed
-  ansible.builtin.dnf:
-    name: nftables
-    state: present
+- name: 3.4.1 - Configure firewalld
+  when: enable_firewall is defined and enable_firewall == "firewalld"
   tags:
     - 3.4.1
-
-- name: 3.4.1.1 - Install firewalld
-  ansible.builtin.dnf:
-    name: "firewalld"
-    state: present
-  when: enable_firewall is defined and enable_firewall == "firewalld"
-  notify: Start firewalld # 3.4.2.1
-
-
-- name: 3.4.1.1 - Disable netfilters service
-  ansible.builtin.systemd:
-    name: nftables
-    state: stopped
-    enabled: false
-    masked: true
-  when: enable_firewall is defined and enable_firewall == "firewalld"
-
-- name: 3.4.1.1 - Disable firewalld service
-  ansible.builtin.systemd:
-    name: firewalld
-    state: stopped
-    enabled: false
-    masked: true
-  when: enable_firewall is defined and enable_firewall == "firewalld"
-
-- name: 3.4.2.1 - Set default zone
-  ansible.builtin.lineinfile:
-    path: "/etc/firewalld/firewalld.conf"
-    regexp: '^DefaultZone\s*((?!{{ firewalld_default_zone }}).)*$'
-    line: "DefaultZone={{ firewalld_default_zone }}"
-  when: enable_firewall is defined and enable_firewall == "firewalld" and firewalld_default_zone is defined
-  notify: Restart firewalld
-
-- name: 3.4.2.2 - Ensure netfilters has at least one table
-  when: enable_firewall is defined and enable_firewall == "nftables"
   block:
-    - name: 3.4.2.2 - Find any current netfilter tables
-      ansible.builtin.command: nft list tables
-      register: tables_list
-      changed_when: false
+    - name: 3.4.1 - Configure firewalld
+      ansible.builtin.debug:
+        msg: "3.4.1 - Configure firewalld"
 
-    - name: 3.4.2.2 - Create a basic table if none exist
-      ansible.builtin.command: nft create table inet firewalld NFTables
-      when: not tables_list
+    - name: 3.4.1.1 - Install firewalld
+      ansible.builtin.dnf:
+        name: "firewalld"
+        state: present
+      notify: Start firewalld # 3.4.2.1
+
+    - name: 3.4.1.2 - Disable iptables service
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'iptables-services' in ansible_facts.packages"
+      loop:
+        - iptables
+        - ip6tables
       tags:
-        - 3.4.2.2
+        - 3.4.1.2
 
-# Control 3.4.2.[3-7] is not set as it is very machine dependant
+    - name: 3.4.1.2 - Remove iptables packages
+      ansible.builtin.package:
+        name: iptables-services
+        state: absent
+      tags:
+        - 3.4.1.2
 
-- name: Notify users to configure the firewall
-  ansible.builtin.debug:
-    msg:
-      - "3.4.2 - Firewall must be configured locally"
+    - name: 3.4.1.3 - Disable netfilters service
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'nftables' in ansible_facts.packages"
+
+    - name: 3.4.1.4 - Enable firewalld service
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: true
+        state: started
+        masked: false
+
+    - name: 3.4.1.5 - Set default zone
+      ansible.builtin.lineinfile:
+        path: "/etc/firewalld/firewalld.conf"
+        regexp: '^DefaultZone\s*((?!{{ firewalld_default_zone }}).)*$'
+        line: "DefaultZone={{ firewalld_default_zone }}"
+      when: firewalld_default_zone is defined
+      notify: Restart firewalld
+
+    # 3.4.1.6 Ensure network interfaces are assigned to appropriate zone is machine dependent
+    # 3.4.1.7 Ensure unnecessary services and ports are not accepted
+
+    - name: Notify users to configure the firewall
+      ansible.builtin.debug:
+        msg:
+          - "3.4.1.7 - Ensure default firewalld policy must be handled locally"
+
+- name: 3.4.2 - Configure nftables
+  when: enable_firewall is defined and enable_firewall == "nftables"
   tags:
     - 3.4.2
+  block:
+    - name: 3.4.2 - Configure nftables
+      ansible.builtin.debug:
+        msg: "3.4.2 - Configure nftables"
+
+    - name: 3.4.2.1 - ensure nftables is installed
+      ansible.builtin.dnf:
+        name: nftables
+        state: present
+
+    - name: 3.4.2.2 - Disable firewalld service
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: false
+        masked: true
+      when: "'firewalld' is in ansible_facts.packages"
+
+    - name: 3.4.2.3 - Ensure iptables-services not installed with nftables
+      ansible.builtin.dnf:
+        name: iptables-services
+        state: absent
+
+    # Control 3.4.2.4 requires manual review, skipping (can be a TODO)
+
+    - name: 3.4.2.5 - Ensure netfilters has at least one table
+      when: enable_firewall is defined and enable_firewall == "nftables"
+      tags:
+        - 3.4.2.5
+      block:
+        - name: 3.4.2.5 - Find any current netfilter tables
+          ansible.builtin.command: nft list tables
+          register: tables_list
+          changed_when: false
+
+        - name: 3.4.2.5 - Create a basic table if none exist
+          ansible.builtin.command: nft create table inet firewalld NFTables
+          when: not tables_list
+
+# Control 3.4.2.[6-9,11] is not set as it is very machine dependant
+
+    - name: 3.4.2.10 - Ensure nftables is enabled
+      ansible.builtin.systemd:
+        name: nftables
+- name: 3.4.3.1 - Install and configure iptables
+  when: enable_firewall is defined and enable_firewall == "iptables"
+  tags:
+    - 3.4.3.1
+  block:
+    - name: 3.4.3.1.1 - Install iptables
+      ansible.builtin.dnf:
+        name:
+          - "iptables"
+          - "iptables-services"
+        state: present
+      notify: Start iptables
+      tags:
+        - 3.4.4.1
+
+    - name: 3.4.3.1.2 - Disable nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'nftables' in ansible_facts.packages"
+      tags:
+        - 3.4.3.1.2
+
+    - name: 3.4.3.1.3 - Disable firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'firewalld' in ansible_facts.packages"
+      tags:
+        - 3.4.3.1.3
+
+    - name: Notify user to configure firewall
+      ansible.builtin.debug:
+        msg:
+          - "Ensure default firewall policy (3.4.4.2.[1-4]) must be handled locally"
+      tags:
+        - 3.4.3.2.1
 
 # Section 4 - Logging and Auditing
 
