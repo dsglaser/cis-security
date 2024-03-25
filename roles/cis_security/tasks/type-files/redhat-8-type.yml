@@ -2367,7 +2367,7 @@
       tags:
         - 4.2.2.1.4
 
-    - name: 4.2.2.1.4 Ensure jorunald service is masked
+    - name: 4.2.2.1.4 Ensure journald service is masked
       ansible.builtin.systemd:
         name: systemd-journal-remote.service
         enabled: false
@@ -2652,7 +2652,7 @@
       tags:
         - 5.2.6
 
-    - name: 5.2.7 - Ensure PermitRootLogin is disbled
+    - name: 5.2.7 - Ensure PermitRootLogin is disabled
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         line: "PermitRootLogin no"
@@ -3169,7 +3169,7 @@
 
     - name: 6.1.13 - Print any ungrouped files found
       ansible.builtin.debug:
-        msg: "ungrouped files found: {{ uo_files.stdout }}"
+        msg: "ungrouped files found: {{ ug_files.stdout }}"
       changed_when: true
       when: ug_files.stdout
 
