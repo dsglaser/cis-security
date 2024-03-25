@@ -3169,7 +3169,7 @@
 
     - name: 6.1.13 - Print any ungrouped files found
       ansible.builtin.debug:
-        msg: "ungrouped files found: {{ uo_files.stdout }}"
+        msg: "ungrouped files found: {{ ug_files.stdout }}"
       changed_when: true
       when: ug_files.stdout
 
