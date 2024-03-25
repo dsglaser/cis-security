@@ -2367,7 +2367,7 @@
       tags:
         - 4.2.2.1.4
 
-    - name: 4.2.2.1.4 Ensure jorunald service is masked
+    - name: 4.2.2.1.4 Ensure journald service is masked
       ansible.builtin.systemd:
         name: systemd-journal-remote.service
         enabled: false
