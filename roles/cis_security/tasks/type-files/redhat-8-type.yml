@@ -2652,7 +2652,7 @@
       tags:
         - 5.2.6
 
-    - name: 5.2.7 - Ensure PermitRootLogin is disbled
+    - name: 5.2.7 - Ensure PermitRootLogin is disabled
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         line: "PermitRootLogin no"
